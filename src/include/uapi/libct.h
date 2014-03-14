@@ -27,7 +27,13 @@ void libct_session_close(libct_session_t s);
 struct ct_handler;
 typedef struct ct_handler *ct_handler_t;
 
+enum ct_state {
+	CT_STOPPED,
+	CT_RUNNING,
+};
+
 ct_handler_t libct_container_create(libct_session_t ses);
+enum ct_state libct_container_state(ct_handler_t ct);
 void libct_container_destroy(ct_handler_t ct);
 
 #endif /* __UAPI_LIBCT_H__ */

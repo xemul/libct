@@ -11,10 +11,16 @@ ct_handler_t libct_container_create(libct_session_t ses)
 	ct = xmalloc(sizeof(*ct));
 	if (ct) {
 		ct->session = ses;
+		ct->state = CT_STOPPED;
 		list_add_tail(&ct->s_lh, &ses->s_cts);
 	}
 
 	return &ct->h;
+}
+
+enum ct_state libct_container_state(ct_handler_t h)
+{
+	return cth2ct(h)->state;
 }
 
 static void container_destroy(struct container *ct)

@@ -11,6 +11,7 @@ struct container {
 	struct list_head s_lh;
 	struct libct_session *session;
 	struct ct_handler h;
+	enum ct_state state;
 	void *private; /* driver-specific */
 };
 
