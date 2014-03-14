@@ -95,6 +95,17 @@ int libct_container_spawn(ct_handler_t h, int (*cb)(void *), void *arg)
 	return 0;
 }
 
+int libct_container_kill(ct_handler_t h)
+{
+	struct container *ct = cth2ct(h);
+
+	if (ct->state != CT_RUNNING)
+		return -1;
+
+	kill(ct->root_pid, SIGKILL);
+	return 0;
+}
+
 int libct_container_join(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
