@@ -118,7 +118,7 @@ src/built-in.o: src $(EARLY-GEN)
 
 $(PROGRAM): src/$(PROGRAM)
 	$(E) "  LN      " $@
-	$(Q) $(LN) -s $^ $@
+	$(Q) $(LN) -sf $^ $@
 
 all: $(PROGRAM)
 	@true
