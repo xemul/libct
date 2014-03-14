@@ -1,6 +1,7 @@
 #include "xmalloc.h"
 #include "list.h"
 #include "uapi/libct.h"
+#include "linux-kernel.h"
 #include "session.h"
 #include "ct.h"
 
@@ -40,4 +41,19 @@ void containers_cleanup(struct libct_session *s)
 
 	list_for_each_entry_safe(ct, n, &s->s_cts, s_lh)
 		container_destroy(ct);
+}
+
+int libct_container_set_nsmask(ct_handler_t h, unsigned long nsmask)
+{
+	struct container *ct = cth2ct(h);
+
+	if (ct->state != CT_STOPPED)
+		return -1;
+
+	/* Are all of these bits supported by kernel? */
+	if (nsmask & ~kernel_ns_mask)
+		return -1;
+
+	ct->nsmask = nsmask;
+	return 0;
 }

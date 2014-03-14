@@ -12,6 +12,13 @@ struct container {
 	struct libct_session *session;
 	struct ct_handler h;
 	enum ct_state state;
+
+	/*
+	 * Virtualization-specific fields
+	 */
+
+	unsigned long nsmask;	/* namespaces used by container */
+
 	void *private; /* driver-specific */
 };
 

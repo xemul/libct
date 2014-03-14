@@ -34,6 +34,7 @@ enum ct_state {
 
 ct_handler_t libct_container_create(libct_session_t ses);
 enum ct_state libct_container_state(ct_handler_t ct);
+int libct_container_set_nsmask(ct_handler_t ct, unsigned long ns_mask);
 void libct_container_destroy(ct_handler_t ct);
 
 #endif /* __UAPI_LIBCT_H__ */
