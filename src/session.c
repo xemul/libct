@@ -1,6 +1,7 @@
 #include "xmalloc.h"
 #include "uapi/libct.h"
 #include "session.h"
+#include "ct.h"
 
 libct_session_t libct_session_open_local(void)
 {
@@ -13,5 +14,6 @@ libct_session_t libct_session_open_local(void)
 
 void libct_session_close(libct_session_t s)
 {
+	containers_cleanup(s);
 	xfree(s);
 }
