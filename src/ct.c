@@ -17,6 +17,7 @@ ct_handler_t libct_container_create(libct_session_t ses)
 	if (ct) {
 		ct->session = ses;
 		ct->state = CT_STOPPED;
+		ct->nsmask = 0;
 		list_add_tail(&ct->s_lh, &ses->s_cts);
 	}
 
