@@ -13,6 +13,8 @@ struct container {
 	struct ct_handler h;
 	enum ct_state state;
 
+	int root_pid;		/* pid of the root task */
+
 	/*
 	 * Virtualization-specific fields
 	 */

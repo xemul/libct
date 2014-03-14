@@ -1,9 +1,13 @@
+#include <sched.h>
+#include <signal.h>
+#include <sys/wait.h>
 #include "xmalloc.h"
 #include "list.h"
 #include "uapi/libct.h"
 #include "linux-kernel.h"
 #include "session.h"
 #include "ct.h"
+#include "asm/page.h"
 
 ct_handler_t libct_container_create(libct_session_t ses)
 {
@@ -55,5 +59,54 @@ int libct_container_set_nsmask(ct_handler_t h, unsigned long nsmask)
 		return -1;
 
 	ct->nsmask = nsmask;
+	return 0;
+}
+
+struct ct_clone_arg {
+	char stack[PAGE_SIZE] __attribute__((aligned (8)));
+	char stack_ptr[0];
+	int (*cb)(void *);
+	void *arg;
+};
+
+static int ct_clone(void *arg)
+{
+	struct ct_clone_arg *ca = arg;
+	return ca->cb(ca->arg);
+}
+
+int libct_container_spawn(ct_handler_t h, int (*cb)(void *), void *arg)
+{
+	struct container *ct = cth2ct(h);
+	int pid;
+	struct ct_clone_arg ca;
+
+	if (ct->state != CT_STOPPED)
+		return -1;
+
+	ca.cb = cb;
+	ca.arg = arg;
+	pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD, &ca);
+	if (pid < 0)
+		return -1;
+
+	ct->root_pid = pid;
+	ct->state = CT_RUNNING;
+	return 0;
+}
+
+int libct_container_join(ct_handler_t h)
+{
+	struct container *ct = cth2ct(h);
+	int ret, status;
+
+	if (ct->state != CT_RUNNING)
+		return -1;
+
+	ret = waitpid(ct->root_pid, &status, 0);
+	if (ret < 0)
+		return -1;
+
+	ct->state = CT_STOPPED;
 	return 0;
 }
