@@ -1,12 +1,14 @@
 #include <sched.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #include "xmalloc.h"
 #include "list.h"
 #include "uapi/libct.h"
 #include "linux-kernel.h"
 #include "session.h"
 #include "ct.h"
+#include "namespaces.h"
 #include "asm/page.h"
 
 ct_handler_t libct_container_create(libct_session_t ses)
@@ -94,6 +96,45 @@ int libct_container_spawn(ct_handler_t h, int (*cb)(void *), void *arg)
 	ct->root_pid = pid;
 	ct->state = CT_RUNNING;
 	return 0;
+}
+
+int libct_container_enter(ct_handler_t h, int (*cb)(void *), void *arg)
+{
+	struct container *ct = cth2ct(h);
+	int aux = -1, pid;
+
+	if (ct->state != CT_RUNNING)
+		return -1;
+
+	if (ct->nsmask & CLONE_NEWPID) {
+		if (switch_ns(ct->root_pid, &pid_ns, &aux))
+			return -1;
+	}
+
+	pid = fork();
+	if (pid == 0) {
+		struct ns_desc *ns;
+
+		for (aux = 0; namespaces[aux]; aux++) {
+			ns = namespaces[aux];
+
+			if (ns->cflag == CLONE_NEWNS)
+				continue;
+			if (!(ns->cflag & ct->nsmask))
+				continue;
+
+			if (switch_ns(ct->root_pid, ns, NULL))
+				exit(-1);
+		}
+
+		aux = cb(arg);
+		exit(aux);
+	}
+
+	if (aux >= 0)
+		restore_ns(aux, &pid_ns);
+
+	return pid;
 }
 
 int libct_container_kill(ct_handler_t h)

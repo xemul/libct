@@ -36,6 +36,7 @@ ct_handler_t libct_container_create(libct_session_t ses);
 enum ct_state libct_container_state(ct_handler_t ct);
 int libct_container_set_nsmask(ct_handler_t ct, unsigned long ns_mask);
 int libct_container_spawn(ct_handler_t ct, int (*ct_fn)(void *), void *arg);
+int libct_container_enter(ct_handler_t ct, int (*ct_fn)(void *), void *arg);
 int libct_container_kill(ct_handler_t ct);
 int libct_container_join(ct_handler_t ct);
 void libct_container_destroy(ct_handler_t ct);
