@@ -8,6 +8,9 @@ libct_session_t libct_session_open_local(void)
 	struct libct_session *s;
 
 	s = xmalloc(sizeof(*s));
+	if (s) {
+		INIT_LIST_HEAD(&s->s_cts);
+	}
 
 	return s;
 }
