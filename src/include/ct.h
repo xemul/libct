@@ -24,6 +24,12 @@ struct container {
 
 	unsigned long nsmask;	/* namespaces used by container */
 
+	/*
+	 * FS-specific fields
+	 */
+
+	char *root_path;	/* directory where the CT's root is */
+
 	void *private; /* driver-specific */
 };
 

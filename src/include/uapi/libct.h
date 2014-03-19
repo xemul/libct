@@ -42,6 +42,12 @@ int libct_container_join(ct_handler_t ct);
 void libct_container_destroy(ct_handler_t ct);
 
 /*
+ * FS configuration
+ */
+
+int libct_container_set_root(ct_handler_t ct, char *root_path);
+
+/*
  * Do not mount proc when PID _and_ mount namespaces
  * are used together. Default -- off, i.e. proc will
  * be automatically mounted into default location.
