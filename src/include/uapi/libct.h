@@ -41,6 +41,13 @@ int libct_container_kill(ct_handler_t ct);
 int libct_container_join(ct_handler_t ct);
 void libct_container_destroy(ct_handler_t ct);
 
+/*
+ * Do not mount proc when PID _and_ mount namespaces
+ * are used together. Default -- off, i.e. proc will
+ * be automatically mounted into default location.
+ */
+#define LIBCT_OPT_NO_PROC_MOUNT			1
+
 int libct_container_set_option(ct_handler_t ct, int opt, ...);
 
 #endif /* __UAPI_LIBCT_H__ */

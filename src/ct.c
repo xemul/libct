@@ -3,6 +3,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <sys/mount.h>
+
 #include "xmalloc.h"
 #include "list.h"
 #include "uapi/libct.h"
@@ -21,6 +23,7 @@ ct_handler_t libct_container_create(libct_session_t ses)
 		ct->session = ses;
 		ct->state = CT_STOPPED;
 		ct->nsmask = 0;
+		ct->flags = 0;
 		list_add_tail(&ct->s_lh, &ses->s_cts);
 	}
 
@@ -71,11 +74,39 @@ struct ct_clone_arg {
 	char stack_ptr[0];
 	int (*cb)(void *);
 	void *arg;
+	struct container *ct;
 };
+
+static int mount_proc(void)
+{
+	umount("/proc");
+	return mount("proc", "/proc", "proc", 0, NULL);
+}
+
+static int try_mount_proc(struct container *ct)
+{
+	/* Container w/o pidns can work on existing proc */
+	if (!(ct->nsmask & CLONE_NEWPID))
+		return 0;
+	/* Container w/o mountns cannot have it's own proc */
+	if (!(ct->nsmask & CLONE_NEWNS))
+		return 0;
+	/* Explicitly disabled by user (LIBCT_OPT_NO_PROC_MOUNT) */
+	if (ct->flags & CT_NO_PROC)
+		return 0;
+
+	return mount_proc();
+}
 
 static int ct_clone(void *arg)
 {
+	int ret;
 	struct ct_clone_arg *ca = arg;
+
+	ret = try_mount_proc(ca->ct);
+	if (ret < 0)
+		exit(ret);
+
 	return ca->cb(ca->arg);
 }
 
@@ -90,6 +121,7 @@ int libct_container_spawn(ct_handler_t h, int (*cb)(void *), void *arg)
 
 	ca.cb = cb;
 	ca.arg = arg;
+	ca.ct = ct;
 	pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD, &ca);
 	if (pid < 0)
 		return -1;
@@ -169,8 +201,15 @@ int libct_container_set_option(ct_handler_t h, int opt, ...)
 {
 	int ret = -1;
 	va_list parms;
+	struct container *ct = cth2ct(h);
 
 	va_start(parms, opt);
+	switch (opt) {
+	case LIBCT_OPT_NO_PROC_MOUNT:
+		ret = 0;
+		ct->flags |= CT_NO_PROC;
+		break;
+	}
 	va_end(parms);
 
 	return ret;

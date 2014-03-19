@@ -3,6 +3,8 @@
 struct ct_handler {
 };
 
+#define CT_NO_PROC		0x1
+
 /*
  * The main structure describing a container
  */
@@ -14,6 +16,7 @@ struct container {
 	enum ct_state state;
 
 	int root_pid;		/* pid of the root task */
+	unsigned int flags;
 
 	/*
 	 * Virtualization-specific fields
