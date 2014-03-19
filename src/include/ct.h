@@ -1,5 +1,8 @@
 #ifndef __LIBCT_CT_H__
 #define __LIBCT_CT_H__
+
+#include "fs.h"
+
 struct ct_handler {
 };
 
@@ -29,7 +32,8 @@ struct container {
 	 */
 
 	char *root_path;	/* directory where the CT's root is */
-	enum ct_fs_type fstype;
+	const struct ct_fs_ops *fs_ops;
+	void *fs_priv;
 
 	void *private; /* driver-specific */
 };

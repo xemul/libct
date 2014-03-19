@@ -26,7 +26,8 @@ ct_handler_t libct_container_create(libct_session_t ses)
 		ct->nsmask = 0;
 		ct->flags = 0;
 		ct->root_path = NULL;
-		ct->fstype = CT_FS_NONE;
+		ct->fs_ops = NULL;
+		ct->fs_priv = NULL;
 		list_add_tail(&ct->s_lh, &ses->s_cts);
 	}
 
@@ -41,6 +42,8 @@ enum ct_state libct_container_state(ct_handler_t h)
 static void container_destroy(struct container *ct)
 {
 	list_del(&ct->s_lh);
+	if (ct->fs_ops)
+		ct->fs_ops->put(ct->fs_priv);
 	xfree(ct->root_path);
 	xfree(ct);
 }
@@ -184,6 +187,17 @@ int libct_container_spawn(ct_handler_t h, int (*cb)(void *), void *arg)
 	if (ct->state != CT_STOPPED)
 		return -1;
 
+	if (ct->fs_ops) {
+		int ret;
+
+		if (!ct->root_path)
+			return -1;
+
+		ret = ct->fs_ops->mount(ct->root_path, ct->fs_priv);
+		if (ret < 0)
+			return ret;
+	}
+
 	ca.cb = cb;
 	ca.arg = arg;
 	ca.ct = ct;
@@ -257,6 +271,9 @@ int libct_container_join(ct_handler_t h)
 	ret = waitpid(ct->root_pid, &status, 0);
 	if (ret < 0)
 		return -1;
+
+	if (ct->fs_ops)
+		ct->fs_ops->umount(ct->root_path, ct->fs_priv);
 
 	ct->state = CT_STOPPED;
 	return 0;
