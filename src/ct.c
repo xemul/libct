@@ -77,9 +77,12 @@ struct ct_clone_arg {
 	struct container *ct;
 };
 
-static int mount_proc(void)
+static int re_mount_proc(void)
 {
-	umount("/proc");
+	if (mount("none", "/proc", "none", MS_PRIVATE|MS_REC, NULL))
+		return -1;
+
+	umount2("/proc", MNT_DETACH);
 	return mount("proc", "/proc", "proc", 0, NULL);
 }
 
@@ -95,13 +98,22 @@ static int try_mount_proc(struct container *ct)
 	if (ct->flags & CT_NO_PROC)
 		return 0;
 
-	return mount_proc();
+	return re_mount_proc();
 }
 
 static int ct_clone(void *arg)
 {
 	int ret;
 	struct ct_clone_arg *ca = arg;
+
+	if (ca->ct->nsmask & CLONE_NEWNS) {
+		/*
+		 * Remount / as slave, so that it doesn't
+		 * propagate its changes to our container.
+		 */
+		if (mount("none", "/", "none", MS_SLAVE, NULL))
+			exit(-1);
+	}
 
 	ret = try_mount_proc(ca->ct);
 	if (ret < 0)
