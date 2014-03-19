@@ -26,6 +26,7 @@ ct_handler_t libct_container_create(libct_session_t ses)
 		ct->nsmask = 0;
 		ct->flags = 0;
 		ct->root_path = NULL;
+		ct->fstype = CT_FS_NONE;
 		list_add_tail(&ct->s_lh, &ses->s_cts);
 	}
 

@@ -29,6 +29,7 @@ struct container {
 	 */
 
 	char *root_path;	/* directory where the CT's root is */
+	enum ct_fs_type fstype;
 
 	void *private; /* driver-specific */
 };

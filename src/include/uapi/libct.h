@@ -47,6 +47,12 @@ void libct_container_destroy(ct_handler_t ct);
 
 int libct_container_set_root(ct_handler_t ct, char *root_path);
 
+enum ct_fs_type {
+	CT_FS_NONE,	/* user may prepare himself */
+};
+
+int libct_container_set_private(ct_handler_t ct, enum ct_fs_type, void *arg);
+
 /*
  * Do not mount proc when PID _and_ mount namespaces
  * are used together. Default -- off, i.e. proc will

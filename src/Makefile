@@ -6,6 +6,7 @@ obj-y			+= ct.o
 obj-y			+= namespaces.o
 obj-y			+= log.o
 obj-y			+= linux_kernel.o
+obj-y			+= fs.o
 
 cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
 cflags-so		+= -rdynamic
