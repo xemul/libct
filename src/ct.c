@@ -112,8 +112,13 @@ static int set_ct_root(struct container *ct)
 {
 	char put_root[] = "libct-root.XXXX";
 
-	if (!(ct->nsmask & CLONE_NEWNS))
-		return chroot(ct->root_path);
+	if (!(ct->nsmask & CLONE_NEWNS)) {
+		if (chroot(ct->root_path))
+			return -1;
+		if (chdir("/"))
+			return -1;
+		return 0;
+	}
 
 	/*
 	 * We're in new mount namespace. No need in
