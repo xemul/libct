@@ -41,4 +41,6 @@ int libct_container_kill(ct_handler_t ct);
 int libct_container_join(ct_handler_t ct);
 void libct_container_destroy(ct_handler_t ct);
 
+int libct_container_set_option(ct_handler_t ct, int opt, ...);
+
 #endif /* __UAPI_LIBCT_H__ */

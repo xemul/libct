@@ -2,6 +2,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <stdarg.h>
 #include "xmalloc.h"
 #include "list.h"
 #include "uapi/libct.h"
@@ -162,4 +163,15 @@ int libct_container_join(ct_handler_t h)
 
 	ct->state = CT_STOPPED;
 	return 0;
+}
+
+int libct_container_set_option(ct_handler_t h, int opt, ...)
+{
+	int ret = -1;
+	va_list parms;
+
+	va_start(parms, opt);
+	va_end(parms);
+
+	return ret;
 }
