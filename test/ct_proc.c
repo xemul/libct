@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sched.h>
+#include "test.h"
 
 #ifndef CLONE_NEWNS
 #define CLONE_NEWNS     0x00020000
@@ -40,10 +41,8 @@ int main(int argc, char **argv)
 	libct_init();
 	s = libct_session_open_local();
 	ct = libct_container_create(s);
-	if (libct_container_set_nsmask(ct, CLONE_NEWPID | CLONE_NEWNS)) {
-		printf("No pid & mount NS here\nERROR\n");
-		return 0;
-	}
+	if (libct_container_set_nsmask(ct, CLONE_NEWPID | CLONE_NEWNS))
+		return err("No pid & mount NS");
 
 	libct_container_spawn(ct, set_ct_root_pids, ct_root_pids);
 	libct_container_join(ct);
@@ -52,12 +51,8 @@ int main(int argc, char **argv)
 	libct_exit();
 
 	/* Should be init */
-	if ((ct_root_pids[0] != 1) || (ct_root_pids[1] != 1)) {
-		printf("Pid mismatch %d/%d\nFAIL\n", ct_root_pids[0], ct_root_pids[1]);
-		return 1;
-	}
-
-	printf("Pids are valid (%d/%d)\nPASS\n",
-			ct_root_pids[0], ct_root_pids[1]);
-	return 0;
+	if ((ct_root_pids[0] != 1) || (ct_root_pids[1] != 1))
+		return fail("Pid mismatch");
+	else
+		return pass("Pids are OK");
 }

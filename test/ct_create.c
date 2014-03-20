@@ -1,6 +1,7 @@
 #include <libct.h>
 #include <stdio.h>
 #include <sys/mman.h>
+#include "test.h"
 
 static int set_ct_alive(void *a)
 {
@@ -27,11 +28,8 @@ int main(int argc, char **argv)
 	libct_session_close(s);
 	libct_exit();
 
-	if (!*ct_alive) {
-		printf("Container is not alive\nFAIL\n");
-		return 1;
-	}
-
-	printf("Container is alive\nPASS\n");
-	return 0;
+	if (!*ct_alive)
+		return fail("Container is not alive");
+	else
+		return pass("Container is alive");
 }

@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include <string.h>
 #include <fcntl.h>
+#include "test.h"
 
 #define FS_ROOT	"libct_test_root"
 #define FS_DATA	"libct_test_string"
@@ -31,10 +32,8 @@ int main(int argc, char **argv)
 
 	mkdir(FS_ROOT);
 	fd = open(FS_ROOT "/" FS_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-	if (fd < 0) {
-		perror("Can't create file\nERROR\n");
-		return 1;
-	}
+	if (fd < 0)
+		return err("Can't create file");
 
 	write(fd, FS_DATA, sizeof(FS_DATA));
 	close(fd);
@@ -56,11 +55,8 @@ int main(int argc, char **argv)
 	unlink(FS_ROOT "/" FS_FILE);
 	rmdir(FS_ROOT);
 
-	if (strcmp(fs_data, FS_DATA)) {
-		printf("FS not accessed\nFAIL\n");
-		return 1;
-	}
-
-	printf("FS is configured properly\nPASS\n");
-	return 0;
+	if (strcmp(fs_data, FS_DATA))
+		return fail("FS not accessed");
+	else
+		return pass("FS is OK");
 }
