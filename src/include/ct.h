@@ -6,7 +6,7 @@
 struct ct_handler {
 };
 
-#define CT_NO_PROC		0x1
+#define CT_AUTO_PROC		0x1
 
 /*
  * The main structure describing a container

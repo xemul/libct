@@ -101,14 +101,14 @@ static int re_mount_proc(bool have_old_proc)
 
 static int try_mount_proc(struct container *ct, bool have_old_proc)
 {
+	if (!(ct->flags & CT_AUTO_PROC))
+		return 0;
+
 	/* Container w/o pidns can work on existing proc */
 	if (!(ct->nsmask & CLONE_NEWPID))
 		return 0;
 	/* Container w/o mountns cannot have it's own proc */
 	if (!(ct->nsmask & CLONE_NEWNS))
-		return 0;
-	/* Explicitly disabled by user (LIBCT_OPT_NO_PROC_MOUNT) */
-	if (ct->flags & CT_NO_PROC)
 		return 0;
 
 	return re_mount_proc(have_old_proc);
@@ -300,9 +300,9 @@ int libct_container_set_option(ct_handler_t h, int opt, ...)
 
 	va_start(parms, opt);
 	switch (opt) {
-	case LIBCT_OPT_NO_PROC_MOUNT:
+	case LIBCT_OPT_AUTO_PROC_MOUNT:
 		ret = 0;
-		ct->flags |= CT_NO_PROC;
+		ct->flags |= CT_AUTO_PROC;
 		break;
 	}
 	va_end(parms);

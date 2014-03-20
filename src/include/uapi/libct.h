@@ -65,12 +65,8 @@ enum ct_fs_type {
 
 int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type, void *arg);
 
-/*
- * Do not mount proc when PID _and_ mount namespaces
- * are used together. Default -- off, i.e. proc will
- * be automatically mounted into default location.
- */
-#define LIBCT_OPT_NO_PROC_MOUNT			1
+/* Mount proc when PID _and_ mount namespaces are used together */
+#define LIBCT_OPT_AUTO_PROC_MOUNT			1
 
 int libct_container_set_option(ct_handler_t ct, int opt, ...);
 
