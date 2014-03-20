@@ -230,7 +230,7 @@ int libct_container_enter(ct_handler_t h, int (*cb)(void *), void *arg)
 		for (aux = 0; namespaces[aux]; aux++) {
 			ns = namespaces[aux];
 
-			if (ns->cflag == CLONE_NEWNS)
+			if (ns->cflag == CLONE_NEWPID)
 				continue;
 			if (!(ns->cflag & ct->nsmask))
 				continue;
