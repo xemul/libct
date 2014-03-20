@@ -26,6 +26,7 @@ struct container {
 	 */
 
 	unsigned long nsmask;	/* namespaces used by container */
+	struct list_head cgroups;
 
 	/*
 	 * FS-specific fields

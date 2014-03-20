@@ -46,6 +46,12 @@ void libct_container_destroy(ct_handler_t ct);
 
 int libct_container_set_nsmask(ct_handler_t ct, unsigned long ns_mask);
 
+enum ct_controller {
+	CT_NR_CONTROLLERS
+};
+
+int libct_container_add_controller(ct_handler_t ct, enum ct_controller ctype);
+
 /*
  * FS configuration
  */

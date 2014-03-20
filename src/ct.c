@@ -13,6 +13,7 @@
 #include "session.h"
 #include "ct.h"
 #include "namespaces.h"
+#include "cgroups.h"
 #include "asm/page.h"
 
 ct_handler_t libct_container_create(libct_session_t ses)
@@ -29,6 +30,7 @@ ct_handler_t libct_container_create(libct_session_t ses)
 		ct->fs_ops = NULL;
 		ct->fs_priv = NULL;
 		list_add_tail(&ct->s_lh, &ses->s_cts);
+		INIT_LIST_HEAD(&ct->cgroups);
 	}
 
 	return &ct->h;
@@ -42,6 +44,7 @@ enum ct_state libct_container_state(ct_handler_t h)
 static void container_destroy(struct container *ct)
 {
 	list_del(&ct->s_lh);
+	cgroups_destroy(ct);
 	if (ct->fs_ops)
 		ct->fs_ops->put(ct->fs_priv);
 	xfree(ct->root_path);
