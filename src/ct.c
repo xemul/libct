@@ -239,7 +239,7 @@ int libct_container_enter(ct_handler_t h, int (*cb)(void *), void *arg)
 				exit(-1);
 		}
 
-		if (ct->root_path) {
+		if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
 			char nroot[128];
 
 			sprintf(nroot, "/proc/%d/root", ct->root_pid);
