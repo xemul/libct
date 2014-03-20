@@ -296,17 +296,3 @@ int libct_container_set_option(ct_handler_t h, int opt, ...)
 
 	return ret;
 }
-
-int libct_container_set_root(ct_handler_t h, char *root)
-{
-	struct container *ct = cth2ct(h);
-
-	if (ct->state != CT_STOPPED)
-		return -1;
-
-	ct->root_path = xstrdup(root);
-	if (!ct->root_path)
-		return -1;
-
-	return 0;
-}

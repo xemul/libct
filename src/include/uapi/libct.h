@@ -45,14 +45,14 @@ void libct_container_destroy(ct_handler_t ct);
  * FS configuration
  */
 
-int libct_container_set_root(ct_handler_t ct, char *root_path);
+int libct_fs_set_root(ct_handler_t ct, char *root_path);
 
 enum ct_fs_type {
 	CT_FS_NONE,	/* user may prepare himself */
 	CT_FS_SUBDIR,	/* just a directory in existing tree */
 };
 
-int libct_container_set_private(ct_handler_t ct, enum ct_fs_type, void *arg);
+int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type, void *arg);
 
 /*
  * Do not mount proc when PID _and_ mount namespaces
