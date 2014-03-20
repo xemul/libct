@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 	s = libct_session_open_local();
 	ct = libct_container_create(s);
 	libct_fs_set_root(ct, FS_ROOT);
-	libct_container_spawn(ct, check_fs_data, fs_data);
+	libct_container_spawn_cb(ct, check_fs_data, fs_data);
 	libct_container_join(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);

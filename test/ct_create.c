@@ -22,7 +22,7 @@ int main(int argc, char **argv)
 	libct_init();
 	s = libct_session_open_local();
 	ct = libct_container_create(s);
-	libct_container_spawn(ct, set_ct_alive, ct_alive);
+	libct_container_spawn_cb(ct, set_ct_alive, ct_alive);
 	libct_container_join(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);

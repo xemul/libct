@@ -178,7 +178,7 @@ static int ct_clone(void *arg)
 	return ca->cb(ca->arg);
 }
 
-int libct_container_spawn(ct_handler_t h, int (*cb)(void *), void *arg)
+int libct_container_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
 	int pid;
