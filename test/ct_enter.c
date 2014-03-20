@@ -1,11 +1,14 @@
 #include <libct.h>
 #include <stdio.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include "test.h"
 
 static int set_ct_alive(void *a)
 {
 	*(int *)a = 1;
+	while (1)
+		sleep(1);
 	return 0;
 }
 
@@ -18,6 +21,7 @@ static int set_ct_enter(void *a)
 int main(int argc, char **argv)
 {
 	int *ct_alive;
+	int pid;
 	libct_session_t s;
 	ct_handler_t ct;
 
@@ -30,7 +34,9 @@ int main(int argc, char **argv)
 	s = libct_session_open_local();
 	ct = libct_container_create(s);
 	libct_container_spawn(ct, set_ct_alive, ct_alive);
-	libct_container_enter(ct, set_ct_enter, ct_alive);
+	pid = libct_container_enter(ct, set_ct_enter, ct_alive);
+	waitpid(pid, NULL, 0);
+	libct_container_kill(ct);
 	libct_container_join(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);

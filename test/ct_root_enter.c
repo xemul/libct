@@ -4,13 +4,14 @@
 #include <sys/mman.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 #include "test.h"
 
 #define FS_ROOT	"libct_test_root"
 #define FS_DATA	"libct_test_string"
 #define FS_FILE "file"
 
-static int check_fs_data(void *a)
+static int check_fs_enter_data(void *a)
 {
 	int fd;
 
@@ -23,9 +24,20 @@ static int check_fs_data(void *a)
 	return 0;
 }
 
+static int check_fs_data(void *a)
+{
+	if (check_fs_enter_data(a))
+		return 1;
+
+	while (1)
+		sleep(1);
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
-	int fd;
+	int fd, pid;
 	char *fs_data;
 	libct_session_t s;
 	ct_handler_t ct;
@@ -48,7 +60,9 @@ int main(int argc, char **argv)
 	ct = libct_container_create(s);
 	libct_fs_set_root(ct, FS_ROOT);
 	libct_container_spawn(ct, check_fs_data, fs_data);
-	libct_container_enter(ct, check_fs_data, fs_data + 1024);
+	pid = libct_container_enter(ct, check_fs_enter_data, fs_data + 1024);
+	waitpid(pid, NULL, 0);
+	libct_container_kill(ct);
 	libct_container_join(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);
