@@ -16,6 +16,11 @@ static void umount_subdir(char *root, void *priv)
 	umount(root);
 }
 
+static void *get_subdir_path(void *priv)
+{
+	return xstrdup(priv);
+}
+
 static void put_subdir_path(void *priv)
 {
 	xfree(priv);
@@ -24,12 +29,14 @@ static void put_subdir_path(void *priv)
 static const struct ct_fs_ops ct_subdir_fs_ops = {
 	.mount = mount_subdir,
 	.umount = umount_subdir,
+	.get = get_subdir_path,
 	.put = put_subdir_path,
 };
 
 int libct_fs_set_private(ct_handler_t h, enum ct_fs_type type,
 		void *priv)
 {
+	int ret = -1;
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED || ct->fs_ops != NULL)
@@ -39,13 +46,16 @@ int libct_fs_set_private(ct_handler_t h, enum ct_fs_type type,
 		return 0;
 
 	/* FIXME -- make this pluggable */
-	if (type == CT_FS_SUBDIR) {
+	if (type == CT_FS_SUBDIR)
 		ct->fs_ops = &ct_subdir_fs_ops;
-		ct->fs_priv = xstrdup(priv);
-		return 0;
+
+	if (ct->fs_ops) {
+		ct->fs_priv = ct->fs_ops->get(priv);
+		if (ct->fs_priv != NULL)
+			ret = 0;
 	}
 
-	return -1;
+	return ret;
 }
 
 int libct_fs_set_root(ct_handler_t h, char *root)
