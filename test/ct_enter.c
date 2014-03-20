@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 	pid = libct_container_enter(ct, set_ct_enter, ct_alive);
 	waitpid(pid, NULL, 0);
 	libct_container_kill(ct);
-	libct_container_join(ct);
+	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);
 	libct_exit();

@@ -21,7 +21,7 @@ libct_session_t libct_session_open_local(void);
 void libct_session_close(libct_session_t s);
 
 /*
- * Basic container (virtualization and resources) management
+ * Basic container management
  */
 
 struct ct_handler;
@@ -34,12 +34,17 @@ enum ct_state {
 
 ct_handler_t libct_container_create(libct_session_t ses);
 enum ct_state libct_container_state(ct_handler_t ct);
-int libct_container_set_nsmask(ct_handler_t ct, unsigned long ns_mask);
 int libct_container_spawn_cb(ct_handler_t ct, int (*ct_fn)(void *), void *arg);
 int libct_container_enter(ct_handler_t ct, int (*ct_fn)(void *), void *arg);
 int libct_container_kill(ct_handler_t ct);
-int libct_container_join(ct_handler_t ct);
+int libct_container_wait(ct_handler_t ct);
 void libct_container_destroy(ct_handler_t ct);
+
+/*
+ * CT namespaces and cgroups management
+ */
+
+int libct_container_set_nsmask(ct_handler_t ct, unsigned long ns_mask);
 
 /*
  * FS configuration

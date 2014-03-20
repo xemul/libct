@@ -63,7 +63,7 @@ int main(int argc, char **argv)
 	pid = libct_container_enter(ct, check_fs_enter_data, fs_data + 1024);
 	waitpid(pid, NULL, 0);
 	libct_container_kill(ct);
-	libct_container_join(ct);
+	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);
 	libct_exit();

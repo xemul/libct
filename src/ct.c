@@ -270,7 +270,7 @@ int libct_container_kill(ct_handler_t h)
 	return 0;
 }
 
-int libct_container_join(ct_handler_t h)
+int libct_container_wait(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
 	int ret, status;

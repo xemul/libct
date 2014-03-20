@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 		return err("No pid & mount NS");
 
 	libct_container_spawn_cb(ct, set_ct_root_pids, ct_root_pids);
-	libct_container_join(ct);
+	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);
 	libct_exit();
