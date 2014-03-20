@@ -239,6 +239,16 @@ int libct_container_enter(ct_handler_t h, int (*cb)(void *), void *arg)
 				exit(-1);
 		}
 
+		if (ct->root_path) {
+			char nroot[128];
+
+			sprintf(nroot, "/proc/%d/root", ct->root_pid);
+			if (chroot(nroot))
+				exit(-1);
+			if (chdir("/"))
+				exit(-1);
+		}
+
 		aux = cb(arg);
 		exit(aux);
 	}
