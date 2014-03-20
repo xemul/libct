@@ -1,4 +1,4 @@
-TESTS =	ct_create ct_enter ct_proc ct_root
+TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter
 
 CFLAGS = -I../src/include/uapi/
 LDFLAGS = -lct -L../src/
