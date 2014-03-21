@@ -15,6 +15,7 @@
 #include "namespaces.h"
 #include "cgroups.h"
 #include "asm/page.h"
+#include "fs.h"
 
 ct_handler_t libct_container_create(libct_session_t ses)
 {
@@ -330,6 +331,8 @@ const struct container_ops local_ct_ops = {
 	.destroy = local_ct_destroy,
 	.set_nsmask = local_set_nsmask,
 	.add_controller = local_add_controller,
+	.fs_set_root = local_fs_set_root,
+	.fs_set_private = local_fs_set_private,
 	.get_state = get_local_state,
 };
 

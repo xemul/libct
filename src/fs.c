@@ -33,8 +33,7 @@ static const struct ct_fs_ops ct_subdir_fs_ops = {
 	.put = put_subdir_path,
 };
 
-int libct_fs_set_private(ct_handler_t h, enum ct_fs_type type,
-		void *priv)
+int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 {
 	int ret = -1;
 	struct container *ct = cth2ct(h);
@@ -58,7 +57,7 @@ int libct_fs_set_private(ct_handler_t h, enum ct_fs_type type,
 	return ret;
 }
 
-int libct_fs_set_root(ct_handler_t h, char *root)
+int local_fs_set_root(ct_handler_t h, char *root)
 {
 	struct container *ct = cth2ct(h);
 
@@ -70,4 +69,14 @@ int libct_fs_set_root(ct_handler_t h, char *root)
 		return -1;
 
 	return 0;
+}
+
+int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *priv)
+{
+	return ct->ops->fs_set_private(ct, type, priv);
+}
+
+int libct_fs_set_root(ct_handler_t ct, char *root)
+{
+	return ct->ops->fs_set_root(ct, root);
 }

@@ -12,6 +12,8 @@ struct container_ops {
 	enum ct_state (*get_state)(ct_handler_t);
 	int (*set_nsmask)(ct_handler_t, unsigned long nsmask);
 	int (*add_controller)(ct_handler_t, enum ct_controller ctype);
+	int (*fs_set_root)(ct_handler_t, char *root);
+	int (*fs_set_private)(ct_handler_t, enum ct_fs_type, void *);
 	void (*destroy)(ct_handler_t);
 };
 
