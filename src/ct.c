@@ -26,15 +26,6 @@ static enum ct_state get_local_state(ct_handler_t h)
 	return cth2ct(h)->state;
 }
 
-const struct container_ops local_ct_ops = {
-	.get_state = get_local_state,
-};
-
-enum ct_state libct_container_state(ct_handler_t h)
-{
-	return h->ops->get_state(h);
-}
-
 static void container_destroy(struct container *ct)
 {
 	list_del(&ct->s_lh);
@@ -175,7 +166,7 @@ static int ct_clone(void *arg)
 	return ca->cb(ca->arg);
 }
 
-int libct_container_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
+static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
 	int pid;
@@ -221,7 +212,7 @@ static int ct_execv(void *a)
 	return -1;
 }
 
-int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv)
+static int local_spawn_execv(ct_handler_t ct, char *path, char **argv)
 {
 	struct execv_args ea;
 
@@ -328,4 +319,29 @@ int libct_container_set_option(ct_handler_t h, int opt, ...)
 	va_end(parms);
 
 	return ret;
+}
+
+const struct container_ops local_ct_ops = {
+	.spawn_cb = local_spawn_cb,
+	.spawn_execv = local_spawn_execv,
+	.get_state = get_local_state,
+};
+
+enum ct_state libct_container_state(ct_handler_t h)
+{
+	return h->ops->get_state(h);
+}
+
+int libct_container_spawn_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
+{
+	/* This one is optional -- only local ops support */
+	if (!ct->ops->spawn_cb)
+		return -1;
+
+	return ct->ops->spawn_cb(ct, cb, arg);
+}
+
+int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv)
+{
+	return ct->ops->spawn_execv(ct, path, argv);
 }
