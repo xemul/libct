@@ -8,6 +8,7 @@ obj-y			+= cgroups.o
 obj-y			+= log.o
 obj-y			+= linux_kernel.o
 obj-y			+= fs.o
+obj-y			+= pb-unix.o
 
 #
 # We need protobuf
