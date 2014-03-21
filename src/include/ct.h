@@ -4,6 +4,7 @@
 #include "fs.h"
 
 struct container_ops {
+	enum ct_state (*get_state)(ct_handler_t);
 };
 
 struct ct_handler {

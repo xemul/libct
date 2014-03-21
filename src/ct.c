@@ -21,12 +21,18 @@ ct_handler_t libct_container_create(libct_session_t ses)
 	return ses->ops->create(ses);
 }
 
+static enum ct_state get_local_state(ct_handler_t h)
+{
+	return cth2ct(h)->state;
+}
+
 const struct container_ops local_ct_ops = {
+	.get_state = get_local_state,
 };
 
 enum ct_state libct_container_state(ct_handler_t h)
 {
-	return cth2ct(h)->state;
+	return h->ops->get_state(h);
 }
 
 static void container_destroy(struct container *ct)
