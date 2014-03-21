@@ -10,6 +10,7 @@ struct container_ops {
 	int (*kill)(ct_handler_t);
 	int (*wait)(ct_handler_t);
 	enum ct_state (*get_state)(ct_handler_t);
+	void (*destroy)(ct_handler_t);
 };
 
 struct ct_handler {

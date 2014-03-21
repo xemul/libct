@@ -36,7 +36,7 @@ static void container_destroy(struct container *ct)
 	xfree(ct);
 }
 
-void libct_container_destroy(ct_handler_t h)
+static void local_ct_destroy(ct_handler_t h)
 {
 	container_destroy(cth2ct(h));
 }
@@ -327,6 +327,7 @@ const struct container_ops local_ct_ops = {
 	.enter_cb = local_enter_cb,
 	.kill = local_ct_kill,
 	.wait = local_ct_wait,
+	.destroy = local_ct_destroy,
 	.get_state = get_local_state,
 };
 
@@ -365,4 +366,9 @@ int libct_container_kill(ct_handler_t ct)
 int libct_container_wait(ct_handler_t ct)
 {
 	return ct->ops->wait(ct);
+}
+
+void libct_container_destroy(ct_handler_t ct)
+{
+	ct->ops->destroy(ct);
 }
