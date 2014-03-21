@@ -1,0 +1,4 @@
+message rpc_entry {
+	required uint32		something	= 1;
+}
+
