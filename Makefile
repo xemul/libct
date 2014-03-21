@@ -123,9 +123,9 @@ LIBCTD := libctd
 
 LDFLAGS += -L$(shell pwd)
 
-src/libctd/%:
+src/libctd/%: src/protobuf/built-in.o
 	$(Q) $(MAKE) $(build)=src/libctd $@
-src/libctd/built-in.o:
+src/libctd/built-in.o: src/protobuf/built-in.o
 	$(Q) $(MAKE) $(build)=src/libctd all
 src/libctd/$(LIBCTD): src/libctd/built-in.o $(PROGRAM) src/protobuf/built-in.o
 	$(E) "  LINK    " $@
@@ -133,9 +133,9 @@ src/libctd/$(LIBCTD): src/libctd/built-in.o $(PROGRAM) src/protobuf/built-in.o
 
 #
 # Library itself
-src/%: $(EARLY-GEN)
+src/%: $(EARLY-GEN) | src/protobuf/built-in.o
 	$(Q) $(MAKE) $(build)=src $@
-src/built-in.o: src $(EARLY-GEN)
+src/built-in.o: $(EARLY-GEN) | src/protobuf/built-in.o
 	$(Q) $(MAKE) $(build)=src all
 
 $(LIBCT): src/$(LIBCT)

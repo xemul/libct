@@ -1,4 +1,5 @@
 CFLAGS		+= -I$(obj)/
+CFLAGS		+= -fPIC -Wa,--noexecstack
 
 proto-obj-y	+= rpc.o
 
