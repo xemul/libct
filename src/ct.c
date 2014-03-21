@@ -304,20 +304,17 @@ static int local_ct_wait(ct_handler_t h)
 	return 0;
 }
 
-int libct_container_set_option(ct_handler_t h, int opt, ...)
+static int local_set_option(ct_handler_t h, int opt, va_list parms)
 {
 	int ret = -1;
-	va_list parms;
 	struct container *ct = cth2ct(h);
 
-	va_start(parms, opt);
 	switch (opt) {
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
 		ret = 0;
 		ct->flags |= CT_AUTO_PROC;
 		break;
 	}
-	va_end(parms);
 
 	return ret;
 }
@@ -334,6 +331,7 @@ const struct container_ops local_ct_ops = {
 	.fs_set_root = local_fs_set_root,
 	.fs_set_private = local_fs_set_private,
 	.get_state = get_local_state,
+	.set_option = local_set_option,
 };
 
 enum ct_state libct_container_state(ct_handler_t h)
@@ -381,4 +379,16 @@ void libct_container_destroy(ct_handler_t ct)
 int libct_container_set_nsmask(ct_handler_t ct, unsigned long nsmask)
 {
 	return ct->ops->set_nsmask(ct, nsmask);
+}
+
+int libct_container_set_option(ct_handler_t ct, int opt, ...)
+{
+	int ret;
+	va_list parms;
+
+	va_start(parms, opt);
+	ret = ct->ops->set_option(ct, opt, parms);
+	va_end(parms);
+
+	return ret;
 }

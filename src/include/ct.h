@@ -14,6 +14,7 @@ struct container_ops {
 	int (*add_controller)(ct_handler_t, enum ct_controller ctype);
 	int (*fs_set_root)(ct_handler_t, char *root);
 	int (*fs_set_private)(ct_handler_t, enum ct_fs_type, void *);
+	int (*set_option)(ct_handler_t h, int opt, va_list parms);
 	void (*destroy)(ct_handler_t);
 };
 
