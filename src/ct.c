@@ -271,7 +271,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	return pid;
 }
 
-int libct_container_kill(ct_handler_t h)
+static int local_ct_kill(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
 
@@ -284,7 +284,7 @@ int libct_container_kill(ct_handler_t h)
 	return 0;
 }
 
-int libct_container_wait(ct_handler_t h)
+static int local_ct_wait(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
 	int ret, status;
@@ -325,6 +325,8 @@ const struct container_ops local_ct_ops = {
 	.spawn_cb = local_spawn_cb,
 	.spawn_execv = local_spawn_execv,
 	.enter_cb = local_enter_cb,
+	.kill = local_ct_kill,
+	.wait = local_ct_wait,
 	.get_state = get_local_state,
 };
 
@@ -353,4 +355,14 @@ int libct_container_enter_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
 		return -1;
 
 	return ct->ops->enter_cb(ct, cb, arg);
+}
+
+int libct_container_kill(ct_handler_t ct)
+{
+	return ct->ops->kill(ct);
+}
+
+int libct_container_wait(ct_handler_t ct)
+{
+	return ct->ops->wait(ct);
 }
