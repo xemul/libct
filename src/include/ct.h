@@ -44,6 +44,6 @@ static inline struct container *cth2ct(struct ct_handler *h)
 	return container_of(h, struct container, h);
 }
 
-void containers_cleanup(struct libct_session *s);
+void containers_cleanup(struct list_head *cts);
 
 #endif /* __LIBCT_CT_H__ */

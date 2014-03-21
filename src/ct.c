@@ -29,8 +29,10 @@ ct_handler_t libct_container_create(libct_session_t ses)
 		ct->root_path = NULL;
 		ct->fs_ops = NULL;
 		ct->fs_priv = NULL;
-		list_add_tail(&ct->s_lh, &ses->s_cts);
 		INIT_LIST_HEAD(&ct->cgroups);
+
+		/* XXX -- temporary */
+		local_session_add(ses, ct);
 	}
 
 	return &ct->h;
@@ -56,11 +58,11 @@ void libct_container_destroy(ct_handler_t h)
 	container_destroy(cth2ct(h));
 }
 
-void containers_cleanup(struct libct_session *s)
+void containers_cleanup(struct list_head *cts)
 {
 	struct container *ct, *n;
 
-	list_for_each_entry_safe(ct, n, &s->s_cts, s_lh)
+	list_for_each_entry_safe(ct, n, cts, s_lh)
 		container_destroy(ct);
 }
 
