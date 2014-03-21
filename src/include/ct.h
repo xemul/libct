@@ -10,6 +10,8 @@ struct container_ops {
 	int (*kill)(ct_handler_t);
 	int (*wait)(ct_handler_t);
 	enum ct_state (*get_state)(ct_handler_t);
+	int (*set_nsmask)(ct_handler_t, unsigned long nsmask);
+	int (*add_controller)(ct_handler_t, enum ct_controller ctype);
 	void (*destroy)(ct_handler_t);
 };
 

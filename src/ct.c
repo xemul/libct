@@ -49,7 +49,7 @@ void containers_cleanup(struct list_head *cts)
 		container_destroy(ct);
 }
 
-int libct_container_set_nsmask(ct_handler_t h, unsigned long nsmask)
+static int local_set_nsmask(ct_handler_t h, unsigned long nsmask)
 {
 	struct container *ct = cth2ct(h);
 
@@ -328,6 +328,8 @@ const struct container_ops local_ct_ops = {
 	.kill = local_ct_kill,
 	.wait = local_ct_wait,
 	.destroy = local_ct_destroy,
+	.set_nsmask = local_set_nsmask,
+	.add_controller = local_add_controller,
 	.get_state = get_local_state,
 };
 
@@ -371,4 +373,9 @@ int libct_container_wait(ct_handler_t ct)
 void libct_container_destroy(ct_handler_t ct)
 {
 	ct->ops->destroy(ct);
+}
+
+int libct_container_set_nsmask(ct_handler_t ct, unsigned long nsmask)
+{
+	return ct->ops->set_nsmask(ct, nsmask);
 }

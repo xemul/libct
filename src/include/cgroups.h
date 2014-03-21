@@ -7,4 +7,5 @@ struct controller {
 
 struct container;
 void cgroups_destroy(struct container *);
+int local_add_controller(ct_handler_t h, enum ct_controller ctype);
 #endif

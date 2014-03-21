@@ -5,7 +5,12 @@
 #include "cgroups.h"
 #include "xmalloc.h"
 
-int libct_container_add_controller(ct_handler_t h, enum ct_controller ctype)
+int libct_container_add_controller(ct_handler_t ct, enum ct_controller ctype)
+{
+	return ct->ops->add_controller(ct, ctype);
+}
+
+int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 {
 	struct container *ct = cth2ct(h);
 	struct controller *ctl;
