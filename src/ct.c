@@ -17,12 +17,7 @@
 #include "asm/page.h"
 #include "fs.h"
 
-ct_handler_t libct_container_create(libct_session_t ses)
-{
-	return ses->ops->create(ses);
-}
-
-static enum ct_state get_local_state(ct_handler_t h)
+static enum ct_state local_get_state(ct_handler_t h)
 {
 	return cth2ct(h)->state;
 }
@@ -330,7 +325,7 @@ const struct container_ops local_ct_ops = {
 	.add_controller = local_add_controller,
 	.fs_set_root = local_fs_set_root,
 	.fs_set_private = local_fs_set_private,
-	.get_state = get_local_state,
+	.get_state = local_get_state,
 	.set_option = local_set_option,
 };
 

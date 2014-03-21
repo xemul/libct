@@ -42,7 +42,7 @@ static ct_handler_t create_local_ct(libct_session_t s)
 }
 
 static const struct backend_ops local_session_ops = {
-	.create = create_local_ct,
+	.create_ct = create_local_ct,
 	.close = close_local_session,
 };
 
@@ -60,6 +60,11 @@ libct_session_t libct_session_open_local(void)
 	}
 
 	return &s->s;
+}
+
+ct_handler_t libct_container_create(libct_session_t ses)
+{
+	return ses->ops->create_ct(ses);
 }
 
 void libct_session_close(libct_session_t s)
