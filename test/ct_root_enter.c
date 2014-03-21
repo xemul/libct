@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 	ct = libct_container_create(s);
 	libct_fs_set_root(ct, FS_ROOT);
 	libct_container_spawn_cb(ct, ct_main_fn, &cta);
-	pid = libct_container_enter(ct, ct_enter_fn, &cta);
+	pid = libct_container_enter_cb(ct, ct_enter_fn, &cta);
 	waitpid(pid, NULL, 0);
 	write(p[1], "a", 1);
 	libct_container_wait(ct);

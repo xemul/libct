@@ -237,7 +237,7 @@ int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv)
 	return libct_container_spawn_cb(ct, ct_execv, &ea);
 }
 
-int libct_container_enter(ct_handler_t h, int (*cb)(void *), void *arg)
+int libct_container_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
 	int aux = -1, pid;

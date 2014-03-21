@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 	s = libct_session_open_local();
 	ct = libct_container_create(s);
 	libct_container_spawn_cb(ct, set_ct_alive, &cta);
-	pid = libct_container_enter(ct, set_ct_enter, &cta);
+	pid = libct_container_enter_cb(ct, set_ct_enter, &cta);
 	waitpid(pid, NULL, 0);
 	write(p[1], "a", 1);
 	libct_container_wait(ct);
