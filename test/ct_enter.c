@@ -30,7 +30,6 @@ int main(int argc, char **argv)
 	ct_alive[0] = 0;
 	ct_alive[1] = 0;
 
-	libct_init();
 	s = libct_session_open_local();
 	ct = libct_container_create(s);
 	libct_container_spawn_cb(ct, set_ct_alive, ct_alive);
@@ -40,7 +39,6 @@ int main(int argc, char **argv)
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);
-	libct_exit();
 
 	if (!ct_alive[0])
 		return fail("CT is not alive");

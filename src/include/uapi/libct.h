@@ -4,13 +4,6 @@
 #include <sys/types.h>
 
 /*
- * Basic init/fini
- */
-
-int libct_init(void);
-void libct_exit(void);
-
-/*
  * Session management
  */
 

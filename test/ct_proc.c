@@ -38,17 +38,17 @@ int main(int argc, char **argv)
 	ct_root_pids[0] = 0;
 	ct_root_pids[1] = 0;
 
-	libct_init();
 	s = libct_session_open_local();
 	ct = libct_container_create(s);
 	if (libct_container_set_nsmask(ct, CLONE_NEWPID | CLONE_NEWNS))
 		return err("No pid & mount NS");
 
+	libct_container_set_option(ct, LIBCT_OPT_AUTO_PROC_MOUNT);
+
 	libct_container_spawn_cb(ct, set_ct_root_pids, ct_root_pids);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);
-	libct_exit();
 
 	/* Should be init */
 	if ((ct_root_pids[0] != 1) || (ct_root_pids[1] != 1))

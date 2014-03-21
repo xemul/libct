@@ -55,7 +55,6 @@ int main(int argc, char **argv)
 	fs_data[0] = '\0';
 	fs_data[1024] = '\0';
 
-	libct_init();
 	s = libct_session_open_local();
 	ct = libct_container_create(s);
 	libct_fs_set_root(ct, FS_ROOT);
@@ -66,7 +65,6 @@ int main(int argc, char **argv)
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);
-	libct_exit();
 
 	unlink(FS_ROOT "/" FS_FILE);
 	rmdir(FS_ROOT);
