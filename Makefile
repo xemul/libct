@@ -113,13 +113,15 @@ EARLY-GEN := $(VERSION_HEADER) config
 # Proxy
 LIBCTD := libctd
 
+LDFLAGS += -L$(shell pwd)
+
 src/libctd/%:
 	$(Q) $(MAKE) $(build)=src/libctd $@
 src/libctd/built-in.o:
 	$(Q) $(MAKE) $(build)=src/libctd all
-src/libctd/$(LIBCTD): src/libctd/built-in.o
+src/libctd/$(LIBCTD): src/libctd/built-in.o $(PROGRAM)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -lct -o $@
 
 #
 # Library itself
