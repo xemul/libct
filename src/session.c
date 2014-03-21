@@ -23,29 +23,17 @@ static void close_local_session(libct_session_t s)
 	xfree(ls);
 }
 
-void local_session_add(libct_session_t s, struct container *ct)
-{
-	struct local_session *ls;
-
-	ls = s2ls(s);
-	list_add_tail(&ct->s_lh, &ls->s_cts);
-}
-
-ct_handler_t create_local_ct(libct_session_t s)
+static ct_handler_t create_local_ct(libct_session_t s)
 {
 	struct local_session *ls;
 	struct container *ct;
 
 	ls = s2ls(s);
-	ct = xmalloc(sizeof(*ct));
+	ct = xzalloc(sizeof(*ct));
 	if (ct) {
 		ct->session = s;
+		ct->h.ops = &local_ct_ops;
 		ct->state = CT_STOPPED;
-		ct->nsmask = 0;
-		ct->flags = 0;
-		ct->root_path = NULL;
-		ct->fs_ops = NULL;
-		ct->fs_priv = NULL;
 		INIT_LIST_HEAD(&ct->cgroups);
 		list_add_tail(&ct->s_lh, &ls->s_cts);
 	}

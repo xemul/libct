@@ -21,6 +21,9 @@ ct_handler_t libct_container_create(libct_session_t ses)
 	return ses->ops->create(ses);
 }
 
+const struct container_ops local_ct_ops = {
+};
+
 enum ct_state libct_container_state(ct_handler_t h)
 {
 	return cth2ct(h)->state;

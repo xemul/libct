@@ -3,8 +3,14 @@
 
 #include "fs.h"
 
-struct ct_handler {
+struct container_ops {
 };
+
+struct ct_handler {
+	const struct container_ops *ops;
+};
+
+extern const struct container_ops local_ct_ops;
 
 #define CT_AUTO_PROC		0x1
 
