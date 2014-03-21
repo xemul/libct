@@ -222,7 +222,7 @@ static int local_spawn_execv(ct_handler_t ct, char *path, char **argv)
 	return libct_container_spawn_cb(ct, ct_execv, &ea);
 }
 
-int libct_container_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
+static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
 	int aux = -1, pid;
@@ -324,6 +324,7 @@ int libct_container_set_option(ct_handler_t h, int opt, ...)
 const struct container_ops local_ct_ops = {
 	.spawn_cb = local_spawn_cb,
 	.spawn_execv = local_spawn_execv,
+	.enter_cb = local_enter_cb,
 	.get_state = get_local_state,
 };
 
@@ -344,4 +345,12 @@ int libct_container_spawn_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
 int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv)
 {
 	return ct->ops->spawn_execv(ct, path, argv);
+}
+
+int libct_container_enter_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
+{
+	if (!ct->ops->enter_cb)
+		return -1;
+
+	return ct->ops->enter_cb(ct, cb, arg);
 }
