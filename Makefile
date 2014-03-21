@@ -110,6 +110,18 @@ export cflags-y
 EARLY-GEN := $(VERSION_HEADER) config
 
 #
+# Proxy
+LIBCTD := libctd
+
+src/libctd/%:
+	$(Q) $(MAKE) $(build)=src/libctd $@
+src/libctd/built-in.o:
+	$(Q) $(MAKE) $(build)=src/libctd all
+src/libctd/$(LIBCTD): src/libctd/built-in.o
+	$(E) "  LINK    " $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -o $@
+
+#
 # Library itself
 src/%: $(EARLY-GEN)
 	$(Q) $(MAKE) $(build)=src $@
@@ -120,7 +132,7 @@ $(LIBCT): src/$(LIBCT)
 	$(E) "  LN      " $@
 	$(Q) $(LN) -sf $^ $@
 
-all: $(LIBCT)
+all: $(LIBCT) src/libctd/$(LIBCTD)
 	@true
 
 docs:
@@ -133,8 +145,10 @@ tags:
 
 clean:
 	$(Q) $(MAKE) $(build)=src clean
+	$(Q) $(MAKE) $(build)=src/libctd clean
 	$(Q) $(MAKE) -s -C Documentation clean
 	$(Q) $(RM) $(LIBCT)
+	$(Q) $(RM) src/libctd/$(LIBCTD)
 	$(Q) $(RM) $(CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
 
