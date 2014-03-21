@@ -213,6 +213,30 @@ int libct_container_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	return 0;
 }
 
+struct execv_args {
+	char *path;
+	char **argv;
+};
+
+static int ct_execv(void *a)
+{
+	struct execv_args *ea = a;
+
+	/* This gets control in the container's new root (if any) */
+	execv(ea->path, ea->argv);
+	return -1;
+}
+
+int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv)
+{
+	struct execv_args ea;
+
+	ea.path = path;
+	ea.argv = argv;
+
+	return libct_container_spawn_cb(ct, ct_execv, &ea);
+}
+
 int libct_container_enter(ct_handler_t h, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
