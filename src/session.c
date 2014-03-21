@@ -31,7 +31,30 @@ void local_session_add(libct_session_t s, struct container *ct)
 	list_add_tail(&ct->s_lh, &ls->s_cts);
 }
 
+ct_handler_t create_local_ct(libct_session_t s)
+{
+	struct local_session *ls;
+	struct container *ct;
+
+	ls = s2ls(s);
+	ct = xmalloc(sizeof(*ct));
+	if (ct) {
+		ct->session = s;
+		ct->state = CT_STOPPED;
+		ct->nsmask = 0;
+		ct->flags = 0;
+		ct->root_path = NULL;
+		ct->fs_ops = NULL;
+		ct->fs_priv = NULL;
+		INIT_LIST_HEAD(&ct->cgroups);
+		list_add_tail(&ct->s_lh, &ls->s_cts);
+	}
+
+	return &ct->h;
+}
+
 static const struct backend_ops local_session_ops = {
+	.create = create_local_ct,
 	.close = close_local_session,
 };
 

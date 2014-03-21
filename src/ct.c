@@ -18,24 +18,7 @@
 
 ct_handler_t libct_container_create(libct_session_t ses)
 {
-	struct container *ct;
-
-	ct = xmalloc(sizeof(*ct));
-	if (ct) {
-		ct->session = ses;
-		ct->state = CT_STOPPED;
-		ct->nsmask = 0;
-		ct->flags = 0;
-		ct->root_path = NULL;
-		ct->fs_ops = NULL;
-		ct->fs_priv = NULL;
-		INIT_LIST_HEAD(&ct->cgroups);
-
-		/* XXX -- temporary */
-		local_session_add(ses, ct);
-	}
-
-	return &ct->h;
+	return ses->ops->create(ses);
 }
 
 enum ct_state libct_container_state(ct_handler_t h)
