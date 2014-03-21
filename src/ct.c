@@ -268,6 +268,8 @@ int libct_container_kill(ct_handler_t h)
 
 	if (ct->state != CT_RUNNING)
 		return -1;
+	if (!(ct->nsmask & CLONE_NEWPID))
+		return -1;
 
 	kill(ct->root_pid, SIGKILL);
 	return 0;
