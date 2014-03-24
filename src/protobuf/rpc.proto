@@ -1,6 +1,7 @@
 enum req_type {
 	EMPTY	 	= 0;
 	CT_CREATE	= 1;
+	CT_DESTROY	= 2;
 }
 
 message create_req {
@@ -12,9 +13,11 @@ message create_resp {
 
 message rpc_request {
 	required req_type	req	= 1;
-	optional create_req	create	= 2;
+	optional uint64		ct_rid	= 2;
+	optional create_req	create	= 3;
 }
 
 message rpc_responce {
-	optional create_resp	create	= 1;
+	required bool		success	= 1;
+	optional create_resp	create	= 2;
 }

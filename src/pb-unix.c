@@ -49,6 +49,10 @@ static RpcResponce *pbunix_req(struct pbunix_session *us, RpcRequest *req)
 		goto out;
 
 	resp = rpc_responce__unpack(NULL, len, dbuf);
+	if (!resp->success) {
+		rpc_responce__free_unpacked(resp, NULL);
+		resp = NULL;
+	}
 out:
 	if (data != dbuf)
 		xfree(data);
@@ -59,6 +63,7 @@ out_nd:
 struct container_proxy {
 	struct ct_handler h;
 	unsigned long rid;
+	struct pbunix_session *ses;
 };
 
 static inline struct container_proxy *ch2c(ct_handler_t h)
@@ -66,7 +71,27 @@ static inline struct container_proxy *ch2c(ct_handler_t h)
 	return container_of(h, struct container_proxy, h);
 }
 
+static void send_destroy_req(ct_handler_t h)
+{
+	struct container_proxy *cp;
+	RpcRequest req = RPC_REQUEST__INIT;
+	RpcResponce *resp;
+
+	cp = ch2c(h);
+
+	req.req = REQ_TYPE__CT_DESTROY;
+	req.has_ct_rid = true;
+	req.ct_rid = cp->rid;
+
+	resp = pbunix_req(cp->ses, &req);
+	if (resp)
+		rpc_responce__free_unpacked(resp, NULL);
+
+	xfree(cp);
+}
+
 static const struct container_ops pbunix_ct_ops = {
+	.destroy = send_destroy_req,
 };
 
 static ct_handler_t send_create_req(libct_session_t s)
@@ -94,6 +119,7 @@ static ct_handler_t send_create_req(libct_session_t s)
 
 	cp->h.ops = &pbunix_ct_ops;
 	cp->rid = resp->create->rid;
+	cp->ses = us;
 
 	rpc_responce__free_unpacked(resp, NULL);
 

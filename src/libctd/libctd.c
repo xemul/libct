@@ -25,22 +25,58 @@ struct container_srv {
 static LIST_HEAD(ct_srvs);
 static unsigned long rids = 1;
 
+static struct container_srv *find_ct_by_rid(unsigned long rid)
+{
+	struct container_srv *cs;
+
+	list_for_each_entry(cs, &ct_srvs, l)
+		if (cs->rid == rid)
+			return cs;
+
+	return NULL;
+}
+
+static void send_err_resp(int sk)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	unsigned char dbuf[MAX_MSG_ONSTACK];
+	int len;
+
+	resp.success = false;
+	len = rpc_responce__pack(&resp, dbuf);
+	if (len > 0)
+		send(sk, dbuf, len, 0);
+}
+
+static int send_resp(int sk, RpcResponce *resp)
+{
+	unsigned char dbuf[MAX_MSG_ONSTACK];
+	int len;
+
+	resp->success = true;
+
+	/* FIXME -- boundaries check */
+	len = rpc_responce__pack(resp, dbuf);
+	if (send(sk, dbuf, len, 0) != len)
+		return -1;
+	else
+		return 0;
+}
+
 static int serve_ct_create(int sk, libct_session_t ses, CreateReq *req)
 {
-	int len;
-	unsigned char dbuf[MAX_MSG_ONSTACK];
 	struct container_srv *cs;
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	CreateResp cr = CREATE_RESP__INIT;
 
 	cs = xmalloc(sizeof(*cs));
 	if (!cs)
-		return -1;
+		goto err0;
 
 	cs->hnd = libct_container_create(ses);
 	if (!cs->hnd) {
 		xfree(cs);
-		return -1;
+		goto err1;
 	}
 
 	cs->rid = rids++;
@@ -48,20 +84,37 @@ static int serve_ct_create(int sk, libct_session_t ses, CreateReq *req)
 	resp.create = &cr;
 	cr.rid = cs->rid;
 
-	/* FIXME -- boundaries check */
-	len = rpc_responce__pack(&resp, dbuf);
-	if (len <= 0)
-		goto err;
-	if (send(sk, dbuf, len, 0) != len)
-		goto err;
+	if (send_resp(sk, &resp))
+		goto err2;
 
 	list_add_tail(&cs->l, &ct_srvs);
 	return 0;
 
-err:
+err2:
+	libct_container_destroy(cs->hnd);
+err1:
+	xfree(cs);
+err0:
+	send_err_resp(sk);
+	return -1;
+}
+
+static int serve_ct_destroy(int sk, libct_session_t ses, RpcRequest *req)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	struct container_srv *cs;
+
+	cs = find_ct_by_rid(req->ct_rid);
+	if (!cs) {
+		send_err_resp(sk);
+		return 0;
+	}
+
+	list_del(&cs->l);
 	libct_container_destroy(cs->hnd);
 	xfree(cs);
-	return -1;
+
+	return send_resp(sk, &resp);
 }
 
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
@@ -69,6 +122,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 	switch (req->req) {
 	case REQ_TYPE__CT_CREATE:
 		return serve_ct_create(sk, ses, req->create);
+	case REQ_TYPE__CT_DESTROY:
+		return serve_ct_destroy(sk, ses, req);
 	default:
 		break;
 	}
