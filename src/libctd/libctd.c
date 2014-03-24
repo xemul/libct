@@ -36,7 +36,7 @@ static struct container_srv *find_ct_by_rid(unsigned long rid)
 	return NULL;
 }
 
-static void send_err_resp(int sk)
+static int send_err_resp(int sk, int err)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	unsigned char dbuf[MAX_MSG_ONSTACK];
@@ -46,6 +46,8 @@ static void send_err_resp(int sk)
 	len = rpc_responce__pack(&resp, dbuf);
 	if (len > 0)
 		send(sk, dbuf, len, 0);
+
+	return 0;
 }
 
 static int send_resp(int sk, RpcResponce *resp)
@@ -95,8 +97,7 @@ err2:
 err1:
 	xfree(cs);
 err0:
-	send_err_resp(sk);
-	return -1;
+	return send_err_resp(sk, -1);
 }
 
 static int serve_ct_destroy(int sk, libct_session_t ses, RpcRequest *req)
@@ -105,10 +106,8 @@ static int serve_ct_destroy(int sk, libct_session_t ses, RpcRequest *req)
 	struct container_srv *cs;
 
 	cs = find_ct_by_rid(req->ct_rid);
-	if (!cs) {
-		send_err_resp(sk);
-		return 0;
-	}
+	if (!cs)
+		return send_err_resp(sk, -1);
 
 	list_del(&cs->l);
 	libct_container_destroy(cs->hnd);
@@ -124,10 +123,8 @@ static int serve_get_state(int sk, libct_session_t ses, RpcRequest *req)
 	struct container_srv *cs;
 
 	cs = find_ct_by_rid(req->ct_rid);
-	if (!cs) {
-		send_err_resp(sk);
-		return 0;
-	}
+	if (!cs)
+		return send_err_resp(sk, -1);
 
 	resp.state = &gs;
 	gs.state = libct_container_state(cs->hnd);
@@ -142,16 +139,12 @@ static int serve_spawn(int sk, libct_session_t ses, RpcRequest *req)
 	int ret;
 
 	cs = find_ct_by_rid(req->ct_rid);
-	if (!cs || !req->spawn) {
-		send_err_resp(sk);
-		return 0;
-	}
+	if (!cs || !req->spawn)
+		return send_err_resp(sk, -1);
 
 	ret = libct_container_spawn_execv(cs->hnd, req->spawn->path, req->spawn->args);
-	if (ret) {
-		send_err_resp(sk);
-		return 0;
-	}
+	if (ret)
+		return send_err_resp(sk, -1);
 
 	return send_resp(sk, &resp);
 }
