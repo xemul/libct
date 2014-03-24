@@ -17,6 +17,11 @@ struct pbunix_session {
 	struct libct_session s;
 };
 
+static inline struct pbunix_session *s2us(libct_session_t s)
+{
+	return container_of(s, struct pbunix_session, s);
+}
+
 static RpcResponce *pbunix_req(struct pbunix_session *us, RpcRequest *req)
 {
 	int len, ret;
@@ -56,9 +61,9 @@ struct container_proxy {
 	unsigned long rid;
 };
 
-static inline struct pbunix_session *s2us(libct_session_t s)
+static inline struct container_proxy *ch2c(ct_handler_t h)
 {
-	return container_of(s, struct pbunix_session, s);
+	return container_of(h, struct container_proxy, h);
 }
 
 static const struct container_ops pbunix_ct_ops = {
@@ -69,6 +74,7 @@ static ct_handler_t send_create_req(libct_session_t s)
 	struct pbunix_session *us;
 	struct container_proxy *cp;
 	RpcRequest req = RPC_REQUEST__INIT;
+	CreateReq cr = CREATE_REQ__INIT;
 	RpcResponce *resp;
 
 	us = s2us(s);
@@ -76,6 +82,9 @@ static ct_handler_t send_create_req(libct_session_t s)
 	cp = xmalloc(sizeof(*cp));
 	if (!cp)
 		return NULL;
+
+	req.req = REQ_TYPE__CT_CREATE;
+	req.create = &cr;
 
 	resp = pbunix_req(us, &req);
 	if (!resp) {
