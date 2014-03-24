@@ -1,4 +1,20 @@
-message rpc_entry {
-	required uint32		something	= 1;
+enum req_type {
+	EMPTY	 	= 0;
+	CT_CREATE	= 1;
 }
 
+message create_req {
+}
+
+message create_resp {
+	required uint64	rid		= 1;
+}
+
+message rpc_request {
+	required req_type	req	= 1;
+	optional create_req	create	= 2;
+}
+
+message rpc_responce {
+	optional create_resp	create	= 1;
+}

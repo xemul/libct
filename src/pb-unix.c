@@ -8,10 +8,52 @@
 #include "list.h"
 #include "xmalloc.h"
 #include "ct.h"
+#include "protobuf/rpc.pb-c.h"
+
+#define MAX_MSG_ONSTACK	512
 
 struct pbunix_session {
 	int sk;
 	struct libct_session s;
+};
+
+static RpcResponce *pbunix_req(struct pbunix_session *us, RpcRequest *req)
+{
+	int len, ret;
+	unsigned char *data, dbuf[MAX_MSG_ONSTACK];
+	RpcResponce *resp = NULL;
+
+	len = rpc_request__get_packed_size(req);
+	if (len > MAX_MSG_ONSTACK) {
+		data = xmalloc(len);
+		if (!data)
+			goto out_nd;
+	} else
+		data = dbuf;
+
+	ret = rpc_request__pack(req, data);
+	if (ret != len)
+		goto out;
+
+	ret = send(us->sk, data, len, 0);
+	if (ret != len)
+		goto out;
+
+	len = recv(us->sk, dbuf, MAX_MSG_ONSTACK, 0);
+	if (len < 0)
+		goto out;
+
+	resp = rpc_responce__unpack(NULL, len, dbuf);
+out:
+	if (data != dbuf)
+		xfree(data);
+out_nd:
+	return resp;
+}
+
+struct container_proxy {
+	struct ct_handler h;
+	unsigned long rid;
 };
 
 static inline struct pbunix_session *s2us(libct_session_t s)
@@ -19,9 +61,34 @@ static inline struct pbunix_session *s2us(libct_session_t s)
 	return container_of(s, struct pbunix_session, s);
 }
 
+static const struct container_ops pbunix_ct_ops = {
+};
+
 static ct_handler_t send_create_req(libct_session_t s)
 {
-	return NULL;
+	struct pbunix_session *us;
+	struct container_proxy *cp;
+	RpcRequest req = RPC_REQUEST__INIT;
+	RpcResponce *resp;
+
+	us = s2us(s);
+
+	cp = xmalloc(sizeof(*cp));
+	if (!cp)
+		return NULL;
+
+	resp = pbunix_req(us, &req);
+	if (!resp) {
+		xfree(cp);
+		return NULL;
+	}
+
+	cp->h.ops = &pbunix_ct_ops;
+	cp->rid = resp->create->rid;
+
+	rpc_responce__free_unpacked(resp, NULL);
+
+	return &cp->h;
 }
 
 static void close_pbunix_session(libct_session_t s)
