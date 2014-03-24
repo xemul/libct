@@ -22,6 +22,7 @@ struct ct_handler;
 typedef struct ct_handler *ct_handler_t;
 
 enum ct_state {
+	CT_ERROR = -1,
 	CT_STOPPED,
 	CT_RUNNING,
 };

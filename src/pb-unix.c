@@ -90,7 +90,30 @@ static void send_destroy_req(ct_handler_t h)
 	xfree(cp);
 }
 
+static enum ct_state send_get_state_req(ct_handler_t h)
+{
+	struct container_proxy *cp;
+	RpcRequest req = RPC_REQUEST__INIT;
+	RpcResponce *resp;
+	enum ct_state st = CT_ERROR;
+
+	cp = ch2c(h);
+
+	req.req = REQ_TYPE__CT_GET_STATE;
+	req.has_ct_rid = true;
+	req.ct_rid = cp->rid;
+
+	resp = pbunix_req(cp->ses, &req);
+	if (resp) {
+		st = resp->state->state;
+		rpc_responce__free_unpacked(resp, NULL);
+	}
+
+	return st;
+}
+
 static const struct container_ops pbunix_ct_ops = {
+	.get_state = send_get_state_req,
 	.destroy = send_destroy_req,
 };
 
