@@ -141,10 +141,31 @@ static int send_spawn_req(ct_handler_t h, char *path, char **argv)
 	return ret;
 }
 
+static int send_kill_req(ct_handler_t h)
+{
+	struct container_proxy *cp;
+	RpcRequest req = RPC_REQUEST__INIT;
+	RpcResponce *resp;
+
+	cp = ch2c(h);
+
+	req.req = REQ_TYPE__CT_KILL;
+	req.has_ct_rid = true;
+	req.ct_rid = cp->rid;
+
+	resp = pbunix_req(cp->ses, &req);
+	if (!resp)
+		return -1;
+
+	rpc_responce__free_unpacked(resp, NULL);
+	return 0;
+}
+
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
 	.spawn_execv = send_spawn_req,
 	.destroy = send_destroy_req,
+	.kill = send_kill_req,
 };
 
 static ct_handler_t send_create_req(libct_session_t s)

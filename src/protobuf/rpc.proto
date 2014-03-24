@@ -5,6 +5,7 @@ enum req_type {
 
 	CT_GET_STATE	= 3;
 	CT_SPAWN	= 4;
+	CT_KILL		= 5;
 }
 
 message create_req {
