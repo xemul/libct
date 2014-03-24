@@ -14,10 +14,12 @@ message create_resp {
 message rpc_request {
 	required req_type	req	= 1;
 	optional uint64		ct_rid	= 2;
+
 	optional create_req	create	= 3;
 }
 
 message rpc_responce {
 	required bool		success	= 1;
+
 	optional create_resp	create	= 2;
 }
