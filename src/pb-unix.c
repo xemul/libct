@@ -112,8 +112,38 @@ static enum ct_state send_get_state_req(ct_handler_t h)
 	return st;
 }
 
+static int send_spawn_req(ct_handler_t h, char *path, char **argv)
+{
+	struct container_proxy *cp;
+	RpcRequest req = RPC_REQUEST__INIT;
+	SpawnReq sr = SPAWN_REQ__INIT;
+	RpcResponce *resp;
+	int ret = -1;
+
+	cp = ch2c(h);
+
+	req.req = REQ_TYPE__CT_SPAWN;
+	req.has_ct_rid = true;
+	req.ct_rid = cp->rid;
+	req.spawn = &sr;
+
+	sr.path = path;
+	for (sr.n_args = 0; argv[sr.n_args]; sr.n_args++)
+		;
+	sr.args = argv;
+
+	resp = pbunix_req(cp->ses, &req);
+	if (resp) {
+		ret = resp->success ? 0 : -1;
+		rpc_responce__free_unpacked(resp, NULL);
+	}
+
+	return ret;
+}
+
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
+	.spawn_execv = send_spawn_req,
 	.destroy = send_destroy_req,
 };
 

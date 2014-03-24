@@ -4,9 +4,15 @@ enum req_type {
 	CT_DESTROY	= 2;
 
 	CT_GET_STATE	= 3;
+	CT_SPAWN	= 4;
 }
 
 message create_req {
+}
+
+message spawn_req {
+	required string path		= 1;
+	repeated string args		= 2;
 }
 
 message create_resp {
@@ -22,6 +28,7 @@ message rpc_request {
 	optional uint64		ct_rid	= 2;
 
 	optional create_req	create	= 3;
+	optional spawn_req	spawn	= 4;
 }
 
 message rpc_responce {
