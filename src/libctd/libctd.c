@@ -15,8 +15,11 @@
 #include "fs.h"
 #include "../protobuf/rpc.pb-c.h"
 
-#define MAX_MSG_ONSTACK	2048
+#define MAX_MSG		4096
 #define BADCTRID_ERR	-42
+
+/* Buffer for keeping serialized messages */
+static unsigned char dbuf[MAX_MSG];
 
 struct container_srv {
 	struct list_head l;
@@ -41,7 +44,6 @@ static struct container_srv *find_ct_by_rid(unsigned long rid)
 static int send_err_resp(int sk, int err)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
-	unsigned char dbuf[MAX_MSG_ONSTACK];
 	int len;
 
 	resp.success = false;
@@ -54,7 +56,6 @@ static int send_err_resp(int sk, int err)
 
 static int send_resp(int sk, int err, RpcResponce *resp)
 {
-	unsigned char dbuf[MAX_MSG_ONSTACK];
 	int len;
 
 	if (err)
@@ -264,7 +265,6 @@ static int serve(int sk)
 {
 	RpcRequest *req;
 	int ret;
-	unsigned char dbuf[MAX_MSG_ONSTACK];
 	libct_session_t ses;
 
 	ses = libct_session_open_local();
@@ -272,7 +272,7 @@ static int serve(int sk)
 		return -1;
 
 	while (1) {
-		ret = recv(sk, dbuf, MAX_MSG_ONSTACK, 0);
+		ret = recv(sk, dbuf, MAX_MSG, 0);
 		if (ret <= 0)
 			break;
 
