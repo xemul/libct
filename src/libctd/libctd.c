@@ -81,16 +81,12 @@ static int serve_ct_create(int sk, libct_session_t ses, CreateReq *req)
 		goto err0;
 
 	cs->hnd = libct_container_create(ses);
-	if (!cs->hnd) {
-		xfree(cs);
+	if (!cs->hnd)
 		goto err1;
-	}
 
 	cs->rid = rids++;
-
 	resp.create = &cr;
 	cr.rid = cs->rid;
-
 	if (send_resp(sk, 0, &resp))
 		goto err2;
 
