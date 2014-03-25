@@ -7,6 +7,7 @@ struct ct_fs_ops {
 	void (*put)(void *fs_priv);
 };
 
+const struct ct_fs_ops *fstype_get_ops(enum ct_fs_type type);
 int local_fs_set_root(ct_handler_t h, char *root);
 int local_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *priv);
 #endif

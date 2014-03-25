@@ -33,6 +33,15 @@ static const struct ct_fs_ops ct_subdir_fs_ops = {
 	.put = put_subdir_path,
 };
 
+const struct ct_fs_ops *fstype_get_ops(enum ct_fs_type type)
+{
+	/* FIXME -- make this pluggable */
+	if (type == CT_FS_SUBDIR)
+		return &ct_subdir_fs_ops;
+
+	return NULL;
+}
+
 int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 {
 	int ret = -1;
@@ -44,10 +53,7 @@ int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 	if (type == CT_FS_NONE)
 		return 0;
 
-	/* FIXME -- make this pluggable */
-	if (type == CT_FS_SUBDIR)
-		ct->fs_ops = &ct_subdir_fs_ops;
-
+	ct->fs_ops = fstype_get_ops(type);
 	if (ct->fs_ops) {
 		ct->fs_priv = ct->fs_ops->get(priv);
 		if (ct->fs_priv != NULL)
