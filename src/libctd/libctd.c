@@ -173,6 +173,19 @@ static int serve_setnsmask(int sk, struct container_srv *cs, RpcRequest *req)
 	return send_resp(sk, &resp);
 }
 
+static int serve_addcntl(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	int ret = -1;
+
+	if (req->addcntl)
+		ret = libct_container_add_controller(cs->hnd, req->addcntl->ctype);
+	if (ret)
+		return send_err_resp(sk, ret);
+
+	return send_resp(sk, &resp);
+}
+
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 {
 	struct container_srv *cs = NULL;
@@ -198,6 +211,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_wait(sk, cs, req);
 	case REQ_TYPE__CT_SETNSMASK:
 		return serve_setnsmask(sk, cs, req);
+	case REQ_TYPE__CT_ADD_CNTL:
+		return serve_addcntl(sk, cs, req);
 	default:
 		break;
 	}

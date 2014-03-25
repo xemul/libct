@@ -9,6 +9,7 @@ enum req_type {
 	CT_WAIT		= 6;
 
 	CT_SETNSMASK	= 7;
+	CT_ADD_CNTL	= 8;
 }
 
 message create_req {
@@ -21,6 +22,10 @@ message spawn_req {
 
 message nsmask_req {
 	required uint64 mask		= 1;
+}
+
+message addcntl_req {
+	required uint32 ctype		= 1;
 }
 
 message create_resp {
@@ -38,6 +43,7 @@ message rpc_request {
 	optional create_req	create	= 3;
 	optional spawn_req	spawn	= 4;
 	optional nsmask_req	nsmask	= 5;
+	optional addcntl_req	addcntl	= 6;
 }
 
 message rpc_responce {

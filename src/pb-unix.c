@@ -183,6 +183,24 @@ static int send_nsmask_req(ct_handler_t h, unsigned long nsmask)
 	return 0;
 }
 
+static int send_addcntl_req(ct_handler_t h, enum ct_controller ctype)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	AddcntlReq ac = ADDCNTL_REQ__INIT;
+	RpcResponce *resp;
+
+	pack_ct_req(&req, REQ_TYPE__CT_ADD_CNTL, h);
+	req.addcntl = &ac;
+	ac.ctype = ctype;
+
+	resp = pbunix_req_ct(h, &req);
+	if (!resp)
+		return -1;
+
+	rpc_responce__free_unpacked(resp, NULL);
+	return 0;
+}
+
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
 	.spawn_execv = send_spawn_req,
@@ -190,6 +208,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.kill = send_kill_req,
 	.wait = send_wait_req,
 	.set_nsmask = send_nsmask_req,
+	.add_controller = send_addcntl_req,
 };
 
 static ct_handler_t send_create_req(libct_session_t s)
