@@ -12,6 +12,7 @@
 #include "uapi/libct.h"
 #include "list.h"
 #include "xmalloc.h"
+#include "fs.h"
 #include "../protobuf/rpc.pb-c.h"
 
 #define MAX_MSG_ONSTACK	2048
@@ -185,6 +186,27 @@ static int serve_setroot(int sk, struct container_srv *cs, RpcRequest *req)
 	return send_resp(sk, ret, &resp);
 }
 
+static int serve_setpriv(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	int ret = -1;
+
+	if (req->setpriv) {
+		const struct ct_fs_ops *ops;
+
+		ops = fstype_get_ops(req->setpriv->type);
+		if (ops) {
+			void *arg;
+
+			arg = ops->pb_unpack(req->setpriv);
+			ret = libct_fs_set_private(cs->hnd, req->setpriv->type, arg);
+			xfree(arg);
+		}
+	}
+
+	return send_resp(sk, ret, &resp);
+}
+
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 {
 	struct container_srv *cs = NULL;
@@ -214,6 +236,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_addcntl(sk, cs, req);
 	case REQ_TYPE__FS_SETROOT:
 		return serve_setroot(sk, cs, req);
+	case REQ_TYPE__FS_SETPRIVATE:
+		return serve_setpriv(sk, cs, req);
 	default:
 		break;
 	}

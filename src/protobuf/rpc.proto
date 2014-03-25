@@ -12,6 +12,7 @@ enum req_type {
 	CT_ADD_CNTL	= 8;
 
 	FS_SETROOT	= 9;
+	FS_SETPRIVATE	= 10;
 }
 
 message create_req {
@@ -34,6 +35,10 @@ message setroot_req {
 	required string root		= 1;
 }
 
+message setpriv_req {
+	required int32	type		= 1;
+}
+
 message create_resp {
 	required uint64	rid		= 1;
 }
@@ -51,6 +56,7 @@ message rpc_request {
 	optional nsmask_req	nsmask	= 5;
 	optional addcntl_req	addcntl	= 6;
 	optional setroot_req	setroot	= 7;
+	optional setpriv_req	setpriv	= 8;
 }
 
 message rpc_responce {

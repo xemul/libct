@@ -1,10 +1,14 @@
 #ifndef __LIBCT_FS_H__
 #define __LIBCT_FS_H__
+struct _SetprivReq;
+
 struct ct_fs_ops {
 	int (*mount)(char *root, void *fs_priv);
 	void (*umount)(char *root, void *fs_priv);
 	void *(*get)(void *fs_priv);
 	void (*put)(void *fs_priv);
+	void (*pb_pack)(void *arg, struct _SetprivReq *);
+	void *(*pb_unpack)(struct _SetprivReq *);
 };
 
 const struct ct_fs_ops *fstype_get_ops(enum ct_fs_type type);
