@@ -51,10 +51,13 @@ static int send_err_resp(int sk, int err)
 	return 0;
 }
 
-static int send_resp(int sk, RpcResponce *resp)
+static int send_resp(int sk, int err, RpcResponce *resp)
 {
 	unsigned char dbuf[MAX_MSG_ONSTACK];
 	int len;
+
+	if (err)
+		return send_err_resp(sk, err);
 
 	resp->success = true;
 
@@ -87,7 +90,7 @@ static int serve_ct_create(int sk, libct_session_t ses, CreateReq *req)
 	resp.create = &cr;
 	cr.rid = cs->rid;
 
-	if (send_resp(sk, &resp))
+	if (send_resp(sk, 0, &resp))
 		goto err2;
 
 	list_add_tail(&cs->l, &ct_srvs);
@@ -109,7 +112,7 @@ static int serve_ct_destroy(int sk, struct container_srv *cs, RpcRequest *req)
 	libct_container_destroy(cs->hnd);
 	xfree(cs);
 
-	return send_resp(sk, &resp);
+	return send_resp(sk, 0, &resp);
 }
 
 static int serve_get_state(int sk, struct container_srv *cs, RpcRequest *req)
@@ -120,7 +123,7 @@ static int serve_get_state(int sk, struct container_srv *cs, RpcRequest *req)
 	resp.state = &gs;
 	gs.state = libct_container_state(cs->hnd);
 
-	return send_resp(sk, &resp);
+	return send_resp(sk, 0, &resp);
 }
 
 static int serve_spawn(int sk, struct container_srv *cs, RpcRequest *req)
@@ -130,10 +133,8 @@ static int serve_spawn(int sk, struct container_srv *cs, RpcRequest *req)
 
 	if (req->spawn)
 		ret = libct_container_spawn_execv(cs->hnd, req->spawn->path, req->spawn->args);
-	if (ret)
-		return send_err_resp(sk, ret);
 
-	return send_resp(sk, &resp);
+	return send_resp(sk, ret, &resp);
 }
 
 static int serve_kill(int sk, struct container_srv *cs, RpcRequest *req)
@@ -142,10 +143,7 @@ static int serve_kill(int sk, struct container_srv *cs, RpcRequest *req)
 	int ret;
 
 	ret = libct_container_kill(cs->hnd);
-	if (ret)
-		return send_err_resp(sk, -1);
-
-	return send_resp(sk, &resp);
+	return send_resp(sk, ret, &resp);
 }
 
 static int serve_wait(int sk, struct container_srv *cs, RpcRequest *req)
@@ -154,10 +152,7 @@ static int serve_wait(int sk, struct container_srv *cs, RpcRequest *req)
 	int ret;
 
 	ret = libct_container_wait(cs->hnd);
-	if (ret)
-		return send_err_resp(sk, -1);
-
-	return send_resp(sk, &resp);
+	return send_resp(sk, ret, &resp);
 }
 
 static int serve_setnsmask(int sk, struct container_srv *cs, RpcRequest *req)
@@ -167,10 +162,7 @@ static int serve_setnsmask(int sk, struct container_srv *cs, RpcRequest *req)
 
 	if (req->nsmask)
 		ret = libct_container_set_nsmask(cs->hnd, req->nsmask->mask);
-	if (ret)
-		return send_err_resp(sk, ret);
-
-	return send_resp(sk, &resp);
+	return send_resp(sk, ret, &resp);
 }
 
 static int serve_addcntl(int sk, struct container_srv *cs, RpcRequest *req)
@@ -180,10 +172,7 @@ static int serve_addcntl(int sk, struct container_srv *cs, RpcRequest *req)
 
 	if (req->addcntl)
 		ret = libct_container_add_controller(cs->hnd, req->addcntl->ctype);
-	if (ret)
-		return send_err_resp(sk, ret);
-
-	return send_resp(sk, &resp);
+	return send_resp(sk, ret, &resp);
 }
 
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
