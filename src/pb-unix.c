@@ -172,6 +172,17 @@ static int send_addcntl_req(ct_handler_t h, enum ct_controller ctype)
 	return pbunix_req_ct(h, &req, NULL);
 }
 
+static int send_setroot_req(ct_handler_t h, char *root)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	SetrootReq sr = SETROOT_REQ__INIT;
+
+	pack_ct_req(&req, REQ_TYPE__FS_SETROOT, h);
+	req.setroot = &sr;
+	sr.root = root;
+	return pbunix_req_ct(h, &req, NULL);
+}
+
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
 	.spawn_execv = send_spawn_req,
@@ -180,6 +191,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.wait = send_wait_req,
 	.set_nsmask = send_nsmask_req,
 	.add_controller = send_addcntl_req,
+	.fs_set_root = send_setroot_req,
 };
 
 static ct_handler_t send_create_req(libct_session_t s)

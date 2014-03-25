@@ -175,6 +175,16 @@ static int serve_addcntl(int sk, struct container_srv *cs, RpcRequest *req)
 	return send_resp(sk, ret, &resp);
 }
 
+static int serve_setroot(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	int ret = -1;
+
+	if (req->setroot)
+		ret = libct_fs_set_root(cs->hnd, req->setroot->root);
+	return send_resp(sk, ret, &resp);
+}
+
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 {
 	struct container_srv *cs = NULL;
@@ -202,6 +212,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_setnsmask(sk, cs, req);
 	case REQ_TYPE__CT_ADD_CNTL:
 		return serve_addcntl(sk, cs, req);
+	case REQ_TYPE__FS_SETROOT:
+		return serve_setroot(sk, cs, req);
 	default:
 		break;
 	}
