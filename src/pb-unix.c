@@ -120,7 +120,6 @@ static int send_spawn_req(ct_handler_t h, char *path, char **argv)
 	RpcRequest req = RPC_REQUEST__INIT;
 	SpawnReq sr = SPAWN_REQ__INIT;
 	RpcResponce *resp;
-	int ret = -1;
 
 	pack_ct_req(&req, REQ_TYPE__CT_SPAWN, h);
 	req.spawn = &sr;
@@ -131,12 +130,11 @@ static int send_spawn_req(ct_handler_t h, char *path, char **argv)
 	sr.args = argv;
 
 	resp = pbunix_req_ct(h, &req);
-	if (resp) {
-		ret = resp->success ? 0 : -1;
-		rpc_responce__free_unpacked(resp, NULL);
-	}
+	if (!resp)
+		return -1;
 
-	return ret;
+	rpc_responce__free_unpacked(resp, NULL);
+	return 0;
 }
 
 static int send_kill_req(ct_handler_t h)
