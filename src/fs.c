@@ -5,6 +5,7 @@
 #include "list.h"
 #include "uapi/libct.h"
 #include "ct.h"
+#include "protobuf/rpc.pb-c.h"
 
 static int mount_subdir(char *root, void *priv)
 {
@@ -26,11 +27,23 @@ static void put_subdir_path(void *priv)
 	xfree(priv);
 }
 
+static void pb_pack_subdir(void *arg, struct _SetprivReq *req)
+{
+	req->path = arg;
+}
+
+static void *pb_unpack_subdir(struct _SetprivReq *req)
+{
+	return xstrdup(req->path);
+}
+
 static const struct ct_fs_ops ct_subdir_fs_ops = {
 	.mount = mount_subdir,
 	.umount = umount_subdir,
 	.get = get_subdir_path,
 	.put = put_subdir_path,
+	.pb_pack = pb_pack_subdir,
+	.pb_unpack = pb_unpack_subdir,
 };
 
 const struct ct_fs_ops *fstype_get_ops(enum ct_fs_type type)

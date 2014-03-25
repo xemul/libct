@@ -37,6 +37,7 @@ message setroot_req {
 
 message setpriv_req {
 	required int32	type		= 1;
+	optional string	path		= 2;
 }
 
 message create_resp {
