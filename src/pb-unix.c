@@ -71,39 +71,42 @@ static inline struct container_proxy *ch2c(ct_handler_t h)
 	return container_of(h, struct container_proxy, h);
 }
 
-static void send_destroy_req(ct_handler_t h)
+static RpcResponce *pbunix_req_ct(ct_handler_t h, RpcRequest *req)
+{
+	return pbunix_req(ch2c(h)->ses, req);
+}
+
+static inline void pack_ct_req(RpcRequest *req, int t, ct_handler_t h)
 {
 	struct container_proxy *cp;
+
+	cp = ch2c(h);
+	req->req = t;
+	req->has_ct_rid = true;
+	req->ct_rid = cp->rid;
+}
+
+static void send_destroy_req(ct_handler_t h)
+{
 	RpcRequest req = RPC_REQUEST__INIT;
 	RpcResponce *resp;
 
-	cp = ch2c(h);
-
-	req.req = REQ_TYPE__CT_DESTROY;
-	req.has_ct_rid = true;
-	req.ct_rid = cp->rid;
-
-	resp = pbunix_req(cp->ses, &req);
+	pack_ct_req(&req, REQ_TYPE__CT_DESTROY, h);
+	resp = pbunix_req_ct(h, &req);
 	if (resp)
 		rpc_responce__free_unpacked(resp, NULL);
 
-	xfree(cp);
+	xfree(ch2c(h));
 }
 
 static enum ct_state send_get_state_req(ct_handler_t h)
 {
-	struct container_proxy *cp;
 	RpcRequest req = RPC_REQUEST__INIT;
 	RpcResponce *resp;
 	enum ct_state st = CT_ERROR;
 
-	cp = ch2c(h);
-
-	req.req = REQ_TYPE__CT_GET_STATE;
-	req.has_ct_rid = true;
-	req.ct_rid = cp->rid;
-
-	resp = pbunix_req(cp->ses, &req);
+	pack_ct_req(&req, REQ_TYPE__CT_GET_STATE, h);
+	resp = pbunix_req_ct(h, &req);
 	if (resp) {
 		st = resp->state->state;
 		rpc_responce__free_unpacked(resp, NULL);
@@ -114,17 +117,12 @@ static enum ct_state send_get_state_req(ct_handler_t h)
 
 static int send_spawn_req(ct_handler_t h, char *path, char **argv)
 {
-	struct container_proxy *cp;
 	RpcRequest req = RPC_REQUEST__INIT;
 	SpawnReq sr = SPAWN_REQ__INIT;
 	RpcResponce *resp;
 	int ret = -1;
 
-	cp = ch2c(h);
-
-	req.req = REQ_TYPE__CT_SPAWN;
-	req.has_ct_rid = true;
-	req.ct_rid = cp->rid;
+	pack_ct_req(&req, REQ_TYPE__CT_SPAWN, h);
 	req.spawn = &sr;
 
 	sr.path = path;
@@ -132,7 +130,7 @@ static int send_spawn_req(ct_handler_t h, char *path, char **argv)
 		;
 	sr.args = argv;
 
-	resp = pbunix_req(cp->ses, &req);
+	resp = pbunix_req_ct(h, &req);
 	if (resp) {
 		ret = resp->success ? 0 : -1;
 		rpc_responce__free_unpacked(resp, NULL);
@@ -143,17 +141,11 @@ static int send_spawn_req(ct_handler_t h, char *path, char **argv)
 
 static int send_kill_req(ct_handler_t h)
 {
-	struct container_proxy *cp;
 	RpcRequest req = RPC_REQUEST__INIT;
 	RpcResponce *resp;
 
-	cp = ch2c(h);
-
-	req.req = REQ_TYPE__CT_KILL;
-	req.has_ct_rid = true;
-	req.ct_rid = cp->rid;
-
-	resp = pbunix_req(cp->ses, &req);
+	pack_ct_req(&req, REQ_TYPE__CT_KILL, h);
+	resp = pbunix_req_ct(h, &req);
 	if (!resp)
 		return -1;
 
@@ -163,17 +155,11 @@ static int send_kill_req(ct_handler_t h)
 
 static int send_wait_req(ct_handler_t h)
 {
-	struct container_proxy *cp;
 	RpcRequest req = RPC_REQUEST__INIT;
 	RpcResponce *resp;
 
-	cp = ch2c(h);
-
-	req.req = REQ_TYPE__CT_WAIT;
-	req.has_ct_rid = true;
-	req.ct_rid = cp->rid;
-
-	resp = pbunix_req(cp->ses, &req);
+	pack_ct_req(&req, REQ_TYPE__CT_WAIT, h);
+	resp = pbunix_req_ct(h, &req);
 	if (!resp)
 		return -1;
 
