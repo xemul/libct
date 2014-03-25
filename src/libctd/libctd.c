@@ -15,6 +15,7 @@
 #include "../protobuf/rpc.pb-c.h"
 
 #define MAX_MSG_ONSTACK	2048
+#define BADCTRID_ERR	-42
 
 struct container_srv {
 	struct list_head l;
@@ -100,14 +101,9 @@ err0:
 	return send_err_resp(sk, -1);
 }
 
-static int serve_ct_destroy(int sk, libct_session_t ses, RpcRequest *req)
+static int serve_ct_destroy(int sk, struct container_srv *cs, RpcRequest *req)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
-	struct container_srv *cs;
-
-	cs = find_ct_by_rid(req->ct_rid);
-	if (!cs)
-		return send_err_resp(sk, -1);
 
 	list_del(&cs->l);
 	libct_container_destroy(cs->hnd);
@@ -116,15 +112,10 @@ static int serve_ct_destroy(int sk, libct_session_t ses, RpcRequest *req)
 	return send_resp(sk, &resp);
 }
 
-static int serve_get_state(int sk, libct_session_t ses, RpcRequest *req)
+static int serve_get_state(int sk, struct container_srv *cs, RpcRequest *req)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	StateResp gs = STATE_RESP__INIT;
-	struct container_srv *cs;
-
-	cs = find_ct_by_rid(req->ct_rid);
-	if (!cs)
-		return send_err_resp(sk, -1);
 
 	resp.state = &gs;
 	gs.state = libct_container_state(cs->hnd);
@@ -132,33 +123,26 @@ static int serve_get_state(int sk, libct_session_t ses, RpcRequest *req)
 	return send_resp(sk, &resp);
 }
 
-static int serve_spawn(int sk, libct_session_t ses, RpcRequest *req)
+static int serve_spawn(int sk, struct container_srv *cs, RpcRequest *req)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
-	struct container_srv *cs;
-	int ret;
+	int ret = -1;
 
-	cs = find_ct_by_rid(req->ct_rid);
-	if (!cs || !req->spawn)
-		return send_err_resp(sk, -1);
-
-	ret = libct_container_spawn_execv(cs->hnd, req->spawn->path, req->spawn->args);
+	if (req->spawn)
+		ret = libct_container_spawn_execv(cs->hnd, req->spawn->path, req->spawn->args);
 	if (ret)
-		return send_err_resp(sk, -1);
+		return send_err_resp(sk, ret);
 
 	return send_resp(sk, &resp);
 }
 
-static int serve_kill(int sk, libct_session_t ses, RpcRequest *req)
+static int serve_kill(int sk, struct container_srv *cs, RpcRequest *req)
 {
-	struct container_srv *cs;
 	RpcResponce resp = RPC_RESPONCE__INIT;
+	int ret;
 
-	cs = find_ct_by_rid(req->ct_rid);
-	if (!cs)
-		return send_err_resp(sk, -1);
-
-	if (libct_container_kill(cs->hnd))
+	ret = libct_container_kill(cs->hnd);
+	if (ret)
 		return send_err_resp(sk, -1);
 
 	return send_resp(sk, &resp);
@@ -166,17 +150,25 @@ static int serve_kill(int sk, libct_session_t ses, RpcRequest *req)
 
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 {
-	switch (req->req) {
-	case REQ_TYPE__CT_CREATE:
+	struct container_srv *cs = NULL;
+
+	if (req->req == REQ_TYPE__CT_CREATE)
 		return serve_ct_create(sk, ses, req->create);
+
+	if (req->has_ct_rid)
+		cs = find_ct_by_rid(req->ct_rid);
+	if (!cs)
+		return send_err_resp(sk, BADCTRID_ERR);
+
+	switch (req->req) {
 	case REQ_TYPE__CT_DESTROY:
-		return serve_ct_destroy(sk, ses, req);
+		return serve_ct_destroy(sk, cs, req);
 	case REQ_TYPE__CT_GET_STATE:
-		return serve_get_state(sk, ses, req);
+		return serve_get_state(sk, cs, req);
 	case REQ_TYPE__CT_SPAWN:
-		return serve_spawn(sk, ses, req);
+		return serve_spawn(sk, cs, req);
 	case REQ_TYPE__CT_KILL:
-		return serve_kill(sk, ses, req);
+		return serve_kill(sk, cs, req);
 	default:
 		break;
 	}
