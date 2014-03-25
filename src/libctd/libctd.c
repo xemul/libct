@@ -148,6 +148,18 @@ static int serve_kill(int sk, struct container_srv *cs, RpcRequest *req)
 	return send_resp(sk, &resp);
 }
 
+static int serve_wait(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	int ret;
+
+	ret = libct_container_wait(cs->hnd);
+	if (ret)
+		return send_err_resp(sk, -1);
+
+	return send_resp(sk, &resp);
+}
+
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 {
 	struct container_srv *cs = NULL;
@@ -169,6 +181,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_spawn(sk, cs, req);
 	case REQ_TYPE__CT_KILL:
 		return serve_kill(sk, cs, req);
+	case REQ_TYPE__CT_WAIT:
+		return serve_wait(sk, cs, req);
 	default:
 		break;
 	}
