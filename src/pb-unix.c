@@ -165,12 +165,31 @@ static int send_wait_req(ct_handler_t h)
 	return 0;
 }
 
+static int send_nsmask_req(ct_handler_t h, unsigned long nsmask)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	NsmaskReq nm = NSMASK_REQ__INIT;
+	RpcResponce *resp;
+
+	pack_ct_req(&req, REQ_TYPE__CT_SETNSMASK, h);
+	req.nsmask = &nm;
+	nm.mask = nsmask;
+
+	resp = pbunix_req_ct(h, &req);
+	if (!resp)
+		return -1;
+
+	rpc_responce__free_unpacked(resp, NULL);
+	return 0;
+}
+
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
 	.spawn_execv = send_spawn_req,
 	.destroy = send_destroy_req,
 	.kill = send_kill_req,
 	.wait = send_wait_req,
+	.set_nsmask = send_nsmask_req,
 };
 
 static ct_handler_t send_create_req(libct_session_t s)

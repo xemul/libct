@@ -7,6 +7,8 @@ enum req_type {
 	CT_SPAWN	= 4;
 	CT_KILL		= 5;
 	CT_WAIT		= 6;
+
+	CT_SETNSMASK	= 7;
 }
 
 message create_req {
@@ -15,6 +17,10 @@ message create_req {
 message spawn_req {
 	required string path		= 1;
 	repeated string args		= 2;
+}
+
+message nsmask_req {
+	required uint64 mask		= 1;
 }
 
 message create_resp {
@@ -31,6 +37,7 @@ message rpc_request {
 
 	optional create_req	create	= 3;
 	optional spawn_req	spawn	= 4;
+	optional nsmask_req	nsmask	= 5;
 }
 
 message rpc_responce {
