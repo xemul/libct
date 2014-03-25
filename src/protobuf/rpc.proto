@@ -13,6 +13,8 @@ enum req_type {
 
 	FS_SETROOT	= 9;
 	FS_SETPRIVATE	= 10;
+
+	CT_SET_OPTION	= 11;
 }
 
 message create_req {
@@ -40,6 +42,10 @@ message setpriv_req {
 	optional string	path		= 2;
 }
 
+message setoption_req {
+	required int32	opt		= 1;
+}
+
 message create_resp {
 	required uint64	rid		= 1;
 }
@@ -58,6 +64,7 @@ message rpc_request {
 	optional addcntl_req	addcntl	= 6;
 	optional setroot_req	setroot	= 7;
 	optional setpriv_req	setpriv	= 8;
+	optional setoption_req	setopt	= 9;
 }
 
 message rpc_responce {

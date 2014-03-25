@@ -189,12 +189,34 @@ static int send_setpriv_req(ct_handler_t h, enum ct_fs_type type, void *arg)
 	SetprivReq sp = SETPRIV_REQ__INIT;
 	const struct ct_fs_ops *ops;
 
+	pack_ct_req(&req, REQ_TYPE__FS_SETPRIVATE, h);
+	req.setpriv = &sp;
+
 	ops = fstype_get_ops(type);
 	if (!ops)
 		return -1;
 
 	sp.type = type;
 	ops->pb_pack(arg, &sp);
+	return pbunix_req_ct(h, &req, NULL);
+}
+
+static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	SetoptionReq so = SETOPTION_REQ__INIT;
+
+	pack_ct_req(&req, REQ_TYPE__CT_SET_OPTION, h);
+	req.setopt = &so;
+	so.opt = opt;
+
+	switch (opt) {
+	default:
+		return -1;
+	case LIBCT_OPT_AUTO_PROC_MOUNT:
+		break;
+	}
+
 	return pbunix_req_ct(h, &req, NULL);
 }
 
@@ -208,6 +230,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.add_controller = send_addcntl_req,
 	.fs_set_root = send_setroot_req,
 	.fs_set_private = send_setpriv_req,
+	.set_option = send_set_option_req,
 };
 
 static ct_handler_t send_create_req(libct_session_t s)

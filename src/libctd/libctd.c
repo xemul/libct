@@ -207,6 +207,23 @@ static int serve_setpriv(int sk, struct container_srv *cs, RpcRequest *req)
 	return send_resp(sk, ret, &resp);
 }
 
+static int serve_set_option(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	int ret = -1, opt = -1;
+
+	if (req->setopt)
+		opt = req->setopt->opt;
+
+	switch (opt) {
+	case LIBCT_OPT_AUTO_PROC_MOUNT:
+		ret = libct_container_set_option(cs->hnd, opt);
+		break;
+	}
+
+	return send_resp(sk, ret, &resp);
+}
+
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 {
 	struct container_srv *cs = NULL;
@@ -238,6 +255,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_setroot(sk, cs, req);
 	case REQ_TYPE__FS_SETPRIVATE:
 		return serve_setpriv(sk, cs, req);
+	case REQ_TYPE__CT_SET_OPTION:
+		return serve_set_option(sk, cs, req);
 	default:
 		break;
 	}
