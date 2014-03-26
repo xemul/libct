@@ -114,8 +114,10 @@ EARLY-GEN := $(VERSION_HEADER) config
 # and executable tool
 src/protobuf/%:
 	$(Q) $(MAKE) $(build)=src/protobuf $@
-src/protobuf/built-in.o:
+src/protobuf:
 	$(Q) $(MAKE) $(build)=src/protobuf all
+
+.PHONY: src/protobuf
 
 #
 # Proxy
@@ -123,10 +125,13 @@ LIBCTD := libctd
 
 LDFLAGS += -L$(shell pwd)
 
-src/libctd/%: src/protobuf/built-in.o
+src/libctd/%: src/protobuf
 	$(Q) $(MAKE) $(build)=src/libctd $@
-src/libctd/built-in.o: src/protobuf/built-in.o
+src/libctd: src/protobuf
 	$(Q) $(MAKE) $(build)=src/libctd all
+
+.PHONY: src/libctd
+
 src/libctd/$(LIBCTD): src/libctd/built-in.o $(PROGRAM) src/protobuf/built-in.o
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -lct -o $@
@@ -135,8 +140,10 @@ src/libctd/$(LIBCTD): src/libctd/built-in.o $(PROGRAM) src/protobuf/built-in.o
 # Library itself
 src/%: $(EARLY-GEN) | src/protobuf/built-in.o
 	$(Q) $(MAKE) $(build)=src $@
-src/built-in.o: $(EARLY-GEN) | src/protobuf/built-in.o
+src: $(EARLY-GEN) | src/protobuf/built-in.o
 	$(Q) $(MAKE) $(build)=src all
+
+.PHONY: src
 
 $(LIBCT): src/$(LIBCT)
 	$(E) "  LN      " $@
