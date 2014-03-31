@@ -58,8 +58,23 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	char path[PATH_MAX], *t;
 	int fd, ret;
 
-	if (ct->state != CT_RUNNING)
-		return -1; /* FIXME -- implement */
+	if (ct->state != CT_RUNNING) {
+		struct cg_config *cfg;
+
+		/*
+		 * Postpone cgroups configuration
+		 */
+
+		cfg = xmalloc(sizeof(*cfg));
+		if (!cfg)
+			return -1;
+
+		cfg->ctype = ctype;
+		cfg->param = xstrdup(param);
+		cfg->value = xstrdup(value);
+		list_add_tail(&cfg->l, &ct->cg_configs);
+		return 0;
+	}
 
 	t = cgroup_get_path(ctype, path, sizeof(path));
 	sprintf(t, "/%s/%s", ct->name, param);
@@ -87,15 +102,22 @@ static int cgroup_create_one(struct container *ct, struct controller *ctl)
 int cgroups_create(struct container *ct)
 {
 	struct controller *ctl;
+	struct cg_config *cfg;
 	int ret = 0;
 
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
 		ret = cgroup_create_one(ct, ctl);
 		if (ret)
-			break;
+			return ret;
 	}
 
-	return ret;
+	list_for_each_entry(cfg, &ct->cg_configs, l) {
+		ret = local_config_controller(&ct->h, cfg->ctype, cfg->param, cfg->value);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static int cgroup_attach_one(struct container *ct, struct controller *ctl, char *pid)
@@ -138,9 +160,16 @@ static void destroy_controller(struct container *ct, struct controller *ctl)
 void cgroups_destroy(struct container *ct)
 {
 	struct controller *ctl, *n;
+	struct cg_config *cfg, *cn;
 
 	list_for_each_entry_safe(ctl, n, &ct->cgroups, ct_l)
 		destroy_controller(ct, ctl);
+	list_for_each_entry_safe(cfg, cn, &ct->cg_configs, l) {
+		list_del(&cfg->l);
+		xfree(cfg->param);
+		xfree(cfg->value);
+		xfree(cfg);
+	}
 }
 
 int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,

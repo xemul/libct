@@ -29,6 +29,17 @@ extern const struct container_ops local_ct_ops;
 #define CT_AUTO_PROC		0x1
 
 /*
+ * Postponed cgroups configuration
+ */
+
+struct cg_config {
+	enum ct_controller ctype;
+	char *param;
+	char *value;
+	struct list_head l;
+};
+
+/*
  * The main structure describing a container
  */
 struct container {
@@ -47,6 +58,7 @@ struct container {
 
 	unsigned long nsmask;	/* namespaces used by container */
 	struct list_head cgroups;
+	struct list_head cg_configs;
 
 	/*
 	 * FS-specific fields
