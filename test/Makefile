@@ -4,7 +4,7 @@ PIGS  = file_piggy
 CFLAGS = -I../src/include/uapi/
 LDFLAGS = -lct -L../src/ -lprotobuf-c
 OUTS = $(TESTS:%=%.out)
-	
+
 all: $(PIGS) $(TESTS) run
 
 clean:
