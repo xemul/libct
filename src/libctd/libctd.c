@@ -180,7 +180,7 @@ static int serve_addcntl(int sk, struct container_srv *cs, RpcRequest *req)
 	int ret = -1;
 
 	if (req->addcntl)
-		ret = libct_container_add_controller(cs->hnd, req->addcntl->ctype);
+		ret = libct_controller_add(cs->hnd, req->addcntl->ctype);
 	return send_resp(sk, ret, &resp);
 }
 

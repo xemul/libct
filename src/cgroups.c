@@ -26,7 +26,7 @@ struct cg_desc cg_descs[CT_NR_CONTROLLERS] = {
 	[CTL_NETCLS]	= { .name = "net_cls", },
 };
 
-int libct_container_add_controller(ct_handler_t ct, enum ct_controller ctype)
+int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 {
 	return ct->ops->add_controller(ct, ctype);
 }

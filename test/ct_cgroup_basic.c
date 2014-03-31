@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test-fr");
-	libct_container_add_controller(ct, CTL_FREEZER);
+	libct_controller_add(ct, CTL_FREEZER);
 	libct_container_spawn_cb(ct, check_freezer_cg, ct_state);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
