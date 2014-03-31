@@ -159,6 +159,10 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		exit(ret);
 
+	ret = cgroups_attach(ca->ct);
+	if (ret < 0)
+		exit(ret);
+
 	return ca->cb(ca->arg);
 }
 
@@ -182,16 +186,26 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 			return ret;
 	}
 
+	if (cgroups_create(ct))
+		goto err_cg;
+
 	ca.cb = cb;
 	ca.arg = arg;
 	ca.ct = ct;
 	pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD, &ca);
 	if (pid < 0)
-		return -1;
+		goto err_clone;
 
 	ct->root_pid = pid;
 	ct->state = CT_RUNNING;
 	return 0;
+
+err_clone:
+	if (ct->fs_ops)
+		ct->fs_ops->umount(ct->root_path, ct->fs_priv);
+err_cg:
+	cgroups_destroy(ct);
+	return -1;
 }
 
 struct execv_args {
@@ -256,6 +270,9 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 			if (chdir("/"))
 				exit(-1);
 		}
+
+		if (cgroups_attach(ct))
+			exit(-1);
 
 		aux = cb(arg);
 		exit(aux);

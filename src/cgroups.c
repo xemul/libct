@@ -27,6 +27,16 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	return 0;
 }
 
+int cgroups_create(struct container *ct)
+{
+	return 0;
+}
+
+int cgroups_attach(struct container *ct)
+{
+	return 0;
+}
+
 static void destroy_controller(struct controller *ctl)
 {
 	list_del(&ctl->ct_l);
