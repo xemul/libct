@@ -15,6 +15,15 @@
 #endif
 
 struct cg_desc cg_descs[CT_NR_CONTROLLERS] = {
+	[CTL_BLKIO]	= { .name = "blkio", },
+	[CTL_CPU]	= { .name = "cpu", },
+	[CTL_CPUACCT]	= { .name = "cpuacct", },
+	[CTL_CPUSET]	= { .name = "cpuset", },
+	[CTL_DEVICES]	= { .name = "devices", },
+	[CTL_FREEZER]	= { .name = "freezer", },
+	[CTL_HUGETLB]	= { .name = "hugetlb", },
+	[CTL_MEMORY]	= { .name = "memory", },
+	[CTL_NETCLS]	= { .name = "net_cls", },
 };
 
 int libct_container_add_controller(ct_handler_t ct, enum ct_controller ctype)

@@ -45,6 +45,15 @@ void libct_container_destroy(ct_handler_t ct);
 int libct_container_set_nsmask(ct_handler_t ct, unsigned long ns_mask);
 
 enum ct_controller {
+	CTL_BLKIO,
+	CTL_CPU,
+	CTL_CPUACCT,
+	CTL_CPUSET,
+	CTL_DEVICES,
+	CTL_FREEZER,
+	CTL_HUGETLB,
+	CTL_MEMORY,
+	CTL_NETCLS,
 	CT_NR_CONTROLLERS
 };
 
