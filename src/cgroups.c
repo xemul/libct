@@ -51,6 +51,26 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	return 0;
 }
 
+int local_config_controller(ct_handler_t h, enum ct_controller ctype,
+		char *param, char *value)
+{
+	struct container *ct = cth2ct(h);
+	char path[PATH_MAX], *t;
+	int fd, ret;
+
+	t = cgroup_get_path(ctype, path, sizeof(path));
+	sprintf(t, "/%s/%s", ct->name, param);
+
+	ret = fd = open(path, O_WRONLY);
+	if (fd >= 0) {
+		if (write(fd, value, strlen(value)) < 0)
+			ret = -1;
+		close(fd);
+	}
+
+	return ret;
+}
+
 static int cgroup_create_one(struct container *ct, struct controller *ctl)
 {
 	char path[PATH_MAX], *t;
@@ -77,20 +97,7 @@ int cgroups_create(struct container *ct)
 
 static int cgroup_attach_one(struct container *ct, struct controller *ctl, char *pid)
 {
-	char aux[PATH_MAX], *t;
-	int fd, ret = 0;
-
-	t = cgroup_get_path(ctl->ctype, aux, sizeof(aux));
-	sprintf(t, "/%s/tasks", ct->name);
-
-	ret = fd = open(aux, O_WRONLY);
-	if (fd >= 0) {
-		if (write(fd, pid, strlen(pid)) < 0)
-			ret = -1;
-		close(fd);
-	}
-
-	return ret;
+	return local_config_controller(&ct->h, ctl->ctype, "tasks", pid);
 }
 
 int cgroups_attach(struct container *ct)
@@ -131,4 +138,10 @@ void cgroups_destroy(struct container *ct)
 
 	list_for_each_entry_safe(ctl, n, &ct->cgroups, ct_l)
 		destroy_controller(ct, ctl);
+}
+
+int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
+		char *param, char *value)
+{
+	return ct->ops->config_controller(ct, ctype, param, value);
 }

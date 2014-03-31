@@ -352,6 +352,7 @@ const struct container_ops local_ct_ops = {
 	.destroy = local_ct_destroy,
 	.set_nsmask = local_set_nsmask,
 	.add_controller = local_add_controller,
+	.config_controller = local_config_controller,
 	.fs_set_root = local_fs_set_root,
 	.fs_set_private = local_fs_set_private,
 	.get_state = local_get_state,

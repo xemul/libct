@@ -11,11 +11,12 @@ enum req_type {
 
 	CT_SETNSMASK	= 8;
 	CT_ADD_CNTL	= 9;
+	CT_CFG_CNTL	= 10;
 
-	FS_SETROOT	= 10;
-	FS_SETPRIVATE	= 11;
+	FS_SETROOT	= 11;
+	FS_SETPRIVATE	= 12;
 
-	CT_SET_OPTION	= 12;
+	CT_SET_OPTION	= 13;
 }
 
 message create_req {
@@ -33,6 +34,12 @@ message nsmask_req {
 
 message addcntl_req {
 	required uint32 ctype		= 1;
+}
+
+message cfgcntl_req {
+	required uint32	ctype		= 1;
+	required string param		= 2;
+	required string	value		= 3;
 }
 
 message setroot_req {
@@ -64,9 +71,10 @@ message rpc_request {
 	optional execv_req	execv	= 4;
 	optional nsmask_req	nsmask	= 5;
 	optional addcntl_req	addcntl	= 6;
-	optional setroot_req	setroot	= 7;
-	optional setpriv_req	setpriv	= 8;
-	optional setoption_req	setopt	= 9;
+	optional cfgcntl_req	cfgcntl	= 7;
+	optional setroot_req	setroot	= 8;
+	optional setpriv_req	setpriv	= 9;
+	optional setoption_req	setopt	= 10;
 }
 
 message rpc_responce {

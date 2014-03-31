@@ -58,6 +58,8 @@ enum ct_controller {
 };
 
 int libct_controller_add(ct_handler_t ct, enum ct_controller ctype);
+int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
+		char *param, char *value);
 
 /*
  * FS configuration

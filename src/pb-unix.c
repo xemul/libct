@@ -182,6 +182,20 @@ static int send_addcntl_req(ct_handler_t h, enum ct_controller ctype)
 	return pbunix_req_ct(h, &req, NULL);
 }
 
+static int send_cfgcntl_req(ct_handler_t h, enum ct_controller ctype,
+		char *param, char *value)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	CfgcntlReq cr = CFGCNTL_REQ__INIT;
+
+	pack_ct_req(&req, REQ_TYPE__CT_CFG_CNTL, h);
+	req.cfgcntl = &cr;
+	cr.ctype = ctype;
+	cr.param = param;
+	cr.value = value;
+	return pbunix_req_ct(h, &req, NULL);
+}
+
 static int send_setroot_req(ct_handler_t h, char *root)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
@@ -239,6 +253,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.wait = send_wait_req,
 	.set_nsmask = send_nsmask_req,
 	.add_controller = send_addcntl_req,
+	.config_controller = send_cfgcntl_req,
 	.fs_set_root = send_setroot_req,
 	.fs_set_private = send_setpriv_req,
 	.set_option = send_set_option_req,
