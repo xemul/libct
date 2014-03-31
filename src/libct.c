@@ -49,6 +49,12 @@ int libct_container_enter_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
 	return ct->ops->enter_cb(ct, cb, arg);
 }
 
+int libct_container_enter_execv(ct_handler_t ct, char *path, char **argv)
+{
+	return ct->ops->enter_execv(ct, path, argv);
+}
+
+
 int libct_container_kill(ct_handler_t ct)
 {
 	return ct->ops->kill(ct);

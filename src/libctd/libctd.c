@@ -129,8 +129,19 @@ static int serve_spawn(int sk, struct container_srv *cs, RpcRequest *req)
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	int ret = -1;
 
-	if (req->spawn)
-		ret = libct_container_spawn_execv(cs->hnd, req->spawn->path, req->spawn->args);
+	if (req->execv)
+		ret = libct_container_spawn_execv(cs->hnd, req->execv->path, req->execv->args);
+
+	return send_resp(sk, ret, &resp);
+}
+
+static int serve_enter(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	int ret = -1;
+
+	if (req->execv)
+		ret = libct_container_enter_execv(cs->hnd, req->execv->path, req->execv->args);
 
 	return send_resp(sk, ret, &resp);
 }
@@ -240,6 +251,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_get_state(sk, cs, req);
 	case REQ_TYPE__CT_SPAWN:
 		return serve_spawn(sk, cs, req);
+	case REQ_TYPE__CT_ENTER:
+		return serve_enter(sk, cs, req);
 	case REQ_TYPE__CT_KILL:
 		return serve_kill(sk, cs, req);
 	case REQ_TYPE__CT_WAIT:

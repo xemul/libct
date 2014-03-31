@@ -120,20 +120,30 @@ static enum ct_state send_get_state_req(ct_handler_t h)
 	return st;
 }
 
-static int send_spawn_req(ct_handler_t h, char *path, char **argv)
+static int send_execv_req(ct_handler_t h, int type, char *path, char **argv)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
-	SpawnReq sr = SPAWN_REQ__INIT;
+	ExecvReq er = EXECV_REQ__INIT;
 
-	pack_ct_req(&req, REQ_TYPE__CT_SPAWN, h);
-	req.spawn = &sr;
+	pack_ct_req(&req, type, h);
+	req.execv = &er;
 
-	sr.path = path;
-	for (sr.n_args = 0; argv[sr.n_args]; sr.n_args++)
+	er.path = path;
+	for (er.n_args = 0; argv[er.n_args]; er.n_args++)
 		;
-	sr.args = argv;
+	er.args = argv;
 
 	return pbunix_req_ct(h, &req, NULL);
+}
+
+static int send_spawn_req(ct_handler_t h, char *path, char **argv)
+{
+	return send_execv_req(h, REQ_TYPE__CT_SPAWN, path, argv);
+}
+
+static int send_enter_req(ct_handler_t h, char *path, char **argv)
+{
+	return send_execv_req(h, REQ_TYPE__CT_ENTER, path, argv);
 }
 
 static int send_kill_req(ct_handler_t h)
@@ -223,6 +233,7 @@ static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
 	.spawn_execv = send_spawn_req,
+	.enter_execv = send_enter_req,
 	.destroy = send_destroy_req,
 	.kill = send_kill_req,
 	.wait = send_wait_req,

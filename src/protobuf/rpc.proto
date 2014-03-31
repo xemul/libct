@@ -5,22 +5,23 @@ enum req_type {
 
 	CT_GET_STATE	= 3;
 	CT_SPAWN	= 4;
-	CT_KILL		= 5;
-	CT_WAIT		= 6;
+	CT_ENTER	= 5;
+	CT_KILL		= 6;
+	CT_WAIT		= 7;
 
-	CT_SETNSMASK	= 7;
-	CT_ADD_CNTL	= 8;
+	CT_SETNSMASK	= 8;
+	CT_ADD_CNTL	= 9;
 
-	FS_SETROOT	= 9;
-	FS_SETPRIVATE	= 10;
+	FS_SETROOT	= 10;
+	FS_SETPRIVATE	= 11;
 
-	CT_SET_OPTION	= 11;
+	CT_SET_OPTION	= 12;
 }
 
 message create_req {
 }
 
-message spawn_req {
+message execv_req {
 	required string path		= 1;
 	repeated string args		= 2;
 }
@@ -59,7 +60,7 @@ message rpc_request {
 	optional uint64		ct_rid	= 2;
 
 	optional create_req	create	= 3;
-	optional spawn_req	spawn	= 4;
+	optional execv_req	execv	= 4;
 	optional nsmask_req	nsmask	= 5;
 	optional addcntl_req	addcntl	= 6;
 	optional setroot_req	setroot	= 7;

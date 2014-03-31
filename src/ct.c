@@ -215,7 +215,7 @@ static int local_spawn_execv(ct_handler_t ct, char *path, char **argv)
 	ea.path = path;
 	ea.argv = argv;
 
-	return libct_container_spawn_cb(ct, ct_execv, &ea);
+	return local_spawn_cb(ct, ct_execv, &ea);
 }
 
 static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
@@ -265,6 +265,16 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 		restore_ns(aux, &pid_ns);
 
 	return pid;
+}
+
+static int local_enter_execv(ct_handler_t h, char *path, char **argv)
+{
+	struct execv_args ea;
+
+	ea.path = path;
+	ea.argv = argv;
+
+	return local_spawn_cb(h, ct_execv, &ea);
 }
 
 static int local_ct_kill(ct_handler_t h)
@@ -318,6 +328,7 @@ const struct container_ops local_ct_ops = {
 	.spawn_cb = local_spawn_cb,
 	.spawn_execv = local_spawn_execv,
 	.enter_cb = local_enter_cb,
+	.enter_execv = local_enter_execv,
 	.kill = local_ct_kill,
 	.wait = local_ct_wait,
 	.destroy = local_ct_destroy,
