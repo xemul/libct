@@ -14,8 +14,8 @@ clean:
 
 %.out: %
 	./$< > $@
+	@ tail -n1 $@
 
 run: $(OUTS)
-	tail -n1 $(OUTS)
 
 .PHONY: all clean run
