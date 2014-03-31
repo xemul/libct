@@ -36,6 +36,9 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	struct container *ct = cth2ct(h);
 	struct controller *ctl;
 
+	if (ct->state != CT_STOPPED)
+		return -1;
+
 	if (ctype >= CT_NR_CONTROLLERS)
 		return -1;
 
