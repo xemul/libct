@@ -29,6 +29,7 @@ static void container_destroy(struct container *ct)
 	if (ct->fs_ops)
 		ct->fs_ops->put(ct->fs_priv);
 	xfree(ct->root_path);
+	xfree(ct->name);
 	xfree(ct);
 }
 

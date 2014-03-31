@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	ct_root_pids[1] = 0;
 
 	s = libct_session_open_local();
-	ct = libct_container_create(s);
+	ct = libct_container_create(s, "test");
 	if (libct_container_set_nsmask(ct, CLONE_NEWPID | CLONE_NEWNS))
 		return err("No pid & mount NS");
 

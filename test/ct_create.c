@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 	*ct_alive = 0;
 
 	s = libct_session_open_local();
-	ct = libct_container_create(s);
+	ct = libct_container_create(s, "test");
 	libct_container_spawn_cb(ct, set_ct_alive, ct_alive);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);

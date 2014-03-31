@@ -17,7 +17,7 @@ int main(int argc, char **argv)
 	char dat[sizeof(PIGGY_DATA)];
 
 	s = libct_session_open_local();
-	ct = libct_container_create(s);
+	ct = libct_container_create(s, "test");
 
 	piggy_a[0] = "file_piggy";
 	piggy_a[1] = PIGGY_FILE;

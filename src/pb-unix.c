@@ -244,7 +244,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.set_option = send_set_option_req,
 };
 
-static ct_handler_t send_create_req(libct_session_t s)
+static ct_handler_t send_create_req(libct_session_t s, char *name)
 {
 	struct pbunix_session *us;
 	struct container_proxy *cp;
@@ -260,6 +260,7 @@ static ct_handler_t send_create_req(libct_session_t s)
 
 	req.req = REQ_TYPE__CT_CREATE;
 	req.create = &cr;
+	cr.name = name;
 
 	resp = pbunix_req(us, &req);
 	if (!resp) {

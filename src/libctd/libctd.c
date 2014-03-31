@@ -81,7 +81,7 @@ static int serve_ct_create(int sk, libct_session_t ses, CreateReq *req)
 	if (!cs)
 		goto err0;
 
-	cs->hnd = libct_container_create(ses);
+	cs->hnd = libct_container_create(ses, req->name);
 	if (!cs->hnd)
 		goto err1;
 

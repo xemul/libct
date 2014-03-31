@@ -19,6 +19,7 @@ enum req_type {
 }
 
 message create_req {
+	required string	name		= 1;
 }
 
 message execv_req {

@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 	cta.wait_fd = p[0];
 
 	s = libct_session_open_local();
-	ct = libct_container_create(s);
+	ct = libct_container_create(s, "test");
 	libct_fs_set_root(ct, FS_ROOT);
 	libct_container_spawn_cb(ct, ct_main_fn, &cta);
 	pid = libct_container_enter_cb(ct, ct_enter_fn, &cta);

@@ -23,7 +23,7 @@ static void close_local_session(libct_session_t s)
 	xfree(ls);
 }
 
-static ct_handler_t create_local_ct(libct_session_t s)
+static ct_handler_t create_local_ct(libct_session_t s, char *name)
 {
 	struct local_session *ls;
 	struct container *ct;
@@ -34,6 +34,7 @@ static ct_handler_t create_local_ct(libct_session_t s)
 		ct->session = s;
 		ct->h.ops = &local_ct_ops;
 		ct->state = CT_STOPPED;
+		ct->name = xstrdup(name);
 		INIT_LIST_HEAD(&ct->cgroups);
 		list_add_tail(&ct->s_lh, &ls->s_cts);
 	}
@@ -62,9 +63,12 @@ libct_session_t libct_session_open_local(void)
 	return &s->s;
 }
 
-ct_handler_t libct_container_create(libct_session_t ses)
+ct_handler_t libct_container_create(libct_session_t ses, char *name)
 {
-	return ses->ops->create_ct(ses);
+	if (!name)
+		return NULL;
+
+	return ses->ops->create_ct(ses, name);
 }
 
 void libct_session_close(libct_session_t s)

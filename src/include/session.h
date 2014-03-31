@@ -5,7 +5,7 @@
 #include "ct.h"
 
 struct backend_ops {
-	ct_handler_t (*create_ct)(libct_session_t s);
+	ct_handler_t (*create_ct)(libct_session_t s, char *name);
 	void (*close)(libct_session_t s);
 };
 

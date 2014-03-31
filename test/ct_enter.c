@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 	cta.wait_fd = p[0];
 
 	s = libct_session_open_local();
-	ct = libct_container_create(s);
+	ct = libct_container_create(s, "test");
 	libct_container_spawn_cb(ct, set_ct_alive, &cta);
 	pid = libct_container_enter_cb(ct, set_ct_enter, &cta);
 	waitpid(pid, NULL, 0);
