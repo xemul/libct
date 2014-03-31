@@ -2,7 +2,9 @@
 #include <dirent.h>
 #include <sched.h>
 #include <string.h>
+#include <stdio.h>
 #include "linux-kernel.h"
+#include "cgroups.h"
 
 unsigned long kernel_ns_mask;
 
@@ -35,4 +37,14 @@ int linux_get_ns_mask(void)
 
 	closedir(d);
 	return 0;
+}
+
+#define CG_DEF_PATH	"/sys/fs/cgroup"
+
+char *cgroup_get_path(int type, char *buf, int blen)
+{
+	int lp;
+	/* FIXME -- find real path of this thing */
+	lp = snprintf(buf, blen, "%s/%s", CG_DEF_PATH, cg_descs[type].name);
+	return buf + lp;
 }
