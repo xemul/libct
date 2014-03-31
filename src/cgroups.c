@@ -58,6 +58,9 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	char path[PATH_MAX], *t;
 	int fd, ret;
 
+	if (ct->state != CT_RUNNING)
+		return -1; /* FIXME -- implement */
+
 	t = cgroup_get_path(ctype, path, sizeof(path));
 	sprintf(t, "/%s/%s", ct->name, param);
 
