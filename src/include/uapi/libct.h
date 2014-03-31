@@ -10,6 +10,7 @@
 struct libct_session;
 typedef struct libct_session *libct_session_t;
 
+libct_session_t libct_session_open(char *url);
 libct_session_t libct_session_open_local(void);
 libct_session_t libct_session_open_pbunix(char *sk_path);
 void libct_session_close(libct_session_t s);

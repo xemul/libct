@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include "uapi/libct.h"
 #include "linux-kernel.h"
 #include "libct.h"
@@ -78,4 +79,14 @@ int libct_container_set_option(ct_handler_t ct, int opt, ...)
 	va_end(parms);
 
 	return ret;
+}
+
+libct_session_t libct_session_open(char *how)
+{
+	if (!how || !strcmp(how, "local"))
+		return libct_session_open_local();
+	if (!strncmp(how, "unix://", 7))
+		return libct_session_open_pbunix(how + 7);
+
+	return NULL;
 }
