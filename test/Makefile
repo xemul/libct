@@ -1,4 +1,4 @@
-TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter ct_create_exec
+TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter ct_create_exec ct_cgroup_basic
 PIGS  = file_piggy
 
 CFLAGS = -I../src/include/uapi/
