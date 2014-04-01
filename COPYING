@@ -1,11 +1,6 @@
-This software is licenced under the GNU LESSER GENERAL PUBLIC LICENCE Version 2.1.
-
-Contributing Authors agree that their code is submitted under the licence 
-appropriate for its location within the source tree (GPL except for LGPL
-in plugins/) and agree that any future patches, provided they are accepted
-into the project, may change the licence of their code from GPL to LGPL by
-moving pieces of it into plugins/ or LGPL to GPL by moving pieces of it
-out of plugins/
+This software is licenced under the GNU LESSER GENERAL PUBLIC LICENCE
+Version 2.1. Contributing Authors agree that their code is submitted
+under this licence.
 
 Note that the only valid version of the LGPL is THIS particular version
 of the license, unless explicitly otherwise stated.
