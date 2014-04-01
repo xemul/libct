@@ -72,6 +72,15 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		 * Postpone cgroups configuration
 		 */
 
+		list_for_each_entry(cfg, &ct->cg_configs, l) {
+			if (cfg->ctype != ctype || strcmp(cfg->param, param))
+				continue;
+
+			xfree(cfg->value);
+			cfg->value = xstrdup(value);
+			return 0;
+		}
+
 		cfg = xmalloc(sizeof(*cfg));
 		if (!cfg)
 			return -1;
