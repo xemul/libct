@@ -40,6 +40,11 @@ struct cg_config {
 	struct list_head l;
 };
 
+struct ct_net {
+	struct list_head l;
+	const struct ct_net_ops *ops;
+};
+
 /*
  * The main structure describing a container
  */
@@ -73,6 +78,8 @@ struct container {
 	/*
 	 * Network-specific fields
 	 */
+
+	struct list_head	ct_nets; /* list of struct ct_net objects */
 
 	void *private; /* driver-specific */
 };

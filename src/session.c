@@ -37,6 +37,7 @@ static ct_handler_t create_local_ct(libct_session_t s, char *name)
 		ct->name = xstrdup(name);
 		INIT_LIST_HEAD(&ct->cgroups);
 		INIT_LIST_HEAD(&ct->cg_configs);
+		INIT_LIST_HEAD(&ct->ct_nets);
 		list_add_tail(&ct->s_lh, &ls->s_cts);
 	}
 
