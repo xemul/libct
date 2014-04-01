@@ -74,6 +74,10 @@ enum ct_fs_type {
 
 int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type, void *arg);
 
+/*
+ * Options
+ */
+
 /* Mount proc when PID _and_ mount namespaces are used together */
 #define LIBCT_OPT_AUTO_PROC_MOUNT			1
 
