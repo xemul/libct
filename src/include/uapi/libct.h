@@ -80,6 +80,7 @@ int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type, void *arg);
 
 enum ct_net_type {
 	CT_NET_NONE,	/* no configured networking */
+	CT_NET_HOSTNIC,	/* assign nic from host */
 };
 
 int libct_net_add(ct_handler_t ct, enum ct_net_type, void *arg);
