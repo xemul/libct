@@ -9,6 +9,7 @@ int net_start(struct container *ct);
 void net_stop(struct container *ct);
 
 struct ct_net_ops {
+	struct ct_net *(*create)(void *arg);
 	int (*start)(struct container *, struct ct_net *);
 	void (*stop)(struct container *, struct ct_net *);
 	void (*destroy)(struct ct_net *);

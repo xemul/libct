@@ -42,6 +42,8 @@ void net_stop(struct container *ct)
 int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 {
 	struct container *ct = cth2ct(h);
+	const struct ct_net_ops *nops;
+	struct ct_net *cn;
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
@@ -52,7 +54,17 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 		return 0;
 	}
 
-	return -1;
+	nops = net_get_ops(ntype);
+	if (!nops)
+		return -1;
+
+	cn = nops->create(arg);
+	if (!cn)
+		return -1;
+
+	cn->ops = nops;
+	list_add_tail(&cn->l, &ct->ct_nets);
+	return 0;
 }
 
 int libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
