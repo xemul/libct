@@ -275,5 +275,14 @@ static const struct ct_net_ops veth_nic_ops = {
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)
 {
+	switch (ntype) {
+	case CT_NET_HOSTNIC:
+		return &host_nic_ops;
+	case CT_NET_VETH:
+		return &veth_nic_ops;
+	case CT_NET_NONE:
+		break;
+	}
+
 	return NULL;
 }
