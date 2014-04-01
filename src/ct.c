@@ -99,17 +99,22 @@ static int try_mount_proc(struct container *ct, bool have_old_proc)
 }
 
 extern int pivot_root(const char *new_root, const char *put_old);
+
+static int set_current_root(char *path)
+{
+	if (chroot(path))
+		return -1;
+	if (chdir("/"))
+		return -1;
+	return 0;
+}
+
 static int set_ct_root(struct container *ct)
 {
 	char put_root[] = "libct-root.XXXX";
 
-	if (!(ct->nsmask & CLONE_NEWNS)) {
-		if (chroot(ct->root_path))
-			return -1;
-		if (chdir("/"))
-			return -1;
-		return 0;
-	}
+	if (!(ct->nsmask & CLONE_NEWNS))
+		return set_current_root(ct->root_path);
 
 	/*
 	 * We're in new mount namespace. No need in
@@ -268,9 +273,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 			char nroot[128];
 
 			sprintf(nroot, "/proc/%d/root", ct->root_pid);
-			if (chroot(nroot))
-				exit(-1);
-			if (chdir("/"))
+			if (set_current_root(nroot))
 				exit(-1);
 		}
 
