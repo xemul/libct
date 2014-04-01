@@ -18,6 +18,7 @@ struct container_ops {
 	int (*fs_set_private)(ct_handler_t, enum ct_fs_type, void *);
 	int (*set_option)(ct_handler_t h, int opt, va_list parms);
 	void (*destroy)(ct_handler_t);
+	int (*net_add)(ct_handler_t h, enum ct_net_type, void *);
 };
 
 struct ct_handler {
@@ -68,6 +69,10 @@ struct container {
 	char *root_path;	/* directory where the CT's root is */
 	const struct ct_fs_ops *fs_ops;
 	void *fs_priv;
+
+	/*
+	 * Network-specific fields
+	 */
 
 	void *private; /* driver-specific */
 };

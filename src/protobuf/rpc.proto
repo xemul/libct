@@ -17,6 +17,7 @@ enum req_type {
 	FS_SETPRIVATE	= 12;
 
 	CT_SET_OPTION	= 13;
+	CT_NET_ADD	= 14;
 }
 
 message create_req {
@@ -55,6 +56,10 @@ message setoption_req {
 	required int32	opt		= 1;
 }
 
+message netadd_req {
+	required int32	type		= 1;
+}
+
 message create_resp {
 	required uint64	rid		= 1;
 }
@@ -75,6 +80,7 @@ message rpc_request {
 	optional setroot_req	setroot	= 8;
 	optional setpriv_req	setpriv	= 9;
 	optional setoption_req	setopt	= 10;
+	optional netadd_req	netadd	= 11;
 }
 
 message rpc_responce {

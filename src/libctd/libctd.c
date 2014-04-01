@@ -12,7 +12,9 @@
 #include "uapi/libct.h"
 #include "list.h"
 #include "xmalloc.h"
+#include "ct.h"
 #include "fs.h"
+#include "net.h"
 #include "../protobuf/rpc.pb-c.h"
 
 #define MAX_MSG		4096
@@ -243,6 +245,32 @@ static int serve_set_option(int sk, struct container_srv *cs, RpcRequest *req)
 	return send_resp(sk, ret, &resp);
 }
 
+static int serve_net_add(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	int ret = -1;
+
+	if (req->netadd) {
+		const struct ct_net_ops *nops;
+		void *arg = NULL;
+
+		if (req->netadd->type != CT_NET_NONE) {
+			nops = net_get_ops(req->netadd->type);
+			if (nops) {
+				ret = 0;
+				arg = nops->pb_unpack(req->netadd);
+			}
+		}
+
+		if (!ret)
+			ret = libct_net_add(cs->hnd, req->netadd->type, arg);
+
+		xfree(arg);
+	}
+
+	return send_resp(sk, ret, &resp);
+}
+
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 {
 	struct container_srv *cs = NULL;
@@ -280,6 +308,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_setpriv(sk, cs, req);
 	case REQ_TYPE__CT_SET_OPTION:
 		return serve_set_option(sk, cs, req);
+	case REQ_TYPE__CT_NET_ADD:
+		return serve_net_add(sk, cs, req);
 	default:
 		break;
 	}

@@ -8,6 +8,7 @@
 #include "list.h"
 #include "xmalloc.h"
 #include "ct.h"
+#include "net.h"
 #include "protobuf/rpc.pb-c.h"
 
 #define MAX_MSG_ONSTACK	512
@@ -244,6 +245,27 @@ static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
 	return pbunix_req_ct(h, &req, NULL);
 }
 
+static int send_netadd_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	NetaddReq na = NETADD_REQ__INIT;
+	const struct ct_net_ops *nops;
+
+	pack_ct_req(&req, REQ_TYPE__CT_NET_ADD, h);
+	req.netadd = &na;
+	na.type = ntype;
+
+	if (ntype != CT_NET_NONE) {
+		nops = net_get_ops(ntype);
+		if (!nops)
+			return -1;
+
+		nops->pb_pack(arg, &na);
+	}
+
+	return pbunix_req_ct(h, &req, NULL);
+}
+
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
 	.spawn_execv = send_spawn_req,
@@ -257,6 +279,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.fs_set_root = send_setroot_req,
 	.fs_set_private = send_setpriv_req,
 	.set_option = send_set_option_req,
+	.net_add = send_netadd_req,
 };
 
 static ct_handler_t send_create_req(libct_session_t s, char *name)

@@ -16,6 +16,7 @@
 #include "cgroups.h"
 #include "asm/page.h"
 #include "fs.h"
+#include "net.h"
 
 static enum ct_state local_get_state(ct_handler_t h)
 {
@@ -28,6 +29,7 @@ static void container_destroy(struct container *ct)
 	cgroups_destroy(ct);
 	if (ct->fs_ops)
 		ct->fs_ops->put(ct->fs_priv);
+	free_netconf(ct);
 	xfree(ct->root_path);
 	xfree(ct->name);
 	xfree(ct);
@@ -357,5 +359,6 @@ const struct container_ops local_ct_ops = {
 	.fs_set_private = local_fs_set_private,
 	.get_state = local_get_state,
 	.set_option = local_set_option,
+	.net_add = local_net_add,
 };
 
