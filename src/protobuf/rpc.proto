@@ -59,6 +59,7 @@ message setoption_req {
 message netadd_req {
 	required int32	type		= 1;
 	optional string	nicname		= 2;
+	optional string	peername	= 3;
 }
 
 message create_resp {

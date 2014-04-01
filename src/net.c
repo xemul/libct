@@ -21,6 +21,19 @@ int net_nic_move(char *name, int pid)
 }
 
 /*
+ * VETH creation/removal
+ */
+
+int veth_pair_create(struct ct_net_veth_arg *va)
+{
+	return -1;
+}
+
+void veth_pair_destroy(struct ct_net_veth_arg *va)
+{
+}
+
+/*
  * Library API implementation
  */
 
@@ -159,6 +172,105 @@ static const struct ct_net_ops host_nic_ops = {
 	.stop = host_nic_stop,
 	.pb_pack = host_nic_pack,
 	.pb_unpack = host_nic_unpack,
+};
+
+/*
+ * CT_NET_VETH management
+ */
+
+struct ct_net_veth {
+	struct ct_net n;
+	struct ct_net_veth_arg v;
+};
+
+static struct ct_net_veth *cn2vn(struct ct_net *n)
+{
+	return container_of(n, struct ct_net_veth, n);
+}
+
+static struct ct_net *veth_create(void *arg)
+{
+	struct ct_net_veth_arg *va = arg;
+	struct ct_net_veth *vn;
+
+	vn = xmalloc(sizeof(*vn));
+	if (!vn)
+		return NULL;
+
+	vn->v.host_name = xstrdup(va->host_name);
+	vn->v.ct_name = xstrdup(va->ct_name);
+
+	return &vn->n;
+}
+
+static void veth_destroy(struct ct_net *n)
+{
+	struct ct_net_veth *vn = cn2vn(n);
+
+	xfree(vn->v.host_name);
+	xfree(vn->v.ct_name);
+	xfree(vn);
+}
+
+static int veth_start(struct container *ct, struct ct_net *n)
+{
+	struct ct_net_veth *vn = cn2vn(n);
+
+	/*
+	 * FIXME -- the ct_name may be busy on host. Need to
+	 * create peer right in the target netns (IFLA_NET_NS_FD)
+	 */
+
+	if (veth_pair_create(&vn->v))
+		return -1;
+
+	if (net_nic_move(vn->v.ct_name, ct->root_pid)) {
+		veth_pair_destroy(&vn->v);
+		return -1;
+	}
+
+	return 0;
+}
+
+static void veth_stop(struct container *ct, struct ct_net *n)
+{
+	struct ct_net_veth *vn = cn2vn(n);
+
+	/* 
+	 * FIXME -- don't destroy veth here, keep it across
+	 * container's restarts. This needs checks in the
+	 * veth_pair_create() for existance.
+	 */
+
+	veth_pair_destroy(&vn->v);
+}
+
+static void veth_pack(void *arg, NetaddReq *req)
+{
+	struct ct_net_veth_arg *va = arg;
+
+	req->nicname = va->host_name;
+	req->peername = va->ct_name;
+}
+
+static void *veth_unpack(NetaddReq *req)
+{
+	struct ct_net_veth_arg *va;
+
+	va = xmalloc(sizeof(*va));
+	va->host_name = req->nicname;
+	va->ct_name = req->peername;
+
+	return va;
+}
+
+static const struct ct_net_ops veth_nic_ops = {
+	.create = veth_create,
+	.destroy = veth_destroy,
+	.start = veth_start,
+	.stop = veth_stop,
+	.pb_pack = veth_pack,
+	.pb_unpack = veth_unpack,
 };
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)
