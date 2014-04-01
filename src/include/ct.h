@@ -57,6 +57,7 @@ struct container {
 	 */
 
 	unsigned long nsmask;	/* namespaces used by container */
+	unsigned long cgroups_mask;
 	struct list_head cgroups;
 	struct list_head cg_configs;
 

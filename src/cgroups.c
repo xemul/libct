@@ -42,12 +42,16 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	if (ctype >= CT_NR_CONTROLLERS)
 		return -1;
 
+	if (ct->cgroups_mask & (1 << ctype))
+		return 0;
+
 	ctl = xmalloc(sizeof(*ctl));
 	if (!ctl)
 		return -1;
 
 	ctl->ctype = ctype;
 	list_add_tail(&ctl->ct_l, &ct->cgroups);
+	ct->cgroups_mask |= (1 << ctype);
 	return 0;
 }
 
@@ -57,6 +61,9 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	struct container *ct = cth2ct(h);
 	char path[PATH_MAX], *t;
 	int fd, ret;
+
+	if (!(ct->cgroups_mask & (1 << ctype)))
+		return -1;
 
 	if (ct->state != CT_RUNNING) {
 		struct cg_config *cfg;
