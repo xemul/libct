@@ -5,6 +5,7 @@
 #include "ct.h"
 #include "net.h"
 #include "xmalloc.h"
+#include "libnetlink.h"
 #include "protobuf/rpc.pb-c.h"
 
 /*
@@ -19,8 +20,40 @@
 
 int net_nic_move(char *name, int pid)
 {
-	/* FIXME -- implement */
-	return -1;
+	struct nlmsghdr *h;
+	struct ifinfomsg *ifi;
+	int nlfd, err;
+
+	/*
+	 * FIXME -- one nlconn per container/session
+	 */
+
+	err = nlfd = netlink_open(NETLINK_ROUTE);
+	if (nlfd < 0)
+		goto err_o;
+
+	err = -1;
+	h = nlmsg_alloc(sizeof(struct ifinfomsg));
+	if (!h)
+		goto err_a;
+
+	h->nlmsg_type = RTM_NEWLINK;
+	h->nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK;
+	ifi = (struct ifinfomsg *)(h + 1);
+	ifi->ifi_family = AF_UNSPEC;
+	ifi->ifi_index = 0;
+	if (nla_put_u32(h, IFLA_NET_NS_PID, pid))
+		goto err;
+	if (nla_put_string(h, IFLA_IFNAME, name))
+		goto err;
+
+	err = netlink_talk(nlfd, h, h);
+err:
+	nlmsg_free(h);
+err_a:
+	netlink_close(nlfd);
+err_o:
+	return err;
 }
 
 /*
