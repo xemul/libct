@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sched.h>
 #include "list.h"
 #include "uapi/libct.h"
 #include "ct.h"
@@ -82,6 +83,9 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
+		return -1;
+
+	if (!(ct->nsmask & CLONE_NEWNET))
 		return -1;
 
 	if (ntype == CT_NET_NONE) {
