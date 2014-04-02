@@ -217,6 +217,8 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 		goto err_clone;
 
 	close(ca.start_sync_pipe[0]);
+	ct->root_pid = pid;
+
 	if (net_start(ct))
 		goto err_net;
 
@@ -224,7 +226,6 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	write(ca.start_sync_pipe[1], &aux, sizeof(aux));
 	close(ca.start_sync_pipe[1]);
 
-	ct->root_pid = pid;
 	ct->state = CT_RUNNING;
 	return 0;
 
