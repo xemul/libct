@@ -123,7 +123,7 @@ err:
 
 void fs_umount(struct container *ct)
 {
-	if (!(ct->flags & CLONE_NEWNS))
+	if (!(ct->nsmask & CLONE_NEWNS))
 		/* Otherwise they will die by themselves */
 		fs_umount_ext(ct);
 
