@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <signal.h>
+#include <getopt.h>
 #include "uapi/libct.h"
 #include "list.h"
 #include "xmalloc.h"
@@ -349,11 +350,67 @@ static int serve(int sk)
 	return ret;
 }
 
+/*
+ * CLI options
+ */
+
+static char *opt_sk_path = NULL;
+static bool opt_daemon = false;
+
+static int parse_options(int argc, char **argv)
+{
+	static const char so[] = "ds:h";
+	static struct option lo[] = {
+		{ "daemon", no_argument, 0, 'd' },
+		{ "socket", required_argument, 0, 's' },
+		{ "help", no_argument, 0, 'h' },
+		{ }
+	};
+	int opt, idx;
+
+	do {
+		opt = getopt_long(argc, argv, so, lo, &idx);
+		switch (opt) {
+		case -1:
+			break;
+		case 'h':
+			goto usage;
+		case 'd':
+			opt_daemon = true;
+			break;
+		case 's':
+			opt_sk_path = optarg;
+			break;
+		default:
+			goto bad_usage;
+		}
+	} while (opt != -1);
+
+	if (!opt_sk_path) {
+		printf("Specify socket to work with\n");
+		goto bad_usage;
+	}
+
+	return 0;
+
+usage:
+	printf("Usage: libctd [-d|--daemon] [-s|--socket <path>]\n");
+	printf("\t-d|--daemon           daemonize after start\n");
+	printf("\t-s|--socket <path>    path to socket to listen on\n");
+	printf("\n");
+	printf("\t-h|--help             print this text\n");
+bad_usage:
+	return -1;
+}
+
 int main(int argc, char **argv)
 {
 	int sk;
 	struct sockaddr_un addr;
 	socklen_t alen;
+
+	if (parse_options(argc, argv))
+		goto err;
 
 	sk = socket(PF_UNIX, SOCK_SEQPACKET, 0);
 	if (sk == -1)
@@ -361,7 +418,7 @@ int main(int argc, char **argv)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, argv[1], sizeof(addr.sun_path));
+	strncpy(addr.sun_path, opt_sk_path, sizeof(addr.sun_path));
 	alen = strlen(addr.sun_path) + sizeof(addr.sun_family);
 
 	unlink(addr.sun_path);
@@ -370,6 +427,9 @@ int main(int argc, char **argv)
 
 	if (listen(sk, 16))
 		goto err;
+
+	if (opt_daemon)
+		daemon(0, 0);
 
 	signal(SIGCHLD, SIG_IGN); /* auto-kill zombies */
 
@@ -383,6 +443,8 @@ int main(int argc, char **argv)
 
 		if (fork() == 0) {
 			int ret;
+
+			close(sk);
 
 			ret = serve(ask);
 			if (ret < 0)
