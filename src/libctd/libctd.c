@@ -356,13 +356,15 @@ static int serve(int sk)
 
 static char *opt_sk_path = NULL;
 static bool opt_daemon = false;
+static char *opt_pid_file = NULL;
 
 static int parse_options(int argc, char **argv)
 {
-	static const char so[] = "ds:h";
+	static const char so[] = "ds:P:h";
 	static struct option lo[] = {
 		{ "daemon", no_argument, 0, 'd' },
 		{ "socket", required_argument, 0, 's' },
+		{ "pidfile", required_argument, 0, 'P' },
 		{ "help", no_argument, 0, 'h' },
 		{ }
 	};
@@ -381,6 +383,9 @@ static int parse_options(int argc, char **argv)
 		case 's':
 			opt_sk_path = optarg;
 			break;
+		case 'P':
+			opt_pid_file = optarg;
+			break;
 		default:
 			goto bad_usage;
 		}
@@ -397,6 +402,7 @@ usage:
 	printf("Usage: libctd [-d|--daemon] [-s|--socket <path>]\n");
 	printf("\t-d|--daemon           daemonize after start\n");
 	printf("\t-s|--socket <path>    path to socket to listen on\n");
+	printf("\t-P|--pidfile <path>	write daemon pid to this file\n");
 	printf("\n");
 	printf("\t-h|--help             print this text\n");
 bad_usage:
@@ -429,7 +435,18 @@ int main(int argc, char **argv)
 		goto err;
 
 	if (opt_daemon)
-		daemon(0, 0);
+		daemon(1, 0);
+
+	if (opt_pid_file) {
+		FILE *pf;
+
+		pf = fopen(opt_pid_file, "w");
+		if (!pf)
+			goto err;
+
+		fprintf(pf, "%d", getpid());
+		fclose(pf);
+	}
 
 	signal(SIGCHLD, SIG_IGN); /* auto-kill zombies */
 
