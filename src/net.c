@@ -18,7 +18,7 @@
  * Move network device @name into task's @pid net namespace
  */
 
-int net_nic_move(char *name, int pid)
+static int net_nic_move(char *name, int pid)
 {
 	struct nlmsghdr *h;
 	struct ifinfomsg *ifi;
@@ -60,13 +60,78 @@ err_o:
  * VETH creation/removal
  */
 
-int veth_pair_create(struct ct_net_veth_arg *va)
-{
-	return -1;
-}
+#ifndef VETH_INFO_MAX
+enum {
+	VETH_INFO_UNSPEC,
+	VETH_INFO_PEER,
 
-void veth_pair_destroy(struct ct_net_veth_arg *va)
+	__VETH_INFO_MAX
+#define VETH_INFO_MAX   (__VETH_INFO_MAX - 1)
+};
+#endif
+
+static int veth_pair_create(struct ct_net_veth_arg *va, int ct_pid)
 {
+	struct nlmsghdr *h;
+	struct ifinfomsg *ifi;
+	struct rtattr *linfo, *data, *peer;
+	int nlfd, err;
+
+	/*
+	 * FIXME -- one nlconn per container/session
+	 */
+
+	err = nlfd = netlink_open(NETLINK_ROUTE);
+	if (nlfd < 0)
+		goto err_o;
+
+	err = -1;
+	h = nlmsg_alloc(sizeof(struct ifinfomsg));
+	if (!h)
+		goto err_a;
+
+	h->nlmsg_type = RTM_NEWLINK;
+	h->nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
+	ifi = (struct ifinfomsg *)(h + 1);
+	ifi->ifi_family = AF_UNSPEC;
+	ifi->ifi_index = 0;
+	if (nla_put_string(h, IFLA_IFNAME, va->host_name))
+		goto err;
+
+	linfo = nla_put_nested(h, IFLA_LINKINFO);
+	if (!linfo)
+		goto err;
+
+	if (nla_put_string(h, IFLA_INFO_KIND, "veth"))
+		goto err;
+
+	data = nla_put_nested(h, IFLA_INFO_DATA);
+	if (!data)
+		goto err;
+
+	peer = nla_put_nested(h, VETH_INFO_PEER);
+	if (!peer)
+		goto err;
+
+	h->nlmsg_len += sizeof(struct ifinfomsg);
+
+	if (nla_put_string(h, IFLA_IFNAME, va->ct_name))
+		goto err;
+
+	if (nla_put_u32(h, IFLA_NET_NS_PID, ct_pid))
+		goto err;
+
+	nla_commit_nested(h, peer);
+	nla_commit_nested(h, data);
+	nla_commit_nested(h, linfo);
+
+	err = netlink_talk(nlfd, h, h);
+err:
+	nlmsg_free(h);
+err_a:
+	netlink_close(nlfd);
+err_o:
+	return err;
 }
 
 /*
@@ -255,33 +320,19 @@ static int veth_start(struct container *ct, struct ct_net *n)
 {
 	struct ct_net_veth *vn = cn2vn(n);
 
-	/*
-	 * FIXME -- the ct_name may be busy on host. Need to
-	 * create peer right in the target netns (IFLA_NET_NS_FD)
-	 */
-
-	if (veth_pair_create(&vn->v))
+	if (veth_pair_create(&vn->v, ct->root_pid))
 		return -1;
-
-	if (net_nic_move(vn->v.ct_name, ct->root_pid)) {
-		veth_pair_destroy(&vn->v);
-		return -1;
-	}
 
 	return 0;
 }
 
 static void veth_stop(struct container *ct, struct ct_net *n)
 {
-	struct ct_net_veth *vn = cn2vn(n);
-
 	/* 
 	 * FIXME -- don't destroy veth here, keep it across
 	 * container's restarts. This needs checks in the
 	 * veth_pair_create() for existance.
 	 */
-
-	veth_pair_destroy(&vn->v);
 }
 
 static void veth_pack(void *arg, NetaddReq *req)
