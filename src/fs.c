@@ -15,7 +15,7 @@ struct fs_mount {
 
 static int mount_subdir(char *root, void *priv)
 {
-	return mount(root, (char *)priv, NULL, MS_BIND, NULL);
+	return mount((char *)priv, root, NULL, MS_BIND, NULL);
 }
 
 static void umount_subdir(char *root, void *priv)
