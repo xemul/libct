@@ -12,6 +12,17 @@ struct cg_desc {
 	char *name;
 };
 
+/*
+ * Postponed cgroups configuration
+ */
+
+struct cg_config {
+	enum ct_controller ctype;
+	char *param;
+	char *value;
+	struct list_head l;
+};
+
 extern struct cg_desc cg_descs[CT_NR_CONTROLLERS];
 
 struct container;

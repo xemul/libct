@@ -2,6 +2,7 @@
 #define __LIBCT_CT_H__
 
 #include "fs.h"
+#include "net.h"
 
 struct container_ops {
 	int (*spawn_cb)(ct_handler_t, int (*cb)(void *), void *);
@@ -29,22 +30,6 @@ struct ct_handler {
 extern const struct container_ops local_ct_ops;
 
 #define CT_AUTO_PROC		0x1
-
-/*
- * Postponed cgroups configuration
- */
-
-struct cg_config {
-	enum ct_controller ctype;
-	char *param;
-	char *value;
-	struct list_head l;
-};
-
-struct ct_net {
-	struct list_head l;
-	const struct ct_net_ops *ops;
-};
 
 /*
  * The main structure describing a container
