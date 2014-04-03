@@ -266,6 +266,19 @@ static int send_netadd_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	return pbunix_req_ct(h, &req, NULL);
 }
 
+static int send_add_mount_req(ct_handler_t h, char *src, char *dst)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	AddmountReq am = ADDMOUNT_REQ__INIT;
+
+	pack_ct_req(&req, REQ_TYPE__FS_ADD_MOUNT, h);
+	req.addmnt = &am;
+	am.src = src;
+	am.dst = dst;
+
+	return pbunix_req_ct(h, &req, NULL);
+}
+
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
 	.spawn_execv = send_spawn_req,
@@ -278,6 +291,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.config_controller = send_cfgcntl_req,
 	.fs_set_root = send_setroot_req,
 	.fs_set_private = send_setpriv_req,
+	.fs_add_mount = send_add_mount_req,
 	.set_option = send_set_option_req,
 	.net_add = send_netadd_req,
 };

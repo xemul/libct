@@ -90,6 +90,17 @@ int local_fs_set_root(ct_handler_t h, char *root)
 	return 0;
 }
 
+int local_add_mount(ct_handler_t h, char *src, char *dst)
+{
+	struct container *ct = cth2ct(h);
+
+	if (ct->state != CT_STOPPED)
+		/* FIXME -- implement */
+		return -1;
+
+	return -1;
+}
+
 int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *priv)
 {
 	return ct->ops->fs_set_private(ct, type, priv);
@@ -98,4 +109,9 @@ int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *priv)
 int libct_fs_set_root(ct_handler_t ct, char *root)
 {
 	return ct->ops->fs_set_root(ct, root);
+}
+
+int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst)
+{
+	return ct->ops->fs_add_mount(ct, src, dst);
 }

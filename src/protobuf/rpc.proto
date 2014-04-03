@@ -15,9 +15,10 @@ enum req_type {
 
 	FS_SETROOT	= 11;
 	FS_SETPRIVATE	= 12;
+	FS_ADD_MOUNT	= 13;
 
-	CT_SET_OPTION	= 13;
-	CT_NET_ADD	= 14;
+	CT_SET_OPTION	= 14;
+	CT_NET_ADD	= 15;
 }
 
 message create_req {
@@ -62,6 +63,11 @@ message netadd_req {
 	optional string	peername	= 3;
 }
 
+message addmount_req {
+	required string src		= 1;
+	required string dst		= 2;
+}
+
 message create_resp {
 	required uint64	rid		= 1;
 }
@@ -83,6 +89,7 @@ message rpc_request {
 	optional setpriv_req	setpriv	= 9;
 	optional setoption_req	setopt	= 10;
 	optional netadd_req	netadd	= 11;
+	optional addmount_req	addmnt	= 12;
 }
 
 message rpc_responce {

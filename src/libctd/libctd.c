@@ -243,6 +243,17 @@ static int serve_setpriv(int sk, struct container_srv *cs, RpcRequest *req)
 	return send_resp(sk, ret, &resp);
 }
 
+static int serve_addmount(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	int ret = -1;
+
+	if (req->addmnt)
+		ret = libct_fs_add_mount(cs->hnd, req->addmnt->src, req->addmnt->dst);
+
+	return send_resp(sk, ret, &resp);
+}
+
 static int serve_set_option(int sk, struct container_srv *cs, RpcRequest *req)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
@@ -321,6 +332,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_setroot(sk, cs, req);
 	case REQ_TYPE__FS_SETPRIVATE:
 		return serve_setpriv(sk, cs, req);
+	case REQ_TYPE__FS_ADD_MOUNT:
+		return serve_addmount(sk, cs, req);
 	case REQ_TYPE__CT_SET_OPTION:
 		return serve_set_option(sk, cs, req);
 	case REQ_TYPE__CT_NET_ADD:

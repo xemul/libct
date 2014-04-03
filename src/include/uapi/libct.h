@@ -73,6 +73,7 @@ enum ct_fs_type {
 };
 
 int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type, void *arg);
+int libct_fs_add_mount(ct_handler_t ct, char *source, char *destination);
 
 /*
  * Networking configuration

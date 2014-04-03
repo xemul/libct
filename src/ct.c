@@ -390,6 +390,7 @@ const struct container_ops local_ct_ops = {
 	.config_controller = local_config_controller,
 	.fs_set_root = local_fs_set_root,
 	.fs_set_private = local_fs_set_private,
+	.fs_add_mount = local_add_mount,
 	.get_state = local_get_state,
 	.set_option = local_set_option,
 	.net_add = local_net_add,
