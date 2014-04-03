@@ -13,7 +13,6 @@
 #define NLMSG_ERROR 0x2
 #endif
 #define NLMSG_MIN_SIZE	1024
-#define NLMSG_TAIL(m) ((struct rtattr *) (((void *) (m)) + NLMSG_ALIGN((m)->nlmsg_len)))
 
 struct nlmsghdr *nlmsg_alloc(int base_size)
 {
@@ -35,7 +34,7 @@ void nlmsg_free(struct nlmsghdr *h)
 	xfree(h);
 }
 
-static int nla_put(struct nlmsghdr *h, int attr, const void *data, size_t len)
+int nla_put(struct nlmsghdr *h, int attr, const void *data, size_t len)
 {
 	struct rtattr *rta;
 	size_t rtalen = RTA_LENGTH(len);
