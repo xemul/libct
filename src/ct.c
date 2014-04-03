@@ -192,16 +192,8 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	if (ct->state != CT_STOPPED)
 		return -1;
 
-	if (ct->fs_ops) {
-		int ret;
-
-		if (!ct->root_path)
-			return -1;
-
-		ret = ct->fs_ops->mount(ct->root_path, ct->fs_priv);
-		if (ret < 0)
-			return ret;
-	}
+	if (fs_mount(ct))
+		return -1;
 
 	if (cgroups_create(ct))
 		goto err_cg;
@@ -239,8 +231,7 @@ err_clone:
 err_pipe:
 	cgroups_destroy(ct);
 err_cg:
-	if (ct->fs_ops)
-		ct->fs_ops->umount(ct->root_path, ct->fs_priv);
+	fs_umount(ct);
 	return -1;
 }
 
@@ -353,8 +344,7 @@ static int local_ct_wait(ct_handler_t h)
 	if (ret < 0)
 		return -1;
 
-	if (ct->fs_ops)
-		ct->fs_ops->umount(ct->root_path, ct->fs_priv);
+	fs_umount(ct);
 
 	net_stop(ct);
 

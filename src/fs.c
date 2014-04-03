@@ -55,6 +55,28 @@ const struct ct_fs_ops *fstype_get_ops(enum ct_fs_type type)
 	return NULL;
 }
 
+int fs_mount(struct container *ct)
+{
+	if (ct->fs_ops) {
+		int ret;
+
+		if (!ct->root_path)
+			return -1;
+
+		ret = ct->fs_ops->mount(ct->root_path, ct->fs_priv);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+void fs_umount(struct container *ct)
+{
+	if (ct->fs_ops)
+		ct->fs_ops->umount(ct->root_path, ct->fs_priv);
+}
+
 int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 {
 	int ret = -1;
