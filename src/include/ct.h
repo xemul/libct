@@ -60,6 +60,7 @@ struct container {
 	char *root_path;	/* directory where the CT's root is */
 	const struct ct_fs_ops *fs_ops;
 	void *fs_priv;
+	struct list_head	fs_mnts; /* list of struct fs_mount objects */
 
 	/*
 	 * Network-specific fields

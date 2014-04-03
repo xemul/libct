@@ -7,6 +7,12 @@
 #include "ct.h"
 #include "protobuf/rpc.pb-c.h"
 
+struct fs_mount {
+	char *src;
+	char *dst;
+	struct list_head l;
+};
+
 static int mount_subdir(char *root, void *priv)
 {
 	return mount(root, (char *)priv, NULL, MS_BIND, NULL);
@@ -77,6 +83,22 @@ void fs_umount(struct container *ct)
 		ct->fs_ops->umount(ct->root_path, ct->fs_priv);
 }
 
+void free_fs(struct container *ct)
+{
+	struct fs_mount *m, *mn;
+
+	if (ct->fs_ops)
+		ct->fs_ops->put(ct->fs_priv);
+	xfree(ct->root_path);
+
+	list_for_each_entry_safe(m, mn, &ct->fs_mnts, l) {
+		list_del(&m->l);
+		xfree(m->src);
+		xfree(m->dst);
+		xfree(m);
+	}
+}
+
 int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 {
 	int ret = -1;
@@ -115,6 +137,7 @@ int local_fs_set_root(ct_handler_t h, char *root)
 int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 {
 	struct container *ct = cth2ct(h);
+	struct fs_mount *fm;
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
@@ -123,7 +146,14 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 	if (flags != 0)
 		return -1;
 
-	return -1;
+	fm = xmalloc(sizeof(*fm));
+	if (!fm)
+		return -1;
+
+	fm->src = xstrdup(src);
+	fm->dst = xstrdup(dst);
+	list_add_tail(&fm->l, &ct->fs_mnts);
+	return 0;
 }
 
 int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *priv)

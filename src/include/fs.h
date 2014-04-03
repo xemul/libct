@@ -19,4 +19,5 @@ int local_add_mount(ct_handler_t ct, char *src, char *dst, int flags);
 
 int fs_mount(struct container *ct);
 void fs_umount(struct container *ct);
+void free_fs(struct container *ct);
 #endif
