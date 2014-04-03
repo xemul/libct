@@ -158,27 +158,41 @@ static int ct_clone(void *arg)
 	}
 
 	if (ca->ct->root_path) {
+		/*
+		 * Mount external in child, since it may live
+		 * in sub mount namespace. If it doesn't do
+		 * it here anyway, just umount by hands in the
+		 * fs_umount().
+		 */
+		ret = fs_mount_ext(ca->ct);
+		if (ret < 0)
+			exit(ret);
+
 		if (set_ct_root(ca->ct))
-			exit(-1);
+			goto err_um;
 
 		have_old_proc = false;
 	}
 
 	ret = try_mount_proc(ca->ct, have_old_proc);
 	if (ret < 0)
-		exit(ret);
+		goto err_um;
 
 	ret = cgroups_attach(ca->ct);
 	if (ret < 0)
-		exit(ret);
+		goto err_um;
 
 	ret = -1;
 	read(ca->start_sync_pipe[0], &ret, sizeof(ret));
 	close(ca->start_sync_pipe[0]);
 	if (ret)
-		exit(ret);
+		goto err_um;
 
 	return ca->cb(ca->arg);
+
+err_um:
+	fs_umount_ext(ca->ct);
+	exit(ret);
 }
 
 static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)

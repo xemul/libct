@@ -18,6 +18,8 @@ int local_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *priv);
 int local_add_mount(ct_handler_t ct, char *src, char *dst, int flags);
 
 int fs_mount(struct container *ct);
+int fs_mount_ext(struct container *ct);
 void fs_umount(struct container *ct);
+void fs_umount_ext(struct container *ct);
 void free_fs(struct container *ct);
 #endif
