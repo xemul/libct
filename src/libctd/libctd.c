@@ -249,7 +249,8 @@ static int serve_addmount(int sk, struct container_srv *cs, RpcRequest *req)
 	int ret = -1;
 
 	if (req->addmnt)
-		ret = libct_fs_add_mount(cs->hnd, req->addmnt->src, req->addmnt->dst);
+		ret = libct_fs_add_mount(cs->hnd,
+				req->addmnt->src, req->addmnt->dst, req->addmnt->flags);
 
 	return send_resp(sk, ret, &resp);
 }

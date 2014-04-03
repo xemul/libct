@@ -266,7 +266,7 @@ static int send_netadd_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	return pbunix_req_ct(h, &req, NULL);
 }
 
-static int send_add_mount_req(ct_handler_t h, char *src, char *dst)
+static int send_add_mount_req(ct_handler_t h, char *src, char *dst, int flags)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
 	AddmountReq am = ADDMOUNT_REQ__INIT;
@@ -275,6 +275,7 @@ static int send_add_mount_req(ct_handler_t h, char *src, char *dst)
 	req.addmnt = &am;
 	am.src = src;
 	am.dst = dst;
+	am.flags = flags;
 
 	return pbunix_req_ct(h, &req, NULL);
 }

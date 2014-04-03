@@ -16,7 +16,7 @@ struct container_ops {
 	int (*config_controller)(ct_handler_t, enum ct_controller ctype, char *, char *);
 	int (*fs_set_root)(ct_handler_t, char *root);
 	int (*fs_set_private)(ct_handler_t, enum ct_fs_type, void *);
-	int (*fs_add_mount)(ct_handler_t, char *src, char *dst);
+	int (*fs_add_mount)(ct_handler_t, char *src, char *dst, int flags);
 	int (*set_option)(ct_handler_t h, int opt, va_list parms);
 	void (*destroy)(ct_handler_t);
 	int (*net_add)(ct_handler_t h, enum ct_net_type, void *);

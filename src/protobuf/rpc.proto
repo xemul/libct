@@ -66,6 +66,7 @@ message netadd_req {
 message addmount_req {
 	required string src		= 1;
 	required string dst		= 2;
+	required int32	flags		= 3;
 }
 
 message create_resp {
