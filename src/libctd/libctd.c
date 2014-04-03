@@ -132,9 +132,23 @@ static int serve_spawn(int sk, struct container_srv *cs, RpcRequest *req)
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	int ret = -1;
 
-	if (req->execv)
-		ret = libct_container_spawn_execv(cs->hnd, req->execv->path, req->execv->args);
+	if (req->execv) {
+		ExecvReq *er = req->execv;
+		char **argv;
+		int i;
 
+		argv = xmalloc((er->n_args + 1) * sizeof(char *));
+		if (!argv)
+			goto out;
+
+		for (i = 0; i < er->n_args; i++)
+			argv[i] = er->args[i];
+		argv[i] = NULL;
+
+		ret = libct_container_spawn_execv(cs->hnd, er->path, argv);
+		xfree(argv);
+	}
+out:
 	return send_resp(sk, ret, &resp);
 }
 
