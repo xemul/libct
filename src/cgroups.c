@@ -31,6 +31,8 @@ int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 	return ct->ops->add_controller(ct, ctype);
 }
 
+#define cbit(ctype)	(1 << ctype)
+
 int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 {
 	struct container *ct = cth2ct(h);
@@ -42,7 +44,7 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	if (ctype >= CT_NR_CONTROLLERS)
 		return -1;
 
-	if (ct->cgroups_mask & (1 << ctype))
+	if (ct->cgroups_mask & cbit(ctype))
 		return 0;
 
 	ctl = xmalloc(sizeof(*ctl));
@@ -51,7 +53,7 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 
 	ctl->ctype = ctype;
 	list_add_tail(&ctl->ct_l, &ct->cgroups);
-	ct->cgroups_mask |= (1 << ctype);
+	ct->cgroups_mask |= cbit(ctype);
 	return 0;
 }
 
@@ -62,7 +64,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	char path[PATH_MAX], *t;
 	int fd, ret;
 
-	if (!(ct->cgroups_mask & (1 << ctype)))
+	if (!(ct->cgroups_mask & cbit(ctype)))
 		return -1;
 
 	if (ct->state != CT_RUNNING) {
