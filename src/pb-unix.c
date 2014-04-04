@@ -121,7 +121,7 @@ static enum ct_state send_get_state_req(ct_handler_t h)
 	return st;
 }
 
-static int send_execv_req(ct_handler_t h, int type, char *path, char **argv)
+static int send_execve_req(ct_handler_t h, int type, char *path, char **argv, char **env)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
 	ExecvReq er = EXECV_REQ__INIT;
@@ -134,17 +134,23 @@ static int send_execv_req(ct_handler_t h, int type, char *path, char **argv)
 		;
 	er.args = argv;
 
+	if (env) {
+		for (er.n_env = 0; env[er.n_env]; er.n_env++)
+			;
+		er.env = env;
+	}
+
 	return pbunix_req_ct(h, &req, NULL);
 }
 
-static int send_spawn_req(ct_handler_t h, char *path, char **argv)
+static int send_spawn_req(ct_handler_t h, char *path, char **argv, char **env)
 {
-	return send_execv_req(h, REQ_TYPE__CT_SPAWN, path, argv);
+	return send_execve_req(h, REQ_TYPE__CT_SPAWN, path, argv, env);
 }
 
-static int send_enter_req(ct_handler_t h, char *path, char **argv)
+static int send_enter_req(ct_handler_t h, char *path, char **argv, char **env)
 {
-	return send_execv_req(h, REQ_TYPE__CT_ENTER, path, argv);
+	return send_execve_req(h, REQ_TYPE__CT_ENTER, path, argv, env);
 }
 
 static int send_kill_req(ct_handler_t h)
@@ -282,8 +288,8 @@ static int send_add_mount_req(ct_handler_t h, char *src, char *dst, int flags)
 
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
-	.spawn_execv = send_spawn_req,
-	.enter_execv = send_enter_req,
+	.spawn_execve = send_spawn_req,
+	.enter_execve = send_enter_req,
 	.destroy = send_destroy_req,
 	.kill = send_kill_req,
 	.wait = send_wait_req,

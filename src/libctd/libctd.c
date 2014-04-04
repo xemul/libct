@@ -157,8 +157,16 @@ static int serve_enter(int sk, struct container_srv *cs, RpcRequest *req)
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	int ret = -1;
 
-	if (req->execv)
-		ret = libct_container_enter_execv(cs->hnd, req->execv->path, req->execv->args);
+	if (req->execv) {
+		ExecvReq *er = req->execv;
+
+		if (er->n_env)
+			ret = libct_container_enter_execve(cs->hnd,
+					er->path, er->args, er->env);
+		else
+			ret = libct_container_enter_execv(cs->hnd,
+					er->path, er->args);
+	}
 
 	return send_resp(sk, ret, &resp);
 }

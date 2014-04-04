@@ -280,6 +280,7 @@ err_cg:
 struct execv_args {
 	char *path;
 	char **argv;
+	char **env;
 };
 
 static int ct_execv(void *a)
@@ -287,16 +288,21 @@ static int ct_execv(void *a)
 	struct execv_args *ea = a;
 
 	/* This gets control in the container's new root (if any) */
-	execv(ea->path, ea->argv);
+	if (ea->env)
+		execve(ea->path, ea->argv, ea->env);
+	else
+		execv(ea->path, ea->argv);
+
 	return -1;
 }
 
-static int local_spawn_execv(ct_handler_t ct, char *path, char **argv)
+static int local_spawn_execve(ct_handler_t ct, char *path, char **argv, char **env)
 {
 	struct execv_args ea;
 
 	ea.path = path;
 	ea.argv = argv;
+	ea.env = env;
 
 	return local_spawn_cb(ct, ct_execv, &ea);
 }
@@ -351,7 +357,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	return pid;
 }
 
-static int local_enter_execv(ct_handler_t h, char *path, char **argv)
+static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **env)
 {
 	struct execv_args ea;
 
@@ -411,9 +417,9 @@ static int local_set_option(ct_handler_t h, int opt, va_list parms)
 
 const struct container_ops local_ct_ops = {
 	.spawn_cb = local_spawn_cb,
-	.spawn_execv = local_spawn_execv,
+	.spawn_execve = local_spawn_execve,
 	.enter_cb = local_enter_cb,
-	.enter_execv = local_enter_execv,
+	.enter_execve = local_enter_execve,
 	.kill = local_ct_kill,
 	.wait = local_ct_wait,
 	.destroy = local_ct_destroy,
