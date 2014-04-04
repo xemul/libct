@@ -27,8 +27,8 @@ static void container_destroy(struct container *ct)
 {
 	list_del(&ct->s_lh);
 	cgroups_destroy(ct);
-	free_fs(ct);
-	free_netconf(ct);
+	fs_free(ct);
+	net_release(ct);
 	xfree(ct->name);
 	xfree(ct);
 }

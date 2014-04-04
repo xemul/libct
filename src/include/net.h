@@ -4,7 +4,7 @@ struct _NetaddReq;
 struct container;
 
 int local_net_add(ct_handler_t h, enum ct_net_type, void *);
-void free_netconf(struct container *ct);
+void net_release(struct container *ct);
 int net_start(struct container *ct);
 void net_stop(struct container *ct);
 

@@ -126,7 +126,7 @@ void fs_umount_ext(struct container *ct)
 		umount_one(ct, fm, rdst);
 }
 
-void free_fs(struct container *ct)
+void fs_free(struct container *ct)
 {
 	struct fs_mount *m, *mn;
 

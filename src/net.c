@@ -138,7 +138,7 @@ err_o:
  * Library API implementation
  */
 
-void free_netconf(struct container *ct)
+void net_release(struct container *ct)
 {
 	struct ct_net *cn, *n;
 
@@ -187,7 +187,7 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 		return -1;
 
 	if (ntype == CT_NET_NONE) {
-		free_netconf(ct);
+		net_release(ct);
 		return 0;
 	}
 

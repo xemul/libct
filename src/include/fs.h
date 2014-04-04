@@ -21,5 +21,5 @@ int fs_mount(struct container *ct);
 int fs_mount_ext(struct container *ct);
 void fs_umount(struct container *ct);
 void fs_umount_ext(struct container *ct);
-void free_fs(struct container *ct);
+void fs_free(struct container *ct);
 #endif
