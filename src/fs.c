@@ -2,6 +2,7 @@
 #include <sys/mount.h>
 #include <sched.h>
 #include <string.h>
+#include <limits.h>
 
 #include "bug.h"
 #include "xmalloc.h"
@@ -13,7 +14,6 @@
 struct fs_mount {
 	char *src;
 	char *dst;
-	char *rdst; /* with root prepended, non-NULL when mounted */
 	struct list_head l;
 };
 
@@ -81,42 +81,28 @@ int fs_mount(struct container *ct)
 	return 0;
 }
 
-static inline void umount_one(struct fs_mount *fm)
+static inline void umount_one(struct container *ct, struct fs_mount *fm, char *rdst)
 {
-	BUG_ON(!fm->rdst);
-	umount(fm->rdst);
-	xfree(fm->rdst);
-	fm->rdst = NULL;
+	snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
+	umount(rdst);
 }
 
 int fs_mount_ext(struct container *ct)
 {
 	struct fs_mount *fm;
+	char rdst[PATH_MAX];
 
 	list_for_each_entry(fm, &ct->fs_mnts, l) {
-		char *dst;
-
-		dst = xmalloc(strlen(ct->root_path) + strlen(fm->dst) + 1);
-		if (!dst)
+		snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
+		if (mount(fm->src, rdst, NULL, MS_BIND, NULL))
 			goto err;
-
-		dst[0] = '\0';
-		strcat(dst, ct->root_path);
-		strcat(dst, fm->dst);
-
-		if (mount(fm->src, dst, NULL, MS_BIND, NULL)) {
-			xfree(dst);
-			goto err;
-		}
-
-		fm->rdst = dst;
 	}
 
 	return 0;
 
 err:
 	list_for_each_entry_continue_reverse(fm, &ct->fs_mnts, l)
-		umount_one(fm);
+		umount_one(ct, fm, rdst);
 
 	return -1;
 }
@@ -134,9 +120,10 @@ void fs_umount(struct container *ct)
 void fs_umount_ext(struct container *ct)
 {
 	struct fs_mount *fm;
+	char rdst[PATH_MAX];
 
 	list_for_each_entry_reverse(fm, &ct->fs_mnts, l)
-		umount_one(fm);
+		umount_one(ct, fm, rdst);
 }
 
 void free_fs(struct container *ct)
@@ -149,7 +136,6 @@ void free_fs(struct container *ct)
 
 	list_for_each_entry_safe(m, mn, &ct->fs_mnts, l) {
 		list_del(&m->l);
-		BUG_ON(m->rdst);
 		xfree(m->src);
 		xfree(m->dst);
 		xfree(m);
