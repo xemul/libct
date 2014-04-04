@@ -74,6 +74,20 @@ struct ct_clone_arg {
 	int parent_wait_pipe[2];
 };
 
+static inline int spawn_wait(int *pipe)
+{
+	int ret = -1;
+	read(pipe[0], &ret, sizeof(ret));
+	close(pipe[0]);
+	return ret;
+}
+
+static inline void spawn_wake(int *pipe, int ret)
+{
+	write(pipe[1], &ret, sizeof(ret));
+	close(pipe[1]);
+}
+
 static int re_mount_proc(bool have_old_proc)
 {
 	if (have_old_proc) {
@@ -187,15 +201,11 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
-	ret = -1;
-	read(ca->child_wait_pipe[0], &ret, sizeof(ret));
-	close(ca->child_wait_pipe[0]);
+	ret = spawn_wait(ca->child_wait_pipe);
 	if (ret)
 		goto err_um;
 
-	ret = 0;
-	write(ca->parent_wait_pipe[1], &ret, sizeof(ret));
-	close(ca->parent_wait_pipe[1]);
+	spawn_wake(ca->parent_wait_pipe, 0);
 
 	return ca->cb(ca->arg);
 
@@ -203,8 +213,7 @@ err_um:
 	if (ca->ct->root_path)
 		fs_umount_ext(ca->ct);
 err:
-	write(ca->parent_wait_pipe[1], &ret, sizeof(ret));
-	close(ca->parent_wait_pipe[1]);
+	spawn_wake(ca->parent_wait_pipe, ret);
 	exit(ret);
 }
 
@@ -242,13 +251,8 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	if (net_start(ct))
 		goto err_net;
 
-	aux = 0;
-	write(ca.child_wait_pipe[1], &aux, sizeof(aux));
-	close(ca.child_wait_pipe[1]);
-
-	aux = -1;
-	read(ca.parent_wait_pipe[0], &aux, sizeof(aux));
-	close(ca.parent_wait_pipe[0]);
+	spawn_wake(ca.child_wait_pipe, 0);
+	aux = spawn_wait(ca.parent_wait_pipe);
 	if (aux != 0)
 		goto err_ch;
 
@@ -258,8 +262,7 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 err_ch:
 	net_stop(ct);
 err_net:
-	aux = -1;
-	write(ca.child_wait_pipe[1], &aux, sizeof(aux));
+	spawn_wake(ca.child_wait_pipe, -1);
 	waitpid(pid, NULL, 0);
 err_clone:
 	close(ca.parent_wait_pipe[0]);
