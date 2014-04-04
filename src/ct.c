@@ -57,6 +57,9 @@ static int local_set_nsmask(ct_handler_t h, unsigned long nsmask)
 	if (nsmask & ~kernel_ns_mask)
 		return -1;
 
+	if (!(nsmask & CLONE_NEWNS))
+		net_release(ct);
+
 	ct->nsmask = nsmask;
 	return 0;
 }
