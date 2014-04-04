@@ -70,7 +70,7 @@ struct ct_clone_arg {
 	int (*cb)(void *);
 	void *arg;
 	struct container *ct;
-	int start_sync_pipe[2];
+	int child_wait_pipe[2];
 };
 
 static int re_mount_proc(bool have_old_proc)
@@ -145,10 +145,10 @@ static int set_ct_root(struct container *ct)
 static int ct_clone(void *arg)
 {
 	bool have_old_proc = true;
-	int ret;
+	int ret = -1;
 	struct ct_clone_arg *ca = arg;
 
-	close(ca->start_sync_pipe[1]);
+	close(ca->child_wait_pipe[1]);
 
 	if (ca->ct->nsmask & CLONE_NEWNS) {
 		/*
@@ -156,7 +156,7 @@ static int ct_clone(void *arg)
 		 * propagate its changes to our container.
 		 */
 		if (mount("none", "/", "none", MS_SLAVE, NULL))
-			exit(-1);
+			goto err;
 
 	}
 
@@ -169,7 +169,7 @@ static int ct_clone(void *arg)
 		 */
 		ret = fs_mount_ext(ca->ct);
 		if (ret < 0)
-			exit(ret);
+			goto err;
 
 		if (set_ct_root(ca->ct))
 			goto err_um;
@@ -186,15 +186,17 @@ static int ct_clone(void *arg)
 		goto err_um;
 
 	ret = -1;
-	read(ca->start_sync_pipe[0], &ret, sizeof(ret));
-	close(ca->start_sync_pipe[0]);
+	read(ca->child_wait_pipe[0], &ret, sizeof(ret));
+	close(ca->child_wait_pipe[0]);
 	if (ret)
 		goto err_um;
 
 	return ca->cb(ca->arg);
 
 err_um:
-	fs_umount_ext(ca->ct);
+	if (ca->ct->root_path)
+		fs_umount_ext(ca->ct);
+err:
 	exit(ret);
 }
 
@@ -213,7 +215,7 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	if (cgroups_create(ct))
 		goto err_cg;
 
-	if (pipe(ca.start_sync_pipe))
+	if (pipe(ca.child_wait_pipe))
 		goto err_pipe;
 
 	ca.cb = cb;
@@ -223,26 +225,26 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	if (pid < 0)
 		goto err_clone;
 
-	close(ca.start_sync_pipe[0]);
+	close(ca.child_wait_pipe[0]);
 	ct->root_pid = pid;
 
 	if (net_start(ct))
 		goto err_net;
 
 	aux = 0;
-	write(ca.start_sync_pipe[1], &aux, sizeof(aux));
-	close(ca.start_sync_pipe[1]);
+	write(ca.child_wait_pipe[1], &aux, sizeof(aux));
+	close(ca.child_wait_pipe[1]);
 
 	ct->state = CT_RUNNING;
 	return 0;
 
 err_net:
 	aux = -1;
-	write(ca.start_sync_pipe[1], &aux, sizeof(aux));
+	write(ca.child_wait_pipe[1], &aux, sizeof(aux));
 	waitpid(pid, NULL, 0);
 err_clone:
-	close(ca.start_sync_pipe[0]);
-	close(ca.start_sync_pipe[1]);
+	close(ca.child_wait_pipe[0]);
+	close(ca.child_wait_pipe[1]);
 err_pipe:
 	cgroups_destroy(ct);
 err_cg:
