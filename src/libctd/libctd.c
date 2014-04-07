@@ -10,6 +10,7 @@
 #include <sys/un.h>
 #include <signal.h>
 #include <getopt.h>
+#include <sys/epoll.h>
 #include "uapi/libct.h"
 #include "list.h"
 #include "xmalloc.h"
@@ -354,68 +355,94 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 	return -1;
 }
 
-static int serve(int sk)
+static int serve(int sk, libct_session_t ses)
 {
 	RpcRequest *req;
 	int ret;
-	libct_session_t ses;
 
-	ses = libct_session_open_local();
-	if (!ses)
+	ret = recv(sk, dbuf, MAX_MSG, 0);
+	if (ret <= 0)
 		return -1;
 
-	while (1) {
-		ret = recv(sk, dbuf, MAX_MSG, 0);
-		if (ret <= 0)
-			break;
+	req = rpc_request__unpack(NULL, ret, dbuf);
+	if (!req)
+		return -1;
 
-		req = rpc_request__unpack(NULL, ret, dbuf);
-		if (!req) {
-			ret = -1;
-			break;
-		}
+	ret = serve_req(sk, ses, req);
+	rpc_request__free_unpacked(req, NULL);
 
-		ret = serve_req(sk, ses, req);
-		rpc_request__free_unpacked(req, NULL);
-
-		if (ret < 0)
-			break;
-	}
-
-	libct_session_close(ses);
 	return ret;
 }
 
 static int do_daemon_loop(int ssk)
 {
-	signal(SIGCHLD, SIG_IGN); /* auto-kill zombies */
+	int efd;
+	struct epoll_event ev;
+	libct_session_t ses;
+
+	ses = libct_session_open_local();
+	if (!ses)
+		goto err_s;
+
+	efd = epoll_create1(0);
+	if (efd < 0)
+		goto err_ep;
+
+	ev.events = EPOLLIN;
+	ev.data.fd = ssk;
+	if (epoll_ctl(efd, EPOLL_CTL_ADD, ssk, &ev) < 0)
+		goto err_l;
 
 	while (1) {
-		int ask;
-		struct sockaddr_un addr;
-		socklen_t alen = sizeof(addr);
+		int n;
 
-		ask = accept(ssk, (struct sockaddr *)&addr, &alen);
-		if (ask < 0)
+		n = epoll_wait(efd, &ev, 1, -1);
+		if (n <= 0)
+			 break;
+
+		if (ev.data.fd == ssk) {
+			/*
+			 * New connection
+			 */
+
+			int ask;
+			struct sockaddr_un addr;
+			socklen_t alen = sizeof(addr);
+
+			ask = accept(ssk, (struct sockaddr *)&addr, &alen);
+			if (ask < 0)
+				continue;
+
+			ev.events = EPOLLIN;
+			ev.data.fd = ask;
+			if (epoll_ctl(efd, EPOLL_CTL_ADD, ask, &ev) < 0)
+				close(ask);
+
 			continue;
-
-		if (fork() == 0) {
-			int ret;
-
-			close(ssk);
-
-			ret = serve(ask);
-			if (ret < 0)
-				ret = -ret;
-
-			close(ask);
-			exit(ret);
 		}
 
-		close(ask);
+		/*
+		 * Request on existing socket
+		 *
+		 * Note, that requests are served one-by-one, thus
+		 * allowing for several connections to work on the
+		 * same container without problems. Simultaneous
+		 * requests serving is not yet possible, due to library
+		 * being non-thread-safe in local session (FIXME?)
+		 */
+
+		if (serve(ev.data.fd, ses) < 0) {
+			epoll_ctl(efd, EPOLL_CTL_DEL, ev.data.fd, NULL);
+			close(ev.data.fd);
+		}
 	}
 
-	return 0;
+err_l:
+	close(efd);
+err_ep:
+	libct_session_close(ses);
+err_s:
+	return 1;
 }
 
 /*
