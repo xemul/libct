@@ -49,6 +49,13 @@ void cgroup_add_mount(struct mntent *me)
 	/* FIXME -- add custom cgroups' mount points if found == -1 */
 }
 
+static inline char *cgroup_get_path(int type, char *buf, int blen)
+{
+	int lp;
+	lp = snprintf(buf, blen, "%s", cg_descs[type].mounted_at);
+	return buf + lp;
+}
+
 int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 {
 	return ct->ops->add_controller(ct, ctype);

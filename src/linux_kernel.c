@@ -40,16 +40,6 @@ int linux_get_ns_mask(void)
 	return 0;
 }
 
-#define CG_DEF_PATH	"/sys/fs/cgroup"
-
-char *cgroup_get_path(int type, char *buf, int blen)
-{
-	int lp;
-	/* FIXME -- find real path of this thing */
-	lp = snprintf(buf, blen, "%s/%s", CG_DEF_PATH, cg_descs[type].name);
-	return buf + lp;
-}
-
 int linux_get_cgroup_mounts(void)
 {
 	FILE *f;
