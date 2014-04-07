@@ -386,6 +386,38 @@ static int serve(int sk)
 	return ret;
 }
 
+static int do_daemon_loop(int ssk)
+{
+	signal(SIGCHLD, SIG_IGN); /* auto-kill zombies */
+
+	while (1) {
+		int ask;
+		struct sockaddr_un addr;
+		socklen_t alen = sizeof(addr);
+
+		ask = accept(ssk, (struct sockaddr *)&addr, &alen);
+		if (ask < 0)
+			continue;
+
+		if (fork() == 0) {
+			int ret;
+
+			close(ssk);
+
+			ret = serve(ask);
+			if (ret < 0)
+				ret = -ret;
+
+			close(ask);
+			exit(ret);
+		}
+
+		close(ask);
+	}
+
+	return 0;
+}
+
 /*
  * CLI options
  */
@@ -484,31 +516,7 @@ int main(int argc, char **argv)
 		fclose(pf);
 	}
 
-	signal(SIGCHLD, SIG_IGN); /* auto-kill zombies */
-
-	while (1) {
-		int ask;
-
-		alen = sizeof(addr);
-		ask = accept(sk, (struct sockaddr *)&addr, &alen);
-		if (ask < 0)
-			continue;
-
-		if (fork() == 0) {
-			int ret;
-
-			close(sk);
-
-			ret = serve(ask);
-			if (ret < 0)
-				ret = -ret;
-
-			close(ask);
-			exit(ret);
-		}
-
-		close(ask);
-	}
+	return do_daemon_loop(sk);
 
 err:
 	return 1;
