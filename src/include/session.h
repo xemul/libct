@@ -6,6 +6,7 @@
 
 struct backend_ops {
 	ct_handler_t (*create_ct)(libct_session_t s, char *name);
+	ct_handler_t (*open_ct)(libct_session_t s, char *name);
 	void (*close)(libct_session_t s);
 };
 

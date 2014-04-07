@@ -29,6 +29,7 @@ enum ct_state {
 };
 
 ct_handler_t libct_container_create(libct_session_t ses, char *name);
+ct_handler_t libct_container_open(libct_session_t ses, char *name);
 enum ct_state libct_container_state(ct_handler_t ct);
 int libct_container_spawn_cb(ct_handler_t ct, int (*ct_fn)(void *), void *arg);
 int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv);

@@ -415,6 +415,11 @@ static int local_set_option(ct_handler_t h, int opt, va_list parms)
 	return ret;
 }
 
+char *local_ct_name(ct_handler_t h)
+{
+	return cth2ct(h)->name;
+}
+
 const struct container_ops local_ct_ops = {
 	.spawn_cb = local_spawn_cb,
 	.spawn_execve = local_spawn_execve,

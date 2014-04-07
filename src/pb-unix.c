@@ -303,7 +303,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.net_add = send_netadd_req,
 };
 
-static ct_handler_t send_create_req(libct_session_t s, char *name)
+static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type)
 {
 	struct pbunix_session *us;
 	struct container_proxy *cp;
@@ -317,7 +317,7 @@ static ct_handler_t send_create_req(libct_session_t s, char *name)
 	if (!cp)
 		return NULL;
 
-	req.req = REQ_TYPE__CT_CREATE;
+	req.req = type;
 	req.create = &cr;
 	cr.name = name;
 
@@ -336,6 +336,16 @@ static ct_handler_t send_create_req(libct_session_t s, char *name)
 	return &cp->h;
 }
 
+static ct_handler_t send_create_req(libct_session_t s, char *name)
+{
+	return send_create_open_req(s, name, REQ_TYPE__CT_CREATE);
+}
+
+static ct_handler_t send_openct_req(libct_session_t s, char *name)
+{
+	return send_create_open_req(s, name, REQ_TYPE__CT_OPEN);
+}
+
 static void close_pbunix_session(libct_session_t s)
 {
 	struct pbunix_session *us;
@@ -347,6 +357,7 @@ static void close_pbunix_session(libct_session_t s)
 
 static const struct backend_ops pbunix_session_ops = {
 	.create_ct = send_create_req,
+	.open_ct = send_openct_req,
 	.close = close_pbunix_session,
 };
 

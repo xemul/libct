@@ -1,24 +1,26 @@
 enum req_type {
 	EMPTY	 	= 0;
 	CT_CREATE	= 1;
-	CT_DESTROY	= 2;
+	CT_OPEN		= 2;
 
-	CT_GET_STATE	= 3;
-	CT_SPAWN	= 4;
-	CT_ENTER	= 5;
-	CT_KILL		= 6;
-	CT_WAIT		= 7;
+	CT_DESTROY	= 10;
 
-	CT_SETNSMASK	= 8;
-	CT_ADD_CNTL	= 9;
-	CT_CFG_CNTL	= 10;
+	CT_GET_STATE	= 11;
+	CT_SPAWN	= 12;
+	CT_ENTER	= 13;
+	CT_KILL		= 14;
+	CT_WAIT		= 15;
 
-	FS_SETROOT	= 11;
-	FS_SETPRIVATE	= 12;
-	FS_ADD_MOUNT	= 13;
+	CT_SETNSMASK	= 16;
+	CT_ADD_CNTL	= 17;
+	CT_CFG_CNTL	= 18;
 
-	CT_SET_OPTION	= 14;
-	CT_NET_ADD	= 15;
+	FS_SETROOT	= 19;
+	FS_SETPRIVATE	= 20;
+	FS_ADD_MOUNT	= 21;
+
+	CT_SET_OPTION	= 22;
+	CT_NET_ADD	= 23;
 }
 
 message create_req {

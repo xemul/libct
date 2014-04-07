@@ -21,6 +21,7 @@
 
 #define MAX_MSG		4096
 #define BADCTRID_ERR	-42
+#define BADCTRNAME_ERR	-43
 
 /* Buffer for keeping serialized messages */
 static unsigned char dbuf[MAX_MSG];
@@ -40,6 +41,17 @@ static struct container_srv *find_ct_by_rid(unsigned long rid)
 
 	list_for_each_entry(cs, &ct_srvs, l)
 		if (cs->rid == rid)
+			return cs;
+
+	return NULL;
+}
+
+static struct container_srv *find_ct_by_name(char *name)
+{
+	struct container_srv *cs;
+
+	list_for_each_entry(cs, &ct_srvs, l)
+		if (!strcmp(name, local_ct_name(cs->hnd)))
 			return cs;
 
 	return NULL;
@@ -104,6 +116,21 @@ err1:
 	xfree(cs);
 err0:
 	return send_err_resp(sk, -1);
+}
+
+static int serve_ct_open(int sk, libct_session_t ses, CreateReq *req)
+{
+	struct container_srv *cs;
+	RpcResponce resp = RPC_RESPONCE__INIT;
+	CreateResp cr = CREATE_RESP__INIT;
+
+	cs = find_ct_by_name(req->name);
+	if (!cs)
+		return send_err_resp(sk, BADCTRNAME_ERR);
+
+	resp.create = &cr;
+	cr.rid = cs->rid;
+	return send_resp(sk, 0, &resp);
 }
 
 static int serve_ct_destroy(int sk, struct container_srv *cs, RpcRequest *req)
@@ -313,6 +340,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 
 	if (req->req == REQ_TYPE__CT_CREATE)
 		return serve_ct_create(sk, ses, req->create);
+	else if (req->req == REQ_TYPE__CT_OPEN)
+		return serve_ct_open(sk, ses, req->create);
 
 	if (req->has_ct_rid)
 		cs = find_ct_by_rid(req->ct_rid);

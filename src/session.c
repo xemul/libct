@@ -74,6 +74,17 @@ ct_handler_t libct_container_create(libct_session_t ses, char *name)
 	return ses->ops->create_ct(ses, name);
 }
 
+ct_handler_t libct_container_open(libct_session_t ses, char *name)
+{
+	if (!name)
+		return NULL;
+
+	if (!ses->ops->open_ct)
+		return NULL;
+
+	return ses->ops->open_ct(ses, name);
+}
+
 void libct_session_close(libct_session_t s)
 {
 	s->ops->close(s);
