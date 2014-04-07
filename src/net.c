@@ -10,8 +10,6 @@
 
 /*
  * Generic Linux networking management
- * XXX -- copu libnetlink.c from criu/ip and implement proper
- * rtnl requests here.
  */
 
 /*
