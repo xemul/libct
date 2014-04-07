@@ -5,7 +5,6 @@
 #include "ct.h"
 
 struct local_session {
-	struct list_head s_cts;
 	struct libct_session s;
 };
 
@@ -19,7 +18,7 @@ static void close_local_session(libct_session_t s)
 	struct local_session *ls;
 
 	ls = s2ls(s);
-	containers_cleanup(&ls->s_cts);
+	containers_cleanup(&ls->s.s_cts);
 	xfree(ls);
 }
 
@@ -39,7 +38,7 @@ static ct_handler_t create_local_ct(libct_session_t s, char *name)
 		INIT_LIST_HEAD(&ct->cg_configs);
 		INIT_LIST_HEAD(&ct->ct_nets);
 		INIT_LIST_HEAD(&ct->fs_mnts);
-		list_add_tail(&ct->s_lh, &ls->s_cts);
+		list_add_tail(&ct->s_lh, &ls->s.s_cts);
 	}
 
 	return &ct->h;
@@ -59,7 +58,7 @@ libct_session_t libct_session_open_local(void)
 
 	s = xmalloc(sizeof(*s));
 	if (s) {
-		INIT_LIST_HEAD(&s->s_cts);
+		INIT_LIST_HEAD(&s->s.s_cts);
 		s->s.ops = &local_session_ops;
 	}
 
