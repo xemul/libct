@@ -25,7 +25,7 @@ static enum ct_state local_get_state(ct_handler_t h)
 
 static void container_destroy(struct container *ct)
 {
-	list_del(&ct->s_lh);
+	list_del(&ct->h.s_lh);
 	cgroups_destroy(ct);
 	fs_free(ct);
 	net_release(ct);
@@ -42,7 +42,7 @@ void containers_cleanup(struct list_head *cts)
 {
 	struct container *ct, *n;
 
-	list_for_each_entry_safe(ct, n, cts, s_lh)
+	list_for_each_entry_safe(ct, n, cts, h.s_lh)
 		container_destroy(ct);
 }
 
