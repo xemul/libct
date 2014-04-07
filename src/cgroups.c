@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <mntent.h>
 #include "uapi/libct.h"
 #include "list.h"
 #include "ct.h"
@@ -25,6 +26,28 @@ struct cg_desc cg_descs[CT_NR_CONTROLLERS] = {
 	[CTL_MEMORY]	= { .name = "memory", },
 	[CTL_NETCLS]	= { .name = "net_cls", },
 };
+
+void cgroup_add_mount(struct mntent *me)
+{
+	int i, found = -1;
+
+	for (i = 0; i < CT_NR_CONTROLLERS; i++) {
+		if (cg_descs[i].mounted_at)
+			continue;
+
+		if (hasmntopt(me, cg_descs[i].name)) {
+			if (found == -1) {
+				found = i;
+				cg_descs[i].mounted_at = xstrdup(me->mnt_dir);
+			} else {
+				cg_descs[i].merged = &cg_descs[found];
+				cg_descs[i].mounted_at = cg_descs[found].mounted_at;
+			}
+		}
+	}
+
+	/* FIXME -- add custom cgroups' mount points if found == -1 */
+}
 
 int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 {

@@ -10,7 +10,12 @@ struct controller {
 
 struct cg_desc {
 	char *name;
+	char *mounted_at;
+	struct cg_desc *merged;
 };
+
+struct mntent;
+void cgroup_add_mount(struct mntent *);
 
 /*
  * Postponed cgroups configuration

@@ -18,6 +18,9 @@ int libct_init_local(void)
 	if (linux_get_ns_mask())
 		return -1;
 
+	if (linux_get_cgroup_mounts())
+		return -1;
+
 	done = true;
 	return 0;
 }

@@ -3,6 +3,7 @@
 #include <sched.h>
 #include <string.h>
 #include <stdio.h>
+#include <mntent.h>
 #include "linux-kernel.h"
 #include "cgroups.h"
 
@@ -47,4 +48,21 @@ char *cgroup_get_path(int type, char *buf, int blen)
 	/* FIXME -- find real path of this thing */
 	lp = snprintf(buf, blen, "%s/%s", CG_DEF_PATH, cg_descs[type].name);
 	return buf + lp;
+}
+
+int linux_get_cgroup_mounts(void)
+{
+	FILE *f;
+	struct mntent *me;
+
+	f = setmntent("/proc/mounts", "r");
+	if (!f)
+		return -1;
+
+	while ((me = getmntent(f)) != NULL)
+		if (!strcmp(me->mnt_type, "cgroup"))
+			cgroup_add_mount(me);
+
+	fclose(f);
+	return 0;
 }
