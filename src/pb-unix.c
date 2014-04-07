@@ -96,18 +96,20 @@ static inline void pack_ct_req(RpcRequest *req, int t, ct_handler_t h)
 	req->ct_rid = cp->rid;
 }
 
+static void destroy_proxy(struct container_proxy *cp)
+{
+	list_del(&cp->h.s_lh);
+	xfree(cp);
+}
+
 static void send_destroy_req(ct_handler_t h)
 {
-	struct container_proxy *cs;
 	RpcRequest req = RPC_REQUEST__INIT;
 
 	pack_ct_req(&req, REQ_TYPE__CT_DESTROY, h);
 	pbunix_req_ct(h, &req, NULL);
 	/* FIXME what if it fails? */
-
-	cs = ch2c(h);
-	list_del(&cs->h.s_lh);
-	xfree(cs);
+	destroy_proxy(ch2c(h));
 }
 
 static enum ct_state send_get_state_req(ct_handler_t h)
@@ -331,9 +333,11 @@ static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type
 		return NULL;
 	}
 
-	if (type == REQ_TYPE__CT_OPEN)
-		list_for_each_entry(cp, &us->s.s_cts, h.s_lh) {
-			if (cp->rid != resp->create->rid)
+	if (type == REQ_TYPE__CT_OPEN) {
+		struct container_proxy *r;
+
+		list_for_each_entry(r, &us->s.s_cts, h.s_lh) {
+			if (r->rid != resp->create->rid)
 				continue;
 
 			/*
@@ -343,8 +347,10 @@ static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type
 			 */
 
 			xfree(cp);
+			cp = r;
 			goto found;
 		}
+	}
 
 	cp->h.ops = &pbunix_ct_ops;
 	list_add_tail(&cp->h.s_lh, &us->s.s_cts);
@@ -369,8 +375,13 @@ static ct_handler_t send_openct_req(libct_session_t s, char *name)
 static void close_pbunix_session(libct_session_t s)
 {
 	struct pbunix_session *us;
+	struct container_proxy *cp, *n;
 
 	us = s2us(s);
+
+	list_for_each_entry_safe(cp, n, &us->s.s_cts, h.s_lh)
+		destroy_proxy(cp);
+
 	close(us->sk);
 	xfree(us);
 }
