@@ -162,11 +162,12 @@ static int ct_clone(void *arg)
 	bool have_old_proc = true;
 	int ret = -1;
 	struct ct_clone_arg *ca = arg;
+	struct container *ct = ca->ct;
 
 	close(ca->child_wait_pipe[1]);
 	close(ca->parent_wait_pipe[0]);
 
-	if (ca->ct->nsmask & CLONE_NEWNS) {
+	if (ct->nsmask & CLONE_NEWNS) {
 		/*
 		 * Remount / as slave, so that it doesn't
 		 * propagate its changes to our container.
@@ -176,28 +177,28 @@ static int ct_clone(void *arg)
 
 	}
 
-	if (ca->ct->root_path) {
+	if (ct->root_path) {
 		/*
 		 * Mount external in child, since it may live
 		 * in sub mount namespace. If it doesn't do
 		 * it here anyway, just umount by hands in the
 		 * fs_umount().
 		 */
-		ret = fs_mount_ext(ca->ct);
+		ret = fs_mount_ext(ct);
 		if (ret < 0)
 			goto err;
 
-		if (set_ct_root(ca->ct))
+		if (set_ct_root(ct))
 			goto err_um;
 
 		have_old_proc = false;
 	}
 
-	ret = try_mount_proc(ca->ct, have_old_proc);
+	ret = try_mount_proc(ct, have_old_proc);
 	if (ret < 0)
 		goto err_um;
 
-	ret = cgroups_attach(ca->ct);
+	ret = cgroups_attach(ct);
 	if (ret < 0)
 		goto err_um;
 
@@ -210,8 +211,8 @@ static int ct_clone(void *arg)
 	return ca->cb(ca->arg);
 
 err_um:
-	if (ca->ct->root_path)
-		fs_umount_ext(ca->ct);
+	if (ct->root_path)
+		fs_umount_ext(ct);
 err:
 	spawn_wake(ca->parent_wait_pipe, ret);
 	exit(ret);
