@@ -98,12 +98,16 @@ static inline void pack_ct_req(RpcRequest *req, int t, ct_handler_t h)
 
 static void send_destroy_req(ct_handler_t h)
 {
+	struct container_proxy *cs;
 	RpcRequest req = RPC_REQUEST__INIT;
 
 	pack_ct_req(&req, REQ_TYPE__CT_DESTROY, h);
 	pbunix_req_ct(h, &req, NULL);
 	/* FIXME what if it fails? */
-	xfree(ch2c(h));
+
+	cs = ch2c(h);
+	list_del(&cs->h.s_lh);
+	xfree(cs);
 }
 
 static enum ct_state send_get_state_req(ct_handler_t h)
@@ -306,7 +310,7 @@ static const struct container_ops pbunix_ct_ops = {
 static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type)
 {
 	struct pbunix_session *us;
-	struct container_proxy *cp;
+	struct container_proxy *cp = NULL;
 	RpcRequest req = RPC_REQUEST__INIT;
 	CreateReq cr = CREATE_REQ__INIT;
 	RpcResponce *resp;
@@ -327,10 +331,26 @@ static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type
 		return NULL;
 	}
 
+	if (type == REQ_TYPE__CT_OPEN)
+		list_for_each_entry(cp, &us->s.s_cts, h.s_lh) {
+			if (cp->rid != resp->create->rid)
+				continue;
+
+			/*
+			 * We've found existing container_proxy.
+			 * This can happen when we create a handle
+			 * and open it without closing the session.
+			 */
+
+			xfree(cp);
+			goto found;
+		}
+
 	cp->h.ops = &pbunix_ct_ops;
+	list_add_tail(&cp->h.s_lh, &us->s.s_cts);
 	cp->rid = resp->create->rid;
 	cp->ses = us;
-
+found:
 	rpc_responce__free_unpacked(resp, NULL);
 
 	return &cp->h;
@@ -383,6 +403,7 @@ libct_session_t libct_session_open_pbunix(char *sk_path)
 	if (connect(us->sk, (struct sockaddr *)&addr, alen))
 		goto err;
 
+	INIT_LIST_HEAD(&us->s.s_cts);
 	us->s.ops = &pbunix_session_ops;
 	return &us->s;
 
