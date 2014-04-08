@@ -202,18 +202,26 @@ static void destroy_controller(struct container *ct, struct controller *ctl)
 	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
 	sprintf(t, "/%s", ct->name);
 	rmdir(path);
-
-	list_del(&ctl->ct_l);
-	xfree(ctl);
 }
 
 void cgroups_destroy(struct container *ct)
 {
+	struct controller *ctl;
+
+	list_for_each_entry(ctl, &ct->cgroups, ct_l)
+		destroy_controller(ct, ctl);
+}
+
+void cgroups_free(struct container *ct)
+{
 	struct controller *ctl, *n;
 	struct cg_config *cfg, *cn;
 
-	list_for_each_entry_safe(ctl, n, &ct->cgroups, ct_l)
-		destroy_controller(ct, ctl);
+	list_for_each_entry_safe(ctl, n, &ct->cgroups, ct_l) {
+		list_del(&ctl->ct_l);
+		xfree(ctl);
+	}
+
 	list_for_each_entry_safe(cfg, cn, &ct->cg_configs, l) {
 		list_del(&cfg->l);
 		xfree(cfg->param);

@@ -28,7 +28,7 @@ static enum ct_state local_get_state(ct_handler_t h)
 static void container_destroy(struct container *ct)
 {
 	list_del(&ct->h.s_lh);
-	cgroups_destroy(ct);
+	cgroups_free(ct);
 	fs_free(ct);
 	net_release(ct);
 	xfree(ct->name);
@@ -424,7 +424,7 @@ static int local_ct_wait(ct_handler_t h)
 		return -1;
 
 	fs_umount(ct);
-
+	cgroups_destroy(ct); /* FIXME -- can be held accross restarts */
 	net_stop(ct);
 
 	ct->state = CT_STOPPED;
