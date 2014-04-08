@@ -155,6 +155,9 @@ all: $(LIBCT) src/libctd/$(LIBCTD)
 docs:
 	$(Q) $(MAKE) -s -C Documentation all
 
+docs-pdf:
+	$(Q) $(MAKE) -s -C Documentation all-pdfs
+
 tags:
 	$(E) "  GEN     " $@
 	$(Q) $(RM) tags
