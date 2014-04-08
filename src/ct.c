@@ -141,7 +141,7 @@ static int set_current_root(char *path)
 
 static int set_ct_root(struct container *ct)
 {
-	char put_root[] = "libct-root.XXXX";
+	char put_root[] = "libct-root.XXXXXX";
 
 	if (!(ct->nsmask & CLONE_NEWNS))
 		return set_current_root(ct->root_path);
