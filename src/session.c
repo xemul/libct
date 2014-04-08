@@ -39,9 +39,11 @@ static ct_handler_t create_local_ct(libct_session_t s, char *name)
 		INIT_LIST_HEAD(&ct->ct_nets);
 		INIT_LIST_HEAD(&ct->fs_mnts);
 		list_add_tail(&ct->h.s_lh, &ls->s.s_cts);
+
+		return &ct->h;
 	}
 
-	return &ct->h;
+	return NULL;
 }
 
 static const struct backend_ops local_session_ops = {
@@ -60,9 +62,10 @@ libct_session_t libct_session_open_local(void)
 	if (s) {
 		INIT_LIST_HEAD(&s->s.s_cts);
 		s->s.ops = &local_session_ops;
+		return &s->s;
 	}
 
-	return &s->s;
+	return NULL;
 }
 
 ct_handler_t libct_container_create(libct_session_t ses, char *name)
