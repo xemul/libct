@@ -16,7 +16,7 @@ respective functions withing its local session
 it is merely a fork()-ed process. Container can be equipped with various
 things, e.g.
 
-  - Namespaces. Libcg accepts clone mask with which container is started
+  - Namespaces. Libct accepts clone mask with which container is started
 
   - Controllers. One may configure all existing CGroup controllers inside
     which container will be started.
@@ -33,3 +33,4 @@ things, e.g.
 
 
 For more details see Documentation/libct.txt, for examples -- the test/ dir.
+All the API calls, types and constants are collected in include/uapi/libct.h
