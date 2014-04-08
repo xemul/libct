@@ -445,6 +445,8 @@ static int local_set_option(ct_handler_t h, int opt, va_list parms)
 		ret = 0;
 		ct->cgroup_sub = xstrdup(xvaopt(parms, char *,
 					DEFAULT_CGROUPS_PATH));
+		if (!ct->cgroup_sub)
+			ret = -1;
 		break;
 	}
 
@@ -460,16 +462,20 @@ static int local_uname(ct_handler_t h, char *host, char *dom)
 	if (ct->state != CT_STOPPED)
 		return -1; /* FIXME */
 
-	if (ct->hostname)
-		xfree(ct->hostname);
-	if (host)
+	if (host) {
 		host = xstrdup(host);
+		if (!host)
+			return -1;
+	}
+	xfree(ct->hostname);
 	ct->hostname = host;
 
-	if (ct->domainname)
-		xfree(ct->domainname);
-	if (dom)
+	if (dom) {
 		dom = xstrdup(dom);
+		if (!dom)
+			return -1;
+	}
+	xfree(ct->domainname);
 	ct->domainname = dom;
 
 	return 0;
