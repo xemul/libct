@@ -346,8 +346,10 @@ static void *veth_unpack(NetaddReq *req)
 	struct ct_net_veth_arg *va;
 
 	va = xmalloc(sizeof(*va));
-	va->host_name = req->nicname;
-	va->ct_name = req->peername;
+	if (va) {
+		va->host_name = req->nicname;
+		va->ct_name = req->peername;
+	}
 
 	return va;
 }
