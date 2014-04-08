@@ -32,6 +32,8 @@ static void container_destroy(struct container *ct)
 	fs_free(ct);
 	net_release(ct);
 	xfree(ct->name);
+	xfree(ct->hostname);
+	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
 	xfree(ct);
 }
