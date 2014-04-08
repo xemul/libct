@@ -31,7 +31,7 @@ containers which are managed by backend operations.
 container handler
 ~~~~~~~~~~~~~~~~~
 
-A container inside of a session. Container handlers are unique inside session,
+A container inside a session. Container handlers are unique inside session,
 which allows *libct* to distinguish every container from each other. Container
 handlers are provided back to a fronted upon a conainer creation (posterior calls
 to *libtc* service functions usually require a conteinter handler to be passed
@@ -132,8 +132,9 @@ int *libct_controller_add*(ct_handler_t 'ct', enum ct_controller 'ctype')::
 	must be in the stopped state. Returns 0 on success, otherwise -1.
 
 int *libct_controller_configure*(ct_handler_t 'ct', enum ct_controller 'ctype', char *'param', char *'value')::
-	Configures the controller 'ctype' of the container 'ct', whith parameter 'param' and
-	'value' value. The container must be in the running state.
+	Configures the controller 'ctype' of the container 'ct', whith parameter
+	'param' and 'value' value. The container must be in any state. If it's
+	stopped, the configured parameters will be applied on container start.
 	Returns 0 on success, otherwise -1.
 
 
@@ -146,15 +147,17 @@ int *libct_fs_set_root*(ct_handler_t 'ct', char *'root_path')::
 
 int *libct_fs_set_private*(ct_handler_t 'ct', enum ct_fs_type 'type', void *'arg')::
 	Sets private directory for the container 'ct'. 'type' may be one of the following:
-	*CT_FS_NONE* -- when frontend wants to configure private directory by self,
-	*CT_FS_SUBDIR* -- when frontend prefers the directory path pointed by 'arg' would
-	be mounted as a private by *libct* upon the container start. The container must be
-	in the stopped state. Returns 0 on success, otherwise -1.
+	*CT_FS_NONE* -- when frontend wants to configure private directory by self or
+	when all private data is alredy in the root directory,*CT_FS_SUBDIR* -- when
+	frontend prefers the directory path pointed by 'arg' would be mounted as a
+	private by *libct* upon the container start. The container must be in the stopped 
+	state. Returns 0 on success, otherwise -1.
 
 int *libct_fs_add_mount*(ct_handler_t 'ct', char *'source', char *'destination', int 'flags')::
-	Sets additional mount points for the container 'ct' upon its startup. 'source',
+	Sets external bind mount points for the container 'ct' upon its startup. 'source',
 	'destination', 'flags' are source, destination directories and flags for mounting
-	as appropriate. The container must be in the stopped state.
+	as appropriate. The 'source' path is relative to the caller's root, the 'destination'
+	path is relative to the container's root. The container must be in the stopped state.
 	Returns 0 on success, otherwise -1.
 
 
@@ -172,9 +175,14 @@ CONTAINER OPTIONS
 -----------------
 
 int *libct_container_set_option*(ct_handler_t 'ct', int 'opt', ...)::
-	Sets option 'opt' for the container 'ct'. At the moment only *LIBCT_OPT_AUTO_PROC_MOUNT*
-	is supported which automatically mount procfs upon the container startup.
-	Returns 0 on success, otherwise -1.
+	Sets option 'opt' for the container 'ct'. Options can be
+	
+	*LIBCT_OPT_AUTO_PROC_MOUNT*:: automatically mount procfs upon the container
+	startup if the container lives in its own pid namespace.
+
+	*LIBCT_OPT_CGROUP_SUBMOUNT*:: bind mount container's controllers into it's
+	file tree so that it will be able to create sub-cgroups. Argument is the
+	path where to mount, or NULL (in this case "/sys/fs/cgroup" will be used).
 
 
 EXAMPLE
