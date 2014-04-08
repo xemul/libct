@@ -1,3 +1,6 @@
+/*
+ * Test subdir as private FS in new mount namespace
+ */
 #include <unistd.h>
 #include <libct.h>
 #include <stdio.h>

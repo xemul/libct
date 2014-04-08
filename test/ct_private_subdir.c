@@ -1,3 +1,6 @@
+/*
+ * Test subdir as private FS (CT_FS_SUBDIR)
+ */
 #include <unistd.h>
 #include <libct.h>
 #include <stdio.h>

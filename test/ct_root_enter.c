@@ -1,3 +1,6 @@
+/*
+ * Test that entering into chroot()-ed CT works
+ */
 #include <unistd.h>
 #include <libct.h>
 #include <stdio.h>

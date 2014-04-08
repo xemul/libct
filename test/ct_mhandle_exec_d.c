@@ -1,3 +1,6 @@
+/*
+ * Test that container handler can be opened from libctd
+ */
 #include <libct.h>
 #include <stdio.h>
 #include <sys/mman.h>

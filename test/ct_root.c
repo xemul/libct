@@ -1,3 +1,6 @@
+/*
+ * Test simple chroot()-ed CT
+ */
 #include <unistd.h>
 #include <libct.h>
 #include <stdio.h>

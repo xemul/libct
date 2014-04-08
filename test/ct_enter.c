@@ -1,3 +1,6 @@
+/*
+ * Test entering into living container
+ */
 #include <libct.h>
 #include <stdio.h>
 #include <sys/mman.h>

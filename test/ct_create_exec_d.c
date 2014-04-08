@@ -1,3 +1,6 @@
+/*
+ * Test creation of container with executable via libctd
+ */
 #include <libct.h>
 #include <stdio.h>
 #include <sys/mman.h>

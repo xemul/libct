@@ -1,3 +1,6 @@
+/*
+ * Test empty "container" creation
+ */
 #include <libct.h>
 #include <stdio.h>
 #include <sys/mman.h>

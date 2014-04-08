@@ -1,3 +1,6 @@
+/*
+ * Test how proc automount works (LIBCT_OPT_AUTO_PROC_MOUNT)
+ */
 #include <libct.h>
 #include <stdio.h>
 #include <sys/mman.h>

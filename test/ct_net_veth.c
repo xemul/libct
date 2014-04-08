@@ -1,3 +1,6 @@
+/*
+ * Test that veth pair can be created
+ */
 #define _GNU_SOURCE
 #include <sys/types.h>
 #include <libct.h>

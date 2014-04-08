@@ -1,3 +1,7 @@
+/*
+ * Test how cgroups subgroups work inside containers
+ * (LIBCT_OPT_CGROUP_SUBMOUNT option).
+ */
 #include <unistd.h>
 #include <libct.h>
 #include <stdio.h>

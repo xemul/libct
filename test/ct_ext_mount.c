@@ -1,3 +1,6 @@
+/*
+ * Test external bind mount works
+ */
 #include <unistd.h>
 #include <libct.h>
 #include <stdio.h>
