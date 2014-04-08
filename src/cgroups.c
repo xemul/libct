@@ -99,6 +99,9 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	if (!(ct->cgroups_mask & cbit(ctype)))
 		return -1;
 
+	if (!param || !value)
+		return -1;
+
 	if (ct->state != CT_RUNNING) {
 		struct cg_config *cfg;
 
@@ -107,11 +110,15 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		 */
 
 		list_for_each_entry(cfg, &ct->cg_configs, l) {
+			char *new;
 			if (cfg->ctype != ctype || strcmp(cfg->param, param))
 				continue;
 
+			new = xstrdup(value);
+			if (!new)
+				return -1;
 			xfree(cfg->value);
-			cfg->value = xstrdup(value);
+			cfg->value = new;
 			return 0;
 		}
 
@@ -122,6 +129,12 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		cfg->ctype = ctype;
 		cfg->param = xstrdup(param);
 		cfg->value = xstrdup(value);
+		if (!cfg->param || !cfg->value) {
+			xfree(cfg->param);
+			xfree(cfg->value);
+			xfree(cfg);
+			return -1;
+		}
 		list_add_tail(&cfg->l, &ct->cg_configs);
 		return 0;
 	}
