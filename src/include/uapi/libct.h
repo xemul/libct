@@ -104,6 +104,11 @@ int libct_net_add(ct_handler_t ct, enum ct_net_type, void *arg);
 
 /* Mount proc when PID _and_ mount namespaces are used together */
 #define LIBCT_OPT_AUTO_PROC_MOUNT			1
+/*
+ * Bind mount CT's cgroup inside CT to let it create subgroups 
+ * Argument: path where to mount it. NULL results in libct default
+ */
+#define LIBCT_OPT_CGROUP_SUBMOUNT			2
 
 int libct_container_set_option(ct_handler_t ct, int opt, ...);
 

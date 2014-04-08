@@ -37,4 +37,7 @@ void cgroups_destroy(struct container *);
 int local_add_controller(ct_handler_t h, enum ct_controller ctype);
 int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		char *param, char *value);
+
+
+#define DEFAULT_CGROUPS_PATH	"/sys/fs/cgroup"
 #endif

@@ -53,6 +53,7 @@ struct container {
 	unsigned long cgroups_mask;
 	struct list_head cgroups;
 	struct list_head cg_configs;
+	char *cgroup_sub;
 	char *hostname;
 	char *domainname;
 

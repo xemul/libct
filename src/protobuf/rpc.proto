@@ -59,6 +59,7 @@ message setpriv_req {
 
 message setoption_req {
 	required int32	opt		= 1;
+	optional string	cg_path		= 2;
 }
 
 message netadd_req {

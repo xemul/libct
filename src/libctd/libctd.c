@@ -297,6 +297,10 @@ static int serve_set_option(int sk, struct container_srv *cs, RpcRequest *req)
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
 		ret = libct_container_set_option(cs->hnd, opt);
 		break;
+	case LIBCT_OPT_CGROUP_SUBMOUNT:
+		ret = libct_container_set_option(cs->hnd, opt,
+				req->setopt->cg_path);
+		break;
 	}
 
 	return send_resp(sk, ret);

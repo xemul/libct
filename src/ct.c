@@ -17,6 +17,7 @@
 #include "asm/page.h"
 #include "fs.h"
 #include "net.h"
+#include "util.h"
 
 static enum ct_state local_get_state(ct_handler_t h)
 {
@@ -30,6 +31,7 @@ static void container_destroy(struct container *ct)
 	fs_free(ct);
 	net_release(ct);
 	xfree(ct->name);
+	xfree(ct->cgroup_sub);
 	xfree(ct);
 }
 
@@ -428,6 +430,11 @@ static int local_set_option(ct_handler_t h, int opt, va_list parms)
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
 		ret = 0;
 		ct->flags |= CT_AUTO_PROC;
+		break;
+	case LIBCT_OPT_CGROUP_SUBMOUNT:
+		ret = 0;
+		ct->cgroup_sub = xstrdup(xvaopt(parms, char *,
+					DEFAULT_CGROUPS_PATH));
 		break;
 	}
 

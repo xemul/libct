@@ -10,6 +10,8 @@
 #include "ct.h"
 #include "net.h"
 #include "protobuf/rpc.pb-c.h"
+#include "cgroups.h"
+#include "util.h"
 
 #define MAX_MSG_ONSTACK	512
 
@@ -248,6 +250,9 @@ static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
 	default:
 		return -1;
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
+		break;
+	case LIBCT_OPT_CGROUP_SUBMOUNT:
+		so.cg_path = xvaopt(parms, char *, DEFAULT_CGROUPS_PATH);
 		break;
 	}
 
