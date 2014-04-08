@@ -27,6 +27,7 @@ static int check_cgroup(void *a)
 	mkdir("/"FS_CG"/freezer/x");
 	if (access("/"FS_CG"/freezer/x/freezer.state", F_OK) == 0)
 		s[1] = 1;
+	rmdir("/"FS_CG"/freezer/x");
 
 	return 0;
 }
