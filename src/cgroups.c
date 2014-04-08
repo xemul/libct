@@ -4,6 +4,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <mntent.h>
+#include <limits.h>
+#include <sys/mount.h>
 #include "uapi/libct.h"
 #include "list.h"
 #include "ct.h"
@@ -218,6 +220,65 @@ void cgroups_destroy(struct container *ct)
 		xfree(cfg->value);
 		xfree(cfg);
 	}
+}
+
+/*
+ * Bind mount container's controller root dir into @to
+ */
+static int re_mount_controller(struct container *ct, struct controller *ctl, char *to)
+{
+	char path[PATH_MAX], *t;
+
+	if (mkdir(to, 0600))
+		return -1;
+
+	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
+	sprintf(t, "/%s", ct->name);
+
+	if (mount(path, to, NULL, MS_BIND, NULL))
+		return -1;
+
+	return 0;
+}
+
+static int re_mount_cg(struct container *ct)
+{
+	char tpath[PATH_MAX];
+	struct controller *ctl;
+	int l;
+
+	if (!ct->root_path)
+		return -1; /* FIXME -- implement */
+
+	l = sprintf(tpath, "/%s/%s", ct->root_path, ct->cgroup_sub);
+	if (mount("none", tpath, "tmpfs", 0, NULL))
+		goto err;
+
+	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
+		sprintf(tpath + l, "/%s", cg_descs[ctl->ctype].name);
+		if (re_mount_controller(ct, ctl, tpath))
+			goto err_ctl;
+	}
+
+	return 0;
+
+err_ctl:
+	tpath[l] = '\0';
+	umount2(tpath, MNT_DETACH);
+err:
+	return -1;
+}
+
+int try_mount_cg(struct container *ct)
+{
+	/* Not requested by user */
+	if (!ct->cgroup_sub)
+		return 0;
+	/* Can't have cgroup submount in shared FS */
+	if (!fs_private(ct))
+		return -1;
+
+	return re_mount_cg(ct);
 }
 
 int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,

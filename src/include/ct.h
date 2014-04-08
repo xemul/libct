@@ -87,7 +87,7 @@ void containers_cleanup(struct list_head *cts);
 
 static inline bool fs_private(struct container *ct)
 {
-	return ct->root_path || (ct->nsmask & CLONE_NEWNS);
+	return /* FIXME ct->root_path || */ (ct->nsmask & CLONE_NEWNS);
 }
 
 #endif /* __LIBCT_CT_H__ */

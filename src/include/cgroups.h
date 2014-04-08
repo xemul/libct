@@ -38,6 +38,8 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype);
 int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		char *param, char *value);
 
+int try_mount_cg(struct container *);
+
 
 #define DEFAULT_CGROUPS_PATH	"/sys/fs/cgroup"
 #endif
