@@ -15,7 +15,7 @@ struct cg_desc {
 };
 
 struct mntent;
-void cgroup_add_mount(struct mntent *);
+int cgroup_add_mount(struct mntent *);
 
 /*
  * Postponed cgroups configuration

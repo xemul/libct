@@ -29,7 +29,7 @@ struct cg_desc cg_descs[CT_NR_CONTROLLERS] = {
 	[CTL_NETCLS]	= { .name = "net_cls", },
 };
 
-void cgroup_add_mount(struct mntent *me)
+int cgroup_add_mount(struct mntent *me)
 {
 	int i, found = -1;
 
@@ -41,6 +41,8 @@ void cgroup_add_mount(struct mntent *me)
 			if (found == -1) {
 				found = i;
 				cg_descs[i].mounted_at = xstrdup(me->mnt_dir);
+				if (!cg_descs[i].mounted_at)
+					return -1;
 			} else {
 				cg_descs[i].merged = &cg_descs[found];
 				cg_descs[i].mounted_at = cg_descs[found].mounted_at;
@@ -49,6 +51,7 @@ void cgroup_add_mount(struct mntent *me)
 	}
 
 	/* FIXME -- add custom cgroups' mount points if found == -1 */
+	return 0;
 }
 
 static inline char *cgroup_get_path(int type, char *buf, int blen)

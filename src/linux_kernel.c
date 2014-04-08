@@ -42,6 +42,7 @@ int linux_get_ns_mask(void)
 
 int linux_get_cgroup_mounts(void)
 {
+	int ret = 0;
 	FILE *f;
 	struct mntent *me;
 
@@ -49,10 +50,14 @@ int linux_get_cgroup_mounts(void)
 	if (!f)
 		return -1;
 
-	while ((me = getmntent(f)) != NULL)
-		if (!strcmp(me->mnt_type, "cgroup"))
-			cgroup_add_mount(me);
+	while ((me = getmntent(f)) != NULL) {
+		if (!strcmp(me->mnt_type, "cgroup")) {
+			ret = cgroup_add_mount(me);
+			if (ret)
+				break;
+		}
+	}
 
 	fclose(f);
-	return 0;
+	return ret;
 }
