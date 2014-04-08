@@ -250,7 +250,7 @@ static int re_mount_cg(struct container *ct)
 	if (!ct->root_path)
 		return -1; /* FIXME -- implement */
 
-	l = sprintf(tpath, "/%s/%s", ct->root_path, ct->cgroup_sub);
+	l = sprintf(tpath, "%s/%s", ct->root_path, ct->cgroup_sub);
 	if (mount("none", tpath, "tmpfs", 0, NULL))
 		goto err;
 
