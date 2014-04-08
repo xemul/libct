@@ -1,6 +1,8 @@
 #ifndef __LIBCT_CT_H__
 #define __LIBCT_CT_H__
 
+#include <sched.h>
+#include <stdbool.h>
 #include "fs.h"
 #include "net.h"
 
@@ -82,5 +84,10 @@ static inline struct container *cth2ct(struct ct_handler *h)
 
 char *local_ct_name(ct_handler_t h);
 void containers_cleanup(struct list_head *cts);
+
+static inline bool fs_private(struct container *ct)
+{
+	return ct->root_path || (ct->nsmask & CLONE_NEWNS);
+}
 
 #endif /* __LIBCT_CT_H__ */

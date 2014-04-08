@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <sys/mount.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include "xmalloc.h"
 #include "list.h"
@@ -96,9 +97,9 @@ static inline void spawn_wake(int *pipe, int ret)
 	close(pipe[1]);
 }
 
-static int re_mount_proc(bool have_old_proc)
+static int re_mount_proc(struct container *ct)
 {
-	if (have_old_proc) {
+	if (!ct->root_path) {
 		if (mount("none", "/proc", "none", MS_PRIVATE|MS_REC, NULL))
 			return -1;
 
@@ -108,19 +109,21 @@ static int re_mount_proc(bool have_old_proc)
 	return mount("proc", "/proc", "proc", 0, NULL);
 }
 
-static int try_mount_proc(struct container *ct, bool have_old_proc)
+static int try_mount_proc(struct container *ct)
 {
+	/* Not requested by user */
 	if (!(ct->flags & CT_AUTO_PROC))
 		return 0;
 
 	/* Container w/o pidns can work on existing proc */
 	if (!(ct->nsmask & CLONE_NEWPID))
 		return 0;
-	/* Container w/o mountns cannot have it's own proc */
-	if (!(ct->nsmask & CLONE_NEWNS))
-		return 0;
 
-	return re_mount_proc(have_old_proc);
+	/* Container with shared FS has no place for new proc */
+	if (!fs_private(ct))
+		return -1;
+
+	return re_mount_proc(ct);
 }
 
 extern int pivot_root(const char *new_root, const char *put_old);
@@ -167,7 +170,6 @@ static int set_ct_root(struct container *ct)
 
 static int ct_clone(void *arg)
 {
-	bool have_old_proc = true;
 	int ret = -1;
 	struct ct_clone_arg *ca = arg;
 	struct container *ct = ca->ct;
@@ -198,8 +200,6 @@ static int ct_clone(void *arg)
 
 		if (set_ct_root(ct))
 			goto err_um;
-
-		have_old_proc = false;
 	}
 
 	if (ct->hostname) {
@@ -214,7 +214,7 @@ static int ct_clone(void *arg)
 			goto err_um;
 	}
 
-	ret = try_mount_proc(ct, have_old_proc);
+	ret = try_mount_proc(ct);
 	if (ret < 0)
 		goto err_um;
 
