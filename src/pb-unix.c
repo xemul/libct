@@ -72,10 +72,21 @@ static inline struct container_proxy *ch2c(ct_handler_t h)
 	return container_of(h, struct container_proxy, h);
 }
 
-static int pbunix_req_ct(ct_handler_t h, RpcRequest *req, RpcResponce **respp)
+static inline void pack_ct_req(RpcRequest *req, int t, ct_handler_t h)
+{
+	struct container_proxy *cp;
+
+	cp = ch2c(h);
+	req->req = t;
+	req->has_ct_rid = true;
+	req->ct_rid = cp->rid;
+}
+
+static int do_pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type, RpcResponce **respp)
 {
 	RpcResponce *resp;
 
+	pack_ct_req(req, type, h);
 	resp = pbunix_req(ch2c(h)->ses, req);
 	if (!resp)
 		return -1;
@@ -86,14 +97,9 @@ static int pbunix_req_ct(ct_handler_t h, RpcRequest *req, RpcResponce **respp)
 	return 0;
 }
 
-static inline void pack_ct_req(RpcRequest *req, int t, ct_handler_t h)
+static inline int pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
 {
-	struct container_proxy *cp;
-
-	cp = ch2c(h);
-	req->req = t;
-	req->has_ct_rid = true;
-	req->ct_rid = cp->rid;
+	return do_pbunix_req_ct(h, req, type, NULL);
 }
 
 static void destroy_proxy(struct container_proxy *cp)
@@ -106,8 +112,7 @@ static void send_destroy_req(ct_handler_t h)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
 
-	pack_ct_req(&req, REQ_TYPE__CT_DESTROY, h);
-	pbunix_req_ct(h, &req, NULL);
+	pbunix_req_ct(h, &req, REQ_TYPE__CT_DESTROY);
 	/* FIXME what if it fails? */
 	destroy_proxy(ch2c(h));
 }
@@ -118,8 +123,7 @@ static enum ct_state send_get_state_req(ct_handler_t h)
 	RpcResponce *resp;
 	enum ct_state st = CT_ERROR;
 
-	pack_ct_req(&req, REQ_TYPE__CT_GET_STATE, h);
-	if (!pbunix_req_ct(h, &req, &resp)) {
+	if (!do_pbunix_req_ct(h, &req, REQ_TYPE__CT_GET_STATE, &resp)) {
 		st = resp->state->state;
 		rpc_responce__free_unpacked(resp, NULL);
 	}
@@ -132,7 +136,6 @@ static int send_execve_req(ct_handler_t h, int type, char *path, char **argv, ch
 	RpcRequest req = RPC_REQUEST__INIT;
 	ExecvReq er = EXECV_REQ__INIT;
 
-	pack_ct_req(&req, type, h);
 	req.execv = &er;
 
 	er.path = path;
@@ -146,7 +149,7 @@ static int send_execve_req(ct_handler_t h, int type, char *path, char **argv, ch
 		er.env = env;
 	}
 
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, type);
 }
 
 static int send_spawn_req(ct_handler_t h, char *path, char **argv, char **env)
@@ -162,15 +165,13 @@ static int send_enter_req(ct_handler_t h, char *path, char **argv, char **env)
 static int send_kill_req(ct_handler_t h)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
-	pack_ct_req(&req, REQ_TYPE__CT_KILL, h);
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__CT_KILL);
 }
 
 static int send_wait_req(ct_handler_t h)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
-	pack_ct_req(&req, REQ_TYPE__CT_WAIT, h);
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__CT_WAIT);
 }
 
 static int send_nsmask_req(ct_handler_t h, unsigned long nsmask)
@@ -178,10 +179,9 @@ static int send_nsmask_req(ct_handler_t h, unsigned long nsmask)
 	RpcRequest req = RPC_REQUEST__INIT;
 	NsmaskReq nm = NSMASK_REQ__INIT;
 
-	pack_ct_req(&req, REQ_TYPE__CT_SETNSMASK, h);
 	req.nsmask = &nm;
 	nm.mask = nsmask;
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__CT_SETNSMASK);
 }
 
 static int send_addcntl_req(ct_handler_t h, enum ct_controller ctype)
@@ -189,10 +189,9 @@ static int send_addcntl_req(ct_handler_t h, enum ct_controller ctype)
 	RpcRequest req = RPC_REQUEST__INIT;
 	AddcntlReq ac = ADDCNTL_REQ__INIT;
 
-	pack_ct_req(&req, REQ_TYPE__CT_ADD_CNTL, h);
 	req.addcntl = &ac;
 	ac.ctype = ctype;
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__CT_ADD_CNTL);
 }
 
 static int send_cfgcntl_req(ct_handler_t h, enum ct_controller ctype,
@@ -201,12 +200,11 @@ static int send_cfgcntl_req(ct_handler_t h, enum ct_controller ctype,
 	RpcRequest req = RPC_REQUEST__INIT;
 	CfgcntlReq cr = CFGCNTL_REQ__INIT;
 
-	pack_ct_req(&req, REQ_TYPE__CT_CFG_CNTL, h);
 	req.cfgcntl = &cr;
 	cr.ctype = ctype;
 	cr.param = param;
 	cr.value = value;
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__CT_CFG_CNTL);
 }
 
 static int send_setroot_req(ct_handler_t h, char *root)
@@ -214,10 +212,9 @@ static int send_setroot_req(ct_handler_t h, char *root)
 	RpcRequest req = RPC_REQUEST__INIT;
 	SetrootReq sr = SETROOT_REQ__INIT;
 
-	pack_ct_req(&req, REQ_TYPE__FS_SETROOT, h);
 	req.setroot = &sr;
 	sr.root = root;
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__FS_SETROOT);
 }
 
 static int send_setpriv_req(ct_handler_t h, enum ct_fs_type type, void *arg)
@@ -226,16 +223,14 @@ static int send_setpriv_req(ct_handler_t h, enum ct_fs_type type, void *arg)
 	SetprivReq sp = SETPRIV_REQ__INIT;
 	const struct ct_fs_ops *ops;
 
-	pack_ct_req(&req, REQ_TYPE__FS_SETPRIVATE, h);
-	req.setpriv = &sp;
-
 	ops = fstype_get_ops(type);
 	if (!ops)
 		return -1;
 
+	req.setpriv = &sp;
 	sp.type = type;
 	ops->pb_pack(arg, &sp);
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__FS_SETPRIVATE);
 }
 
 static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
@@ -243,7 +238,6 @@ static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
 	RpcRequest req = RPC_REQUEST__INIT;
 	SetoptionReq so = SETOPTION_REQ__INIT;
 
-	pack_ct_req(&req, REQ_TYPE__CT_SET_OPTION, h);
 	req.setopt = &so;
 	so.opt = opt;
 
@@ -254,7 +248,7 @@ static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
 		break;
 	}
 
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__CT_SET_OPTION);
 }
 
 static int send_netadd_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
@@ -263,7 +257,6 @@ static int send_netadd_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	NetaddReq na = NETADD_REQ__INIT;
 	const struct ct_net_ops *nops;
 
-	pack_ct_req(&req, REQ_TYPE__CT_NET_ADD, h);
 	req.netadd = &na;
 	na.type = ntype;
 
@@ -275,7 +268,7 @@ static int send_netadd_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
 		nops->pb_pack(arg, &na);
 	}
 
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__CT_NET_ADD);
 }
 
 static int send_add_mount_req(ct_handler_t h, char *src, char *dst, int flags)
@@ -283,13 +276,12 @@ static int send_add_mount_req(ct_handler_t h, char *src, char *dst, int flags)
 	RpcRequest req = RPC_REQUEST__INIT;
 	AddmountReq am = ADDMOUNT_REQ__INIT;
 
-	pack_ct_req(&req, REQ_TYPE__FS_ADD_MOUNT, h);
 	req.addmnt = &am;
 	am.src = src;
 	am.dst = dst;
 	am.flags = flags;
 
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__FS_ADD_MOUNT);
 }
 
 static int send_uname_req(ct_handler_t h, char *host, char *dom)
@@ -297,12 +289,11 @@ static int send_uname_req(ct_handler_t h, char *host, char *dom)
 	RpcRequest req = RPC_REQUEST__INIT;
 	UnameReq ur = UNAME_REQ__INIT;
 
-	pack_ct_req(&req, REQ_TYPE__CT_UNAME, h);
 	req.uname = &ur;
 	ur.host = host;
 	ur.domain = dom;
 
-	return pbunix_req_ct(h, &req, NULL);
+	return pbunix_req_ct(h, &req, REQ_TYPE__CT_UNAME);
 }
 
 static const struct container_ops pbunix_ct_ops = {
