@@ -197,7 +197,7 @@ static int ct_clone(void *arg)
 		 * Remount / as slave, so that it doesn't
 		 * propagate its changes to our container.
 		 */
-		if (mount("none", "/", "none", MS_SLAVE, NULL))
+		if (mount("none", "/", "none", MS_SLAVE|MS_REC, NULL))
 			goto err;
 
 	}
