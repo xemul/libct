@@ -170,6 +170,19 @@ static int set_ct_root(struct container *ct)
 	return 0;
 }
 
+static int uname_set(struct container *ct)
+{
+	int ret = 0;
+
+	if (ct->hostname)
+		ret |= sethostname(ct->hostname, strlen(ct->hostname));
+
+	if (ct->domainname)
+		ret |= setdomainname(ct->domainname, strlen(ct->domainname));
+
+	return ret;
+}
+
 static int ct_clone(void *arg)
 {
 	int ret = -1;
@@ -204,17 +217,9 @@ static int ct_clone(void *arg)
 			goto err_um;
 	}
 
-	if (ct->hostname) {
-		ret = sethostname(ct->hostname, strlen(ct->hostname));
-		if (ret < 0)
-			goto err_um;
-	}
-
-	if (ct->domainname) {
-		ret = setdomainname(ct->domainname, strlen(ct->domainname));
-		if (ret < 0)
-			goto err_um;
-	}
+	ret = uname_set(ct);
+	if (ret < 0)
+		goto err_um;
 
 	ret = try_mount_proc(ct);
 	if (ret < 0)
