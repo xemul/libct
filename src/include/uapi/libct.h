@@ -77,7 +77,7 @@ enum ct_fs_type {
 	CT_FS_SUBDIR,	/* just a directory in existing tree */
 };
 
-int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type, void *arg);
+int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *arg);
 int libct_fs_add_mount(ct_handler_t ct, char *source, char *destination, int flags);
 
 /*
@@ -96,7 +96,7 @@ struct ct_net_veth_arg {
 	/* FIXME -- macs */
 };
 
-int libct_net_add(ct_handler_t ct, enum ct_net_type, void *arg);
+int libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg);
 
 /*
  * Options
