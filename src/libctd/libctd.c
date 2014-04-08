@@ -78,7 +78,6 @@ static int do_send_resp(int sk, int err, RpcResponce *resp)
 		return send_err_resp(sk, err);
 
 	resp->success = true;
-
 	/* FIXME -- boundaries check */
 	len = rpc_responce__pack(resp, dbuf);
 	if (send(sk, dbuf, len, 0) != len)
@@ -87,7 +86,7 @@ static int do_send_resp(int sk, int err, RpcResponce *resp)
 		return 0;
 }
 
-static int send_resp(int sk, int err)
+static inline int send_resp(int sk, int err)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	return do_send_resp(sk, err, &resp);
