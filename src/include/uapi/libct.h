@@ -64,6 +64,8 @@ int libct_controller_add(ct_handler_t ct, enum ct_controller ctype);
 int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 		char *param, char *value);
 
+int libct_container_uname(ct_handler_t ct, char *host, char *domain);
+
 /*
  * FS configuration
  */

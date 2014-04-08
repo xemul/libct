@@ -21,6 +21,7 @@ enum req_type {
 
 	CT_SET_OPTION	= 22;
 	CT_NET_ADD	= 23;
+	CT_UNAME	= 24;
 }
 
 message create_req {
@@ -72,6 +73,11 @@ message addmount_req {
 	required int32	flags		= 3;
 }
 
+message uname_req {
+	optional string host		= 1;
+	optional string domain		= 2;
+}
+
 message create_resp {
 	required uint64	rid		= 1;
 }
@@ -94,6 +100,7 @@ message rpc_request {
 	optional setoption_req	setopt	= 10;
 	optional netadd_req	netadd	= 11;
 	optional addmount_req	addmnt	= 12;
+	optional uname_req	uname	= 13;
 }
 
 message rpc_responce {

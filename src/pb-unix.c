@@ -292,6 +292,19 @@ static int send_add_mount_req(ct_handler_t h, char *src, char *dst, int flags)
 	return pbunix_req_ct(h, &req, NULL);
 }
 
+static int send_uname_req(ct_handler_t h, char *host, char *dom)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	UnameReq ur = UNAME_REQ__INIT;
+
+	pack_ct_req(&req, REQ_TYPE__CT_UNAME, h);
+	req.uname = &ur;
+	ur.host = host;
+	ur.domain = dom;
+
+	return pbunix_req_ct(h, &req, NULL);
+}
+
 static const struct container_ops pbunix_ct_ops = {
 	.get_state = send_get_state_req,
 	.spawn_execve = send_spawn_req,
@@ -307,6 +320,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.fs_add_mount = send_add_mount_req,
 	.set_option = send_set_option_req,
 	.net_add = send_netadd_req,
+	.uname = send_uname_req,
 };
 
 static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type)

@@ -100,6 +100,11 @@ int libct_container_set_option(ct_handler_t ct, int opt, ...)
 	return ret;
 }
 
+int libct_container_uname(ct_handler_t ct, char *host, char *domain)
+{
+	return ct->ops->uname(ct, host, domain);
+}
+
 libct_session_t libct_session_open(char *how)
 {
 	if (!how || !strcmp(how, "local"))

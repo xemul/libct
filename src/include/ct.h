@@ -21,6 +21,7 @@ struct container_ops {
 	int (*set_option)(ct_handler_t h, int opt, va_list parms);
 	void (*destroy)(ct_handler_t);
 	int (*net_add)(ct_handler_t h, enum ct_net_type, void *);
+	int (*uname)(ct_handler_t h, char *host, char *domain);
 };
 
 struct ct_handler {
@@ -52,6 +53,8 @@ struct container {
 	unsigned long cgroups_mask;
 	struct list_head cgroups;
 	struct list_head cg_configs;
+	char *hostname;
+	char *domainname;
 
 	/*
 	 * FS-specific fields

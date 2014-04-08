@@ -59,6 +59,12 @@ static int local_set_nsmask(ct_handler_t h, unsigned long nsmask)
 
 	if (!(nsmask & CLONE_NEWNS))
 		net_release(ct);
+	if (!(nsmask & CLONE_NEWUTS)) {
+		xfree(ct->hostname);
+		ct->hostname = NULL;
+		xfree(ct->domainname);
+		ct->domainname = NULL;
+	}
 
 	ct->nsmask = nsmask;
 	return 0;
@@ -192,6 +198,18 @@ static int ct_clone(void *arg)
 			goto err_um;
 
 		have_old_proc = false;
+	}
+
+	if (ct->hostname) {
+		ret = sethostname(ct->hostname, strlen(ct->hostname));
+		if (ret < 0)
+			goto err_um;
+	}
+
+	if (ct->domainname) {
+		ret = setdomainname(ct->domainname, strlen(ct->domainname));
+		if (ret < 0)
+			goto err_um;
 	}
 
 	ret = try_mount_proc(ct, have_old_proc);
@@ -416,6 +434,30 @@ static int local_set_option(ct_handler_t h, int opt, va_list parms)
 	return ret;
 }
 
+static int local_uname(ct_handler_t h, char *host, char *dom)
+{
+	struct container *ct = cth2ct(h);
+
+	if (!(ct->nsmask & CLONE_NEWUTS))
+		return -1;
+	if (ct->state != CT_STOPPED)
+		return -1; /* FIXME */
+
+	if (ct->hostname)
+		xfree(ct->hostname);
+	if (host)
+		host = xstrdup(host);
+	ct->hostname = host;
+
+	if (ct->domainname)
+		xfree(ct->domainname);
+	if (dom)
+		dom = xstrdup(dom);
+	ct->domainname = dom;
+
+	return 0;
+}
+
 char *local_ct_name(ct_handler_t h)
 {
 	return cth2ct(h)->name;
@@ -438,5 +480,6 @@ const struct container_ops local_ct_ops = {
 	.get_state = local_get_state,
 	.set_option = local_set_option,
 	.net_add = local_net_add,
+	.uname = local_uname,
 };
 
