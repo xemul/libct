@@ -50,10 +50,6 @@ static RpcResponce *pbunix_req(struct pbunix_session *us, RpcRequest *req)
 		goto out;
 
 	resp = rpc_responce__unpack(NULL, len, dbuf);
-	if (!resp->success) {
-		rpc_responce__free_unpacked(resp, NULL);
-		resp = NULL;
-	}
 out:
 	if (data != dbuf)
 		xfree(data);
@@ -82,24 +78,29 @@ static inline void pack_ct_req(RpcRequest *req, int t, ct_handler_t h)
 	req->ct_rid = cp->rid;
 }
 
-static int do_pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type, RpcResponce **respp)
+static RpcResponce *do_pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
 {
-	RpcResponce *resp;
-
 	pack_ct_req(req, type, h);
-	resp = pbunix_req(ch2c(h)->ses, req);
-	if (!resp)
-		return -1;
-	if (!respp)
-		rpc_responce__free_unpacked(resp, NULL);
-	else
-		*respp = resp;
-	return 0;
+	return pbunix_req(ch2c(h)->ses, req);
+}
+
+static inline int resp_error(RpcResponce *resp)
+{
+	return resp->success ? 0 : (resp->has_error ? resp->error : -1);
 }
 
 static inline int pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
 {
-	return do_pbunix_req_ct(h, req, type, NULL);
+	int ret;
+	RpcResponce *resp;
+
+	resp = do_pbunix_req_ct(h, req, type);
+	if (!resp)
+		return -1;
+
+	ret = resp_error(resp);
+	rpc_responce__free_unpacked(resp, NULL);
+	return ret;
 }
 
 static void destroy_proxy(struct container_proxy *cp)
@@ -123,8 +124,10 @@ static enum ct_state send_get_state_req(ct_handler_t h)
 	RpcResponce *resp;
 	enum ct_state st = CT_ERROR;
 
-	if (!do_pbunix_req_ct(h, &req, REQ_TYPE__CT_GET_STATE, &resp)) {
-		st = resp->state->state;
+	resp = do_pbunix_req_ct(h, &req, REQ_TYPE__CT_GET_STATE);
+	if (resp) {
+		if (!resp_error(resp) && resp->state)
+			st = resp->state->state;
 		rpc_responce__free_unpacked(resp, NULL);
 	}
 
@@ -326,17 +329,17 @@ static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type
 
 	cp = xmalloc(sizeof(*cp));
 	if (!cp)
-		return NULL;
+		goto err1;
 
 	req.req = type;
 	req.create = &cr;
 	cr.name = name;
 
 	resp = pbunix_req(us, &req);
-	if (!resp) {
-		xfree(cp);
-		return NULL;
-	}
+	if (!resp)
+		goto err2;
+	if (resp_error(resp))
+		goto err3;
 
 	if (type == REQ_TYPE__CT_OPEN) {
 		struct container_proxy *r;
@@ -363,8 +366,14 @@ static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type
 	cp->ses = us;
 found:
 	rpc_responce__free_unpacked(resp, NULL);
-
 	return &cp->h;
+
+err3:
+	rpc_responce__free_unpacked(resp, NULL);
+err2:
+	xfree(cp);
+err1:
+	return NULL;
 }
 
 static ct_handler_t send_create_req(libct_session_t s, char *name)

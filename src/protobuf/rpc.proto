@@ -105,7 +105,8 @@ message rpc_request {
 
 message rpc_responce {
 	required bool		success	= 1;
+	optional int32		error	= 2;
 
-	optional create_resp	create	= 2;
-	optional state_resp	state	= 3;
+	optional create_resp	create	= 3;
+	optional state_resp	state	= 4;
 }

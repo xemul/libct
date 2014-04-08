@@ -63,6 +63,8 @@ static int send_err_resp(int sk, int err)
 	int len;
 
 	resp.success = false;
+	resp.has_error = true;
+	resp.error = err;
 	len = rpc_responce__pack(&resp, dbuf);
 	if (len > 0)
 		send(sk, dbuf, len, 0);
