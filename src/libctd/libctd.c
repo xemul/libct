@@ -343,6 +343,18 @@ static int serve_uname(int sk, struct container_srv *cs, RpcRequest *req)
 	return send_resp(sk, ret);
 }
 
+static int serve_caps(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	int ret = -1;
+
+	if (req->caps)
+		ret = libct_container_set_caps(cs->hnd,
+				(unsigned long)req->caps->mask,
+				(unsigned int)req->caps->apply_to);
+
+	return send_resp(sk, ret);
+}
+
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 {
 	struct container_srv *cs = NULL;
@@ -388,6 +400,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_net_add(sk, cs, req);
 	case REQ_TYPE__CT_UNAME:
 		return serve_uname(sk, cs, req);
+	case REQ_TYPE__CT_SET_CAPS:
+		return serve_caps(sk, cs, req);
 	default:
 		break;
 	}

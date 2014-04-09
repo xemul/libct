@@ -481,6 +481,26 @@ static int local_uname(ct_handler_t h, char *host, char *dom)
 	return 0;
 }
 
+static int local_set_caps(ct_handler_t h, unsigned long mask, unsigned int apply_to)
+{
+	struct container *ct = cth2ct(h);
+
+	if (ct->state != CT_STOPPED)
+		return -1;
+
+	if (apply_to & CAPS_BSET) {
+		ct->cap_mask |= CAPS_BSET;
+		ct->cap_bset = mask;
+	}
+
+	if (apply_to & CAPS_ALLCAPS) {
+		ct->cap_mask |= CAPS_ALLCAPS;
+		ct->cap_caps = mask;
+	}
+
+	return 0;
+}
+
 char *local_ct_name(ct_handler_t h)
 {
 	return cth2ct(h)->name;
@@ -504,4 +524,5 @@ const struct container_ops local_ct_ops = {
 	.set_option		= local_set_option,
 	.net_add		= local_net_add,
 	.uname			= local_uname,
+	.set_caps		= local_set_caps,
 };

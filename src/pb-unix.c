@@ -304,6 +304,18 @@ static int send_uname_req(ct_handler_t h, char *host, char *dom)
 	return pbunix_req_ct(h, &req, REQ_TYPE__CT_UNAME);
 }
 
+static int send_caps_req(ct_handler_t h, unsigned long mask, unsigned int apply_to)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	CapsReq cr = CAPS_REQ__INIT;
+
+	req.caps = &cr;
+	cr.apply_to = apply_to;
+	cr.mask = mask;
+
+	return pbunix_req_ct(h, &req, REQ_TYPE__CT_SET_CAPS);
+}
+
 static const struct container_ops pbunix_ct_ops = {
 	.get_state		= send_get_state_req,
 	.spawn_execve		= send_spawn_req,
@@ -320,6 +332,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.set_option		= send_set_option_req,
 	.net_add		= send_netadd_req,
 	.uname			= send_uname_req,
+	.set_caps		= send_caps_req,
 };
 
 static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type)

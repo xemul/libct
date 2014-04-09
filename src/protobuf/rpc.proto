@@ -22,6 +22,7 @@ enum req_type {
 	CT_SET_OPTION	= 22;
 	CT_NET_ADD	= 23;
 	CT_UNAME	= 24;
+	CT_SET_CAPS	= 25;
 }
 
 message create_req {
@@ -79,6 +80,11 @@ message uname_req {
 	optional string domain		= 2;
 }
 
+message caps_req {
+	required uint32	apply_to	= 1;
+	required uint64	mask		= 2;
+}
+
 message create_resp {
 	required uint64	rid		= 1;
 }
@@ -102,6 +108,7 @@ message rpc_request {
 	optional netadd_req	netadd	= 11;
 	optional addmount_req	addmnt	= 12;
 	optional uname_req	uname	= 13;
+	optional caps_req	caps	= 14;
 }
 
 message rpc_responce {

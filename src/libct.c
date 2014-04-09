@@ -105,6 +105,14 @@ int libct_container_uname(ct_handler_t ct, char *host, char *domain)
 	return ct->ops->uname(ct, host, domain);
 }
 
+int libct_container_set_caps(ct_handler_t ct, unsigned long mask, unsigned int apply_to)
+{
+	if (!apply_to || (apply_to & ~CAPS_ALL))
+		return -1;
+
+	return ct->ops->set_caps(ct, mask, apply_to);
+}
+
 libct_session_t libct_session_open(char *how)
 {
 	if (!how || !strcmp(how, "local"))

@@ -66,6 +66,11 @@ int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 
 int libct_container_uname(ct_handler_t ct, char *host, char *domain);
 
+#define CAPS_BSET	0x1
+#define CAPS_ALLCAPS	0x2
+#define CAPS_ALL	(CAPS_BSET | CAPS_ALLCAPS)
+int libct_container_set_caps(ct_handler_t ct, unsigned long mask, unsigned int apply_to);
+
 /*
  * FS configuration
  */
