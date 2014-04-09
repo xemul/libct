@@ -17,6 +17,35 @@ struct fs_mount {
 	struct list_head l;
 };
 
+static void fs_mount_free(struct fs_mount *fm)
+{
+	if (fm) {
+		xfree(fm->src);
+		xfree(fm->dst);
+		xfree(fm);
+	}
+}
+
+static struct fs_mount *fs_mount_alloc(char *src, char *dst)
+{
+	struct fs_mount *fm = xmalloc(sizeof(*fm));
+
+	BUG_ON(!src || !dst);
+
+	if (fm) {
+		INIT_LIST_HEAD(&fm->l);
+		fm->src = xstrdup(src);
+		fm->dst = xstrdup(dst);
+
+		if (!fm->dst || !fm->src) {
+			fs_mount_free(fm);
+			fm = NULL;
+		}
+	}
+
+	return fm;
+}
+
 static int mount_subdir(char *root, void *priv)
 {
 	return mount((char *)priv, root, NULL, MS_BIND, NULL);
@@ -138,9 +167,7 @@ void fs_free(struct container *ct)
 
 	list_for_each_entry_safe(m, mn, &ct->fs_mnts, l) {
 		list_del(&m->l);
-		xfree(m->src);
-		xfree(m->dst);
-		xfree(m);
+		fs_mount_free(m);
 	}
 }
 
@@ -194,18 +221,9 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 	if (!src || !dst)
 		return -1;
 
-	fm = xmalloc(sizeof(*fm));
+	fm = fs_mount_alloc(src, dst);
 	if (!fm)
 		return -1;
-
-	fm->src = xstrdup(src);
-	fm->dst = xstrdup(dst);
-	if (!fm->src || !fm->dst) {
-		xfree(fm->src);
-		xfree(fm->dst);
-		xfree(fm);
-		return -1;
-	}
 	list_add_tail(&fm->l, &ct->fs_mnts);
 	return 0;
 }
