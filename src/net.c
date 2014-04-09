@@ -264,7 +264,9 @@ static void host_nic_pack(void *arg, NetaddReq *req)
 
 static void *host_nic_unpack(NetaddReq *req)
 {
-	return xstrdup(req->nicname);
+	if (req->nicname)
+		return xstrdup(req->nicname);
+	return NULL;
 }
 
 static const struct ct_net_ops host_nic_ops = {

@@ -44,7 +44,9 @@ static void pb_pack_subdir(void *arg, struct _SetprivReq *req)
 
 static void *pb_unpack_subdir(struct _SetprivReq *req)
 {
-	return xstrdup(req->path);
+	if (req->path)
+		return xstrdup(req->path);
+	return NULL;
 }
 
 static const struct ct_fs_ops ct_subdir_fs_ops = {

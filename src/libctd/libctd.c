@@ -267,7 +267,8 @@ static int serve_setpriv(int sk, struct container_srv *cs, RpcRequest *req)
 			void *arg;
 
 			arg = ops->pb_unpack(req->setpriv);
-			ret = libct_fs_set_private(cs->hnd, req->setpriv->type, arg);
+			if (arg)
+				ret = libct_fs_set_private(cs->hnd, req->setpriv->type, arg);
 			xfree(arg);
 		}
 	}
@@ -317,8 +318,9 @@ static int serve_net_add(int sk, struct container_srv *cs, RpcRequest *req)
 		if (req->netadd->type != CT_NET_NONE) {
 			nops = net_get_ops(req->netadd->type);
 			if (nops) {
-				ret = 0;
 				arg = nops->pb_unpack(req->netadd);
+				if (arg)
+					ret = 0;
 			}
 		}
 
