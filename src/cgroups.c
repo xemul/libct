@@ -8,6 +8,7 @@
 #include <sys/mount.h>
 #include "uapi/libct.h"
 #include "list.h"
+#include "bug.h"
 #include "ct.h"
 #include "cgroups.h"
 #include "xmalloc.h"
@@ -92,6 +93,35 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	return 0;
 }
 
+static void cg_config_free(struct cg_config *cg)
+{
+	if (cg) {
+		xfree(cg->param);
+		xfree(cg->value);
+		xfree(cg);
+	}
+}
+
+static struct cg_config *cg_config_alloc(enum ct_controller ctype, char *param, char *value)
+{
+	struct cg_config *cg = xmalloc(sizeof(*cg));
+
+	BUG_ON(!param || !value);
+
+	if (cg) {
+		INIT_LIST_HEAD(&cg->l);
+		cg->ctype = ctype;
+		cg->param = xstrdup(param);
+		cg->value = xstrdup(value);
+		if (!cg->param || !cg->value) {
+			cg_config_free(cg);
+			cg = NULL;
+		}
+	}
+
+	return cg;
+}
+
 int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		char *param, char *value)
 {
@@ -125,19 +155,9 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 			return 0;
 		}
 
-		cfg = xmalloc(sizeof(*cfg));
+		cfg = cg_config_alloc(ctype, param, value);
 		if (!cfg)
 			return -1;
-
-		cfg->ctype = ctype;
-		cfg->param = xstrdup(param);
-		cfg->value = xstrdup(value);
-		if (!cfg->param || !cfg->value) {
-			xfree(cfg->param);
-			xfree(cfg->value);
-			xfree(cfg);
-			return -1;
-		}
 		list_add_tail(&cfg->l, &ct->cg_configs);
 		return 0;
 	}
@@ -240,9 +260,7 @@ void cgroups_free(struct container *ct)
 
 	list_for_each_entry_safe(cfg, cn, &ct->cg_configs, l) {
 		list_del(&cfg->l);
-		xfree(cfg->param);
-		xfree(cfg->value);
-		xfree(cfg);
+		cg_config_free(cfg);
 	}
 }
 
