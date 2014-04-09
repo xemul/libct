@@ -4,6 +4,8 @@
 #include "list.h"
 #include "ct.h"
 
+struct container;
+
 struct backend_ops {
 	ct_handler_t (*create_ct)(libct_session_t s, char *name);
 	ct_handler_t (*open_ct)(libct_session_t s, char *name);
@@ -15,7 +17,6 @@ struct libct_session {
 	struct list_head s_cts;
 };
 
-struct container;
 void local_session_add(libct_session_t, struct container *);
 
 #endif /* __LIBCT_SESSION_H__ */

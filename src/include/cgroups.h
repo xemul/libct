@@ -4,6 +4,9 @@
 #include "list.h"
 #include "uapi/libct.h"
 
+struct container;
+struct mntent;
+
 struct controller {
 	struct list_head ct_l;	/* links into container->cgroups */
 	enum ct_controller ctype;
@@ -15,7 +18,6 @@ struct cg_desc {
 	struct cg_desc *merged;
 };
 
-struct mntent;
 int cgroup_add_mount(struct mntent *);
 
 /*
@@ -31,7 +33,6 @@ struct cg_config {
 
 extern struct cg_desc cg_descs[CT_NR_CONTROLLERS];
 
-struct container;
 int cgroups_create(struct container *);
 int cgroups_attach(struct container *);
 void cgroups_destroy(struct container *);
