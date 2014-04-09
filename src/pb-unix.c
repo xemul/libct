@@ -305,21 +305,21 @@ static int send_uname_req(ct_handler_t h, char *host, char *dom)
 }
 
 static const struct container_ops pbunix_ct_ops = {
-	.get_state = send_get_state_req,
-	.spawn_execve = send_spawn_req,
-	.enter_execve = send_enter_req,
-	.destroy = send_destroy_req,
-	.kill = send_kill_req,
-	.wait = send_wait_req,
-	.set_nsmask = send_nsmask_req,
-	.add_controller = send_addcntl_req,
-	.config_controller = send_cfgcntl_req,
-	.fs_set_root = send_setroot_req,
-	.fs_set_private = send_setpriv_req,
-	.fs_add_mount = send_add_mount_req,
-	.set_option = send_set_option_req,
-	.net_add = send_netadd_req,
-	.uname = send_uname_req,
+	.get_state		= send_get_state_req,
+	.spawn_execve		= send_spawn_req,
+	.enter_execve		= send_enter_req,
+	.destroy		= send_destroy_req,
+	.kill			= send_kill_req,
+	.wait			= send_wait_req,
+	.set_nsmask		= send_nsmask_req,
+	.add_controller		= send_addcntl_req,
+	.config_controller	= send_cfgcntl_req,
+	.fs_set_root		= send_setroot_req,
+	.fs_set_private		= send_setpriv_req,
+	.fs_add_mount		= send_add_mount_req,
+	.set_option		= send_set_option_req,
+	.net_add		= send_netadd_req,
+	.uname			= send_uname_req,
 };
 
 static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type)
@@ -406,9 +406,9 @@ static void close_pbunix_session(libct_session_t s)
 }
 
 static const struct backend_ops pbunix_session_ops = {
-	.create_ct = send_create_req,
-	.open_ct = send_openct_req,
-	.close = close_pbunix_session,
+	.create_ct	= send_create_req,
+	.open_ct	= send_openct_req,
+	.close		= close_pbunix_session,
 };
 
 libct_session_t libct_session_open_pbunix(char *sk_path)

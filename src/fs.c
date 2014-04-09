@@ -48,12 +48,12 @@ static void *pb_unpack_subdir(struct _SetprivReq *req)
 }
 
 static const struct ct_fs_ops ct_subdir_fs_ops = {
-	.mount = mount_subdir,
-	.umount = umount_subdir,
-	.get = get_subdir_path,
-	.put = put_subdir_path,
-	.pb_pack = pb_pack_subdir,
-	.pb_unpack = pb_unpack_subdir,
+	.mount		= mount_subdir,
+	.umount		= umount_subdir,
+	.get		= get_subdir_path,
+	.put		= put_subdir_path,
+	.pb_pack	= pb_pack_subdir,
+	.pb_unpack	= pb_unpack_subdir,
 };
 
 const struct ct_fs_ops *fstype_get_ops(enum ct_fs_type type)

@@ -268,12 +268,12 @@ static void *host_nic_unpack(NetaddReq *req)
 }
 
 static const struct ct_net_ops host_nic_ops = {
-	.create = host_nic_create,
-	.destroy = host_nic_destroy,
-	.start = host_nic_start,
-	.stop = host_nic_stop,
-	.pb_pack = host_nic_pack,
-	.pb_unpack = host_nic_unpack,
+	.create		= host_nic_create,
+	.destroy	= host_nic_destroy,
+	.start		= host_nic_start,
+	.stop		= host_nic_stop,
+	.pb_pack	= host_nic_pack,
+	.pb_unpack	= host_nic_unpack,
 };
 
 /*
@@ -355,12 +355,12 @@ static void *veth_unpack(NetaddReq *req)
 }
 
 static const struct ct_net_ops veth_nic_ops = {
-	.create = veth_create,
-	.destroy = veth_destroy,
-	.start = veth_start,
-	.stop = veth_stop,
-	.pb_pack = veth_pack,
-	.pb_unpack = veth_unpack,
+	.create		= veth_create,
+	.destroy	= veth_destroy,
+	.start		= veth_start,
+	.stop		= veth_stop,
+	.pb_pack	= veth_pack,
+	.pb_unpack	= veth_unpack,
 };
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)
