@@ -1,5 +1,6 @@
 #ifndef __CT_LIBNL_H__
 #define __CT_LIBNL_H__
+
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <sys/socket.h>
@@ -41,4 +42,5 @@ static inline void nla_commit_nested(struct nlmsghdr *h, struct rtattr *a)
 }
 
 int netlink_talk(int nlfd, struct nlmsghdr *request, struct nlmsghdr *answer);
-#endif
+
+#endif /* __CT_LIBNL_H__ */

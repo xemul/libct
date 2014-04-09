@@ -1,5 +1,6 @@
 #ifndef __LIBCT_FS_H__
 #define __LIBCT_FS_H__
+
 struct _SetprivReq;
 struct container;
 
@@ -22,4 +23,5 @@ int fs_mount_ext(struct container *ct);
 void fs_umount(struct container *ct);
 void fs_umount_ext(struct container *ct);
 void fs_free(struct container *ct);
-#endif
+
+#endif /* __LIBCT_FS_H__ */

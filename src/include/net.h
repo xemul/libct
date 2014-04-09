@@ -1,5 +1,6 @@
 #ifndef __LIBCT_NET_H__
 #define __LIBCT_NET_H__
+
 struct _NetaddReq;
 struct container;
 
@@ -23,4 +24,5 @@ struct ct_net {
 };
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type);
-#endif
+
+#endif /* __LIBCT_NET_H__ */

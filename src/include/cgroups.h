@@ -1,5 +1,6 @@
 #ifndef __LIBCT_CGROUP_H__
 #define __LIBCT_CGROUP_H__
+
 #include "list.h"
 #include "uapi/libct.h"
 
@@ -43,4 +44,5 @@ int try_mount_cg(struct container *);
 
 
 #define DEFAULT_CGROUPS_PATH	"/sys/fs/cgroup"
-#endif
+
+#endif /* __LIBCT_CGROUP_H__ */

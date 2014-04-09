@@ -17,4 +17,5 @@ struct libct_session {
 
 struct container;
 void local_session_add(libct_session_t, struct container *);
+
 #endif /* __LIBCT_SESSION_H__ */
