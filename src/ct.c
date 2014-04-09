@@ -375,7 +375,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 		if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
 			char nroot[128];
 
-			sprintf(nroot, "/proc/%d/root", ct->root_pid);
+			snprintf(nroot, sizeof(nroot), "/proc/%d/root", ct->root_pid);
 			if (set_current_root(nroot))
 				exit(-1);
 		}

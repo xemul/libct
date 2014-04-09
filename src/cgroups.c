@@ -163,7 +163,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	}
 
 	t = cgroup_get_path(ctype, path, sizeof(path));
-	sprintf(t, "/%s/%s", ct->name, param);
+	snprintf(t, sizeof(path) - (t - path), "/%s/%s", ct->name, param);
 
 	ret = fd = open(path, O_WRONLY);
 	if (fd >= 0) {
@@ -180,7 +180,7 @@ static int cgroup_create_one(struct container *ct, struct controller *ctl)
 	char path[PATH_MAX], *t;
 
 	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
-	sprintf(t, "/%s", ct->name);
+	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
 
 	return mkdir(path, 0600);
 }
@@ -217,7 +217,7 @@ int cgroups_attach(struct container *ct)
 	struct controller *ctl;
 	int ret = 0;
 
-	sprintf(pid, "%d", getpid());
+	snprintf(pid, sizeof(pid), "%d", getpid());
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
 		ret = cgroup_attach_one(ct, ctl, pid);
 		if (ret)
@@ -236,7 +236,7 @@ static void destroy_controller(struct container *ct, struct controller *ctl)
 	 * to do in that case? XXX
 	 */
 	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
-	sprintf(t, "/%s", ct->name);
+	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
 	rmdir(path);
 }
 
@@ -275,7 +275,7 @@ static int re_mount_controller(struct container *ct, struct controller *ctl, cha
 		return -1;
 
 	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
-	sprintf(t, "/%s", ct->name);
+	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
 
 	if (mount(path, to, NULL, MS_BIND, NULL))
 		return -1;
@@ -292,12 +292,13 @@ static int re_mount_cg(struct container *ct)
 	if (!ct->root_path)
 		return -1; /* FIXME -- implement */
 
-	l = sprintf(tpath, "%s/%s", ct->root_path, ct->cgroup_sub);
+	l = snprintf(tpath, sizeof(tpath), "%s/%s", ct->root_path, ct->cgroup_sub);
 	if (mount("none", tpath, "tmpfs", 0, NULL))
 		goto err;
 
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
-		sprintf(tpath + l, "/%s", cg_descs[ctl->ctype].name);
+		snprintf(tpath + l, sizeof(tpath) - l,
+			 "/%s", cg_descs[ctl->ctype].name);
 		if (re_mount_controller(ct, ctl, tpath))
 			goto err_ctl;
 	}
