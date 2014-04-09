@@ -18,6 +18,7 @@
 #include "asm/page.h"
 #include "fs.h"
 #include "net.h"
+#include "security.h"
 #include "util.h"
 
 static enum ct_state local_get_state(ct_handler_t h)
@@ -232,6 +233,10 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
+	ret = apply_caps(ct);
+	if (ret < 0)
+		goto err_um;
+
 	ret = spawn_wait(ca->child_wait_pipe);
 	if (ret)
 		goto err_um;
@@ -376,6 +381,9 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 		}
 
 		if (cgroups_attach(ct))
+			exit(-1);
+
+		if (apply_caps(ct))
 			exit(-1);
 
 		aux = cb(arg);

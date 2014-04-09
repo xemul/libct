@@ -9,6 +9,7 @@ obj-y			+= log.o
 obj-y			+= linux_kernel.o
 obj-y			+= fs.o
 obj-y			+= net.o
+obj-y			+= security.o
 obj-y			+= libnetlink.o
 obj-y			+= pb-unix.o
 
