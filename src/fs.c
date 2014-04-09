@@ -189,12 +189,21 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 	if (flags != 0)
 		return -1;
 
+	if (!src || !dst)
+		return -1;
+
 	fm = xmalloc(sizeof(*fm));
 	if (!fm)
 		return -1;
 
 	fm->src = xstrdup(src);
 	fm->dst = xstrdup(dst);
+	if (!fm->src || !fm->dst) {
+		xfree(fm->src);
+		xfree(fm->dst);
+		xfree(fm);
+		return -1;
+	}
 	list_add_tail(&fm->l, &ct->fs_mnts);
 	return 0;
 }
