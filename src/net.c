@@ -225,12 +225,16 @@ static struct ct_net *host_nic_create(void *arg)
 {
 	struct ct_net_host_nic *cn;
 
-	cn = xmalloc(sizeof(*cn));
-	if (!cn)
-		return NULL;
-
-	cn->name = xstrdup(arg);
-	return &cn->n;
+	if (arg) {
+		cn = xmalloc(sizeof(*cn));
+		if (cn) {
+			cn->name = xstrdup(arg);
+			if (cn->name)
+				return &cn->n;
+		}
+		xfree(cn);
+	}
+	return NULL;
 }
 
 static void host_nic_destroy(struct ct_net *n)
@@ -297,12 +301,21 @@ static struct ct_net *veth_create(void *arg)
 	struct ct_net_veth_arg *va = arg;
 	struct ct_net_veth *vn;
 
+	if (!arg || !va->host_name || !va->ct_name)
+		return NULL;
+
 	vn = xmalloc(sizeof(*vn));
 	if (!vn)
 		return NULL;
 
 	vn->v.host_name = xstrdup(va->host_name);
 	vn->v.ct_name = xstrdup(va->ct_name);
+	if (!vn->v.host_name || !vn->v.ct_name) {
+		xfree(vn->v.host_name);
+		xfree(vn->v.ct_name);
+		xfree(vn);
+		return NULL;
+	}
 
 	return &vn->n;
 }
