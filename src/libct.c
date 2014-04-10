@@ -90,6 +90,12 @@ void libct_container_destroy(ct_handler_t ct)
 	ct->ops->destroy(ct);
 }
 
+void libct_container_close(ct_handler_t ct)
+{
+	list_del_init(&ct->s_lh);
+	ct->ops->detach(ct);
+}
+
 int libct_container_set_nsmask(ct_handler_t ct, unsigned long nsmask)
 {
 	return ct->ops->set_nsmask(ct, nsmask);

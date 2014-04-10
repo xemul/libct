@@ -82,10 +82,8 @@ void libct_session_close(libct_session_t s)
 {
 	ct_handler_t cth, n;
 
-	list_for_each_entry_safe(cth, n, &s->s_cts, s_lh) {
-		list_del_init(&cth->s_lh);
-		cth->ops->detach(cth);
-	}
+	list_for_each_entry_safe(cth, n, &s->s_cts, s_lh)
+		libct_container_close(cth);
 
 	s->ops->close(s);
 }
