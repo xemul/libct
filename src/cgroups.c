@@ -12,6 +12,7 @@
 #include "ct.h"
 #include "cgroups.h"
 #include "xmalloc.h"
+#include "util.h"
 #include "linux-kernel.h"
 
 #ifndef PATH_MAX
@@ -325,7 +326,7 @@ static int re_mount_controller(struct container *ct, struct controller *ctl, cha
 	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
 	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
 
-	if (mount(path, to, NULL, MS_BIND, NULL))
+	if (bind_mount(path, to))
 		return -1;
 
 	return 0;

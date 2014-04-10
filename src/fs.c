@@ -9,6 +9,7 @@
 #include "list.h"
 #include "uapi/libct.h"
 #include "ct.h"
+#include "util.h"
 #include "protobuf/rpc.pb-c.h"
 
 /*
@@ -34,7 +35,7 @@ int fs_mount_ext(struct container *ct)
 
 	list_for_each_entry(fm, &ct->fs_mnts, l) {
 		snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
-		if (mount(fm->src, rdst, NULL, MS_BIND, NULL))
+		if (bind_mount(fm->src, rdst))
 			goto err;
 	}
 
@@ -117,7 +118,7 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 
 static int mount_subdir(char *root, void *priv)
 {
-	return mount((char *)priv, root, NULL, MS_BIND, NULL);
+	return bind_mount(priv, root);
 }
 
 static void umount_subdir(char *root, void *priv)

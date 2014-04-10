@@ -10,4 +10,11 @@
 			s = def;	\
 		s; })
 
+#include <sys/mount.h>
+
+static inline int bind_mount(char *src, char *dst)
+{
+	return mount(src, dst, NULL, MS_BIND, NULL);
+}
+
 #endif /* __LIBCT_UTIL_H__ */
