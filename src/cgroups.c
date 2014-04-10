@@ -382,3 +382,39 @@ int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 {
 	return ct->ops->config_controller(ct, ctype, param, value);
 }
+
+int service_ctl_killall(struct container *ct)
+{
+	char path[PATH_MAX], *p, spid[16];
+	FILE *f;
+	bool has_tasks;
+
+	p = cgroup_get_path(CTL_SERVICE, path, sizeof(path));
+	snprintf(p, sizeof(path) - (p - path), "/%s/%s", ct->name, "tasks");
+
+try_again:
+	f = fopen(path, "r");
+	if (!f)
+		return -1;
+
+	has_tasks = false;
+	while (fgets(spid, sizeof(spid), f)) {
+		int pid;
+
+		has_tasks = true;
+		pid = atoi(spid);
+		if (kill(pid, SIGKILL))
+			goto err;
+	}
+
+	fclose(f);
+	if (has_tasks)
+		/* they might have fork()-ed while we read the file */
+		goto try_again;
+
+	return 0;
+
+err:
+	fclose(f);
+	return -1;
+}

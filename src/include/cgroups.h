@@ -45,6 +45,7 @@ int try_mount_cg(struct container *);
 
 int cgroups_create_service(void);
 int add_service_controller(struct container *);
+int service_ctl_killall(struct container *);
 
 #define DEFAULT_CGROUPS_PATH	"/sys/fs/cgroup"
 

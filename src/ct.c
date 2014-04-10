@@ -417,11 +417,11 @@ static int local_ct_kill(ct_handler_t h)
 
 	if (ct->state != CT_RUNNING)
 		return -1;
-	if (!(ct->nsmask & CLONE_NEWPID))
-		return -1;
-
-	kill(ct->root_pid, SIGKILL);
-	return 0;
+	if (ct->nsmask & CLONE_NEWPID)
+		return kill(ct->root_pid, SIGKILL);
+	if (ct->flags & CT_KILLABLE)
+		return service_ctl_killall(ct);
+	return -1;
 }
 
 static int local_ct_wait(ct_handler_t h)
