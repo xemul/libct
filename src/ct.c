@@ -377,6 +377,9 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 				exit(-1);
 		}
 
+		if (cgroups_attach(ct))
+			exit(-1);
+
 		if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
 			char nroot[128];
 
@@ -384,9 +387,6 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 			if (set_current_root(nroot))
 				exit(-1);
 		}
-
-		if (cgroups_attach(ct))
-			exit(-1);
 
 		if (apply_caps(ct))
 			exit(-1);
