@@ -8,6 +8,12 @@
 #include "list.h"
 #include "ct.h"
 
+void ct_handler_init(ct_handler_t h)
+{
+	h->ops = NULL;
+	INIT_LIST_HEAD(&h->s_lh);
+}
+
 int libct_init_local(void)
 {
 	static bool done = false;
@@ -80,7 +86,7 @@ int libct_container_wait(ct_handler_t ct)
 
 void libct_container_destroy(ct_handler_t ct)
 {
-	list_del(&ct->s_lh);
+	list_del_init(&ct->s_lh);
 	ct->ops->destroy(ct);
 }
 

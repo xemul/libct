@@ -100,4 +100,5 @@ static inline bool fs_private(struct container *ct)
 	return /* FIXME ct->root_path || */ (ct->nsmask & CLONE_NEWNS);
 }
 
+void ct_handler_init(ct_handler_t h);
 #endif /* __LIBCT_CT_H__ */

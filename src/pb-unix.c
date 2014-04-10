@@ -350,6 +350,7 @@ static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type
 	if (!cp)
 		goto err1;
 
+	ct_handler_init(&cp->h);
 	req.req = type;
 	req.create = &cr;
 	cr.name = name;

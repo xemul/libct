@@ -542,6 +542,7 @@ ct_handler_t ct_create(char *name)
 
 	ct = xzalloc(sizeof(*ct));
 	if (ct) {
+		ct_handler_init(&ct->h);
 		ct->h.ops = &local_ct_ops;
 		ct->state = CT_STOPPED;
 		ct->name = xstrdup(name);

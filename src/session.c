@@ -47,7 +47,7 @@ libct_session_t libct_session_open_local(void)
 
 static inline ct_handler_t new_ct(libct_session_t ses, ct_handler_t cth)
 {
-	if (cth)
+	if (cth && list_empty(&cth->s_lh))
 		list_add_tail(&cth->s_lh, &ses->s_cts);
 
 	return cth;
@@ -83,7 +83,7 @@ void libct_session_close(libct_session_t s)
 	ct_handler_t cth, n;
 
 	list_for_each_entry_safe(cth, n, &s->s_cts, s_lh) {
-		list_del(&cth->s_lh);
+		list_del_init(&cth->s_lh);
 		cth->ops->detach(cth);
 	}
 
