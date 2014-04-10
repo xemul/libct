@@ -250,6 +250,7 @@ static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
 	default:
 		return -1;
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
+	case LIBCT_OPT_KILLABLE:
 		break;
 	case LIBCT_OPT_CGROUP_SUBMOUNT:
 		so.cg_path = xvaopt(parms, char *, DEFAULT_CGROUPS_PATH);

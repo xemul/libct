@@ -114,6 +114,12 @@ int libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg);
  * Argument: path where to mount it. NULL results in libct default
  */
 #define LIBCT_OPT_CGROUP_SUBMOUNT			2
+/*
+ * Make it possible to libct_container_kill(). This is always
+ * so when nsmask includes PIDNS, but if not this option will
+ * help.
+ */
+#define LIBCT_OPT_KILLABLE				3
 
 int libct_container_set_option(ct_handler_t ct, int opt, ...);
 

@@ -456,6 +456,10 @@ static int local_set_option(ct_handler_t h, int opt, va_list parms)
 		if (!ct->cgroup_sub)
 			ret = -1;
 		break;
+	case LIBCT_OPT_KILLABLE:
+		ret = cgroups_create_service();
+		if (!ret)
+			ct->flags |= CT_KILLABLE;
 	}
 
 	return ret;

@@ -31,7 +31,7 @@ struct cg_config {
 	struct list_head l;
 };
 
-extern struct cg_desc cg_descs[CT_NR_CONTROLLERS];
+extern struct cg_desc cg_descs[];
 
 int cgroups_create(struct container *);
 int cgroups_attach(struct container *);
@@ -43,6 +43,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 
 int try_mount_cg(struct container *);
 
+int cgroups_create_service(void);
 
 #define DEFAULT_CGROUPS_PATH	"/sys/fs/cgroup"
 

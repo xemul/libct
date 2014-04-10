@@ -296,6 +296,7 @@ static int serve_set_option(int sk, struct container_srv *cs, RpcRequest *req)
 
 	switch (opt) {
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
+	case LIBCT_OPT_KILLABLE:
 		ret = libct_container_set_option(cs->hnd, opt);
 		break;
 	case LIBCT_OPT_CGROUP_SUBMOUNT:

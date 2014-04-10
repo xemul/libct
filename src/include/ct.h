@@ -35,6 +35,7 @@ struct ct_handler {
 extern const struct container_ops local_ct_ops;
 
 #define CT_AUTO_PROC		0x1
+#define CT_KILLABLE		0x2
 
 /*
  * The main structure describing a container
