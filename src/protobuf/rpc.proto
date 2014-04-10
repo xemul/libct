@@ -21,8 +21,9 @@ enum req_type {
 
 	CT_SET_OPTION	= 22;
 	CT_NET_ADD	= 23;
-	CT_UNAME	= 24;
-	CT_SET_CAPS	= 25;
+	CT_NET_DEL	= 24;
+	CT_UNAME	= 25;
+	CT_SET_CAPS	= 26;
 }
 
 message create_req {

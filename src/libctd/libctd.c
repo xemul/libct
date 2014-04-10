@@ -308,7 +308,7 @@ static int serve_set_option(int sk, struct container_srv *cs, RpcRequest *req)
 	return send_resp(sk, ret);
 }
 
-static int serve_net_add(int sk, struct container_srv *cs, RpcRequest *req)
+static int serve_net_req(int sk, struct container_srv *cs, RpcRequest *req, bool add)
 {
 	int ret = -1;
 
@@ -325,13 +325,27 @@ static int serve_net_add(int sk, struct container_srv *cs, RpcRequest *req)
 			}
 		}
 
-		if (!ret)
-			ret = libct_net_add(cs->hnd, req->netadd->type, arg);
+		if (!ret) {
+			if (add)
+				ret = libct_net_add(cs->hnd, req->netadd->type, arg);
+			else
+				ret = libct_net_del(cs->hnd, req->netadd->type, arg);
+		}
 
 		xfree(arg);
 	}
 
 	return send_resp(sk, ret);
+}
+
+static int serve_net_add(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	return serve_net_req(sk, cs, req, true);
+}
+
+static int serve_net_del(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	return serve_net_req(sk, cs, req, false);
 }
 
 static int serve_uname(int sk, struct container_srv *cs, RpcRequest *req)
@@ -399,6 +413,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_set_option(sk, cs, req);
 	case REQ_TYPE__CT_NET_ADD:
 		return serve_net_add(sk, cs, req);
+	case REQ_TYPE__CT_NET_DEL:
+		return serve_net_del(sk, cs, req);
 	case REQ_TYPE__CT_UNAME:
 		return serve_uname(sk, cs, req);
 	case REQ_TYPE__CT_SET_CAPS:

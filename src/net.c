@@ -184,10 +184,8 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	if (!(ct->nsmask & CLONE_NEWNET))
 		return -1;
 
-	if (ntype == CT_NET_NONE) {
-		net_release(ct);
+	if (ntype == CT_NET_NONE)
 		return 0;
-	}
 
 	nops = net_get_ops(ntype);
 	if (!nops)
@@ -202,9 +200,43 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	return 0;
 }
 
+int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
+{
+	struct container *ct = cth2ct(h);
+	const struct ct_net_ops *nops;
+	struct ct_net *cn;
+
+	if (ct->state != CT_STOPPED)
+		/* FIXME -- implement */
+		return -1;
+
+	if (ntype == CT_NET_NONE)
+		return 0;
+
+	nops = net_get_ops(ntype);
+	if (!nops)
+		return -1;
+
+	list_for_each_entry(cn, &ct->ct_nets, l) {
+		if (!cn->ops->match(cn, arg))
+			continue;
+
+		list_del(&cn->l);
+		cn->ops->destroy(cn);
+		return 0;
+	}
+
+	return -1;
+}
+
 int libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
 {
 	return ct->ops->net_add(ct, ntype, arg);
+}
+
+int libct_net_del(ct_handler_t ct, enum ct_net_type ntype, void *arg)
+{
+	return ct->ops->net_del(ct, ntype, arg);
 }
 
 /*
@@ -273,6 +305,12 @@ static void *host_nic_unpack(NetaddReq *req)
 	return NULL;
 }
 
+static int host_nic_match(struct ct_net *n, void *arg)
+{
+	struct ct_net_host_nic *cn = cn2hn(n);
+	return !strcmp(cn->name, arg);
+}
+
 static const struct ct_net_ops host_nic_ops = {
 	.create		= host_nic_create,
 	.destroy	= host_nic_destroy,
@@ -280,6 +318,7 @@ static const struct ct_net_ops host_nic_ops = {
 	.stop		= host_nic_stop,
 	.pb_pack	= host_nic_pack,
 	.pb_unpack	= host_nic_unpack,
+	.match		= host_nic_match,
 };
 
 /*
@@ -370,6 +409,15 @@ static void *veth_unpack(NetaddReq *req)
 	return va;
 }
 
+static int veth_match(struct ct_net *n, void *arg)
+{
+	struct ct_net_veth *vn = cn2vn(n);
+	struct ct_net_veth_arg *va = arg;
+
+	/* Matching hostname should be enough */
+	return !strcmp(vn->v.host_name, va->host_name);
+}
+
 static const struct ct_net_ops veth_nic_ops = {
 	.create		= veth_create,
 	.destroy	= veth_destroy,
@@ -377,6 +425,7 @@ static const struct ct_net_ops veth_nic_ops = {
 	.stop		= veth_stop,
 	.pb_pack	= veth_pack,
 	.pb_unpack	= veth_unpack,
+	.match		= veth_match,
 };
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)

@@ -259,7 +259,7 @@ static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
 	return pbunix_req_ct(h, &req, REQ_TYPE__CT_SET_OPTION);
 }
 
-static int send_netadd_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
+static int send_net_req(ct_handler_t h, enum ct_net_type ntype, void *arg, int rtype)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
 	NetaddReq na = NETADD_REQ__INIT;
@@ -276,7 +276,17 @@ static int send_netadd_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
 		nops->pb_pack(arg, &na);
 	}
 
-	return pbunix_req_ct(h, &req, REQ_TYPE__CT_NET_ADD);
+	return pbunix_req_ct(h, &req, rtype);
+}
+
+static int send_netadd_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
+{
+	return send_net_req(h, ntype, arg, REQ_TYPE__CT_NET_ADD);
+}
+
+static int send_netdel_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
+{
+	return send_net_req(h, ntype, arg, REQ_TYPE__CT_NET_DEL);
 }
 
 static int send_add_mount_req(ct_handler_t h, char *src, char *dst, int flags)
@@ -332,6 +342,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.fs_add_mount		= send_add_mount_req,
 	.set_option		= send_set_option_req,
 	.net_add		= send_netadd_req,
+	.net_del		= send_netdel_req,
 	.uname			= send_uname_req,
 	.set_caps		= send_caps_req,
 };

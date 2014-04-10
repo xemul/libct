@@ -532,6 +532,7 @@ static const struct container_ops local_ct_ops = {
 	.get_state		= local_get_state,
 	.set_option		= local_set_option,
 	.net_add		= local_net_add,
+	.net_del		= local_net_del,
 	.uname			= local_uname,
 	.set_caps		= local_set_caps,
 };

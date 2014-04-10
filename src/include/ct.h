@@ -24,6 +24,7 @@ struct container_ops {
 	void (*destroy)(ct_handler_t);
 	void (*detach)(ct_handler_t);
 	int (*net_add)(ct_handler_t h, enum ct_net_type, void *);
+	int (*net_del)(ct_handler_t h, enum ct_net_type, void *);
 	int (*uname)(ct_handler_t h, char *host, char *domain);
 	int (*set_caps)(ct_handler_t h, unsigned long mask, unsigned int apply_to);
 };

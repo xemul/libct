@@ -5,6 +5,7 @@ struct _NetaddReq;
 struct container;
 
 int local_net_add(ct_handler_t h, enum ct_net_type, void *);
+int local_net_del(ct_handler_t h, enum ct_net_type, void *);
 void net_release(struct container *ct);
 int net_start(struct container *ct);
 void net_stop(struct container *ct);
@@ -14,6 +15,7 @@ struct ct_net_ops {
 	int (*start)(struct container *, struct ct_net *);
 	void (*stop)(struct container *, struct ct_net *);
 	void (*destroy)(struct ct_net *);
+	int (*match)(struct ct_net *, void *arg);
 	void (*pb_pack)(void *arg, struct _NetaddReq *);
 	void *(*pb_unpack)(struct _NetaddReq *);
 };
