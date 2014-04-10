@@ -347,6 +347,9 @@ static int re_mount_cg(struct container *ct)
 		goto err;
 
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
+		if (ctl->ctype >= CT_NR_CONTROLLERS)
+			continue;
+
 		snprintf(tpath + l, sizeof(tpath) - l,
 			 "/%s", cg_descs[ctl->ctype].name);
 		if (re_mount_controller(ct, ctl, tpath))
