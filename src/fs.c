@@ -11,11 +11,50 @@
 #include "ct.h"
 #include "protobuf/rpc.pb-c.h"
 
+/*
+ * External bind mounts
+ */
+
 struct fs_mount {
 	char *src;
 	char *dst;
 	struct list_head l;
 };
+
+static inline void umount_one(struct container *ct, struct fs_mount *fm, char *rdst)
+{
+	snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
+	umount(rdst);
+}
+
+int fs_mount_ext(struct container *ct)
+{
+	struct fs_mount *fm;
+	char rdst[PATH_MAX];
+
+	list_for_each_entry(fm, &ct->fs_mnts, l) {
+		snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
+		if (mount(fm->src, rdst, NULL, MS_BIND, NULL))
+			goto err;
+	}
+
+	return 0;
+
+err:
+	list_for_each_entry_continue_reverse(fm, &ct->fs_mnts, l)
+		umount_one(ct, fm, rdst);
+
+	return -1;
+}
+
+void fs_umount_ext(struct container *ct)
+{
+	struct fs_mount *fm;
+	char rdst[PATH_MAX];
+
+	list_for_each_entry_reverse(fm, &ct->fs_mnts, l)
+		umount_one(ct, fm, rdst);
+}
 
 static void fs_mount_free(struct fs_mount *fm)
 {
@@ -23,6 +62,16 @@ static void fs_mount_free(struct fs_mount *fm)
 		xfree(fm->src);
 		xfree(fm->dst);
 		xfree(fm);
+	}
+}
+
+static void free_ext(struct container *ct)
+{
+	struct fs_mount *m, *mn;
+
+	list_for_each_entry_safe(m, mn, &ct->fs_mnts, l) {
+		list_del(&m->l);
+		fs_mount_free(m);
 	}
 }
 
@@ -45,6 +94,26 @@ static struct fs_mount *fs_mount_alloc(char *src, char *dst)
 
 	return fm;
 }
+
+int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
+{
+	struct container *ct = cth2ct(h);
+	struct fs_mount *fm;
+
+	if (ct->state != CT_STOPPED)
+		/* FIXME -- implement */
+		return -1;
+
+	fm = fs_mount_alloc(src, dst);
+	if (!fm)
+		return -1;
+	list_add_tail(&fm->l, &ct->fs_mnts);
+	return 0;
+}
+
+/*
+ * CT_FS_SUBDIR driver
+ */
 
 static int mount_subdir(char *root, void *priv)
 {
@@ -87,6 +156,10 @@ static const struct ct_fs_ops ct_subdir_fs_ops = {
 	.pb_unpack	= pb_unpack_subdir,
 };
 
+/*
+ * Generic
+ */
+
 const struct ct_fs_ops *fstype_get_ops(enum ct_fs_type type)
 {
 	/* FIXME -- make this pluggable */
@@ -112,32 +185,6 @@ int fs_mount(struct container *ct)
 	return 0;
 }
 
-static inline void umount_one(struct container *ct, struct fs_mount *fm, char *rdst)
-{
-	snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
-	umount(rdst);
-}
-
-int fs_mount_ext(struct container *ct)
-{
-	struct fs_mount *fm;
-	char rdst[PATH_MAX];
-
-	list_for_each_entry(fm, &ct->fs_mnts, l) {
-		snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
-		if (mount(fm->src, rdst, NULL, MS_BIND, NULL))
-			goto err;
-	}
-
-	return 0;
-
-err:
-	list_for_each_entry_continue_reverse(fm, &ct->fs_mnts, l)
-		umount_one(ct, fm, rdst);
-
-	return -1;
-}
-
 void fs_umount(struct container *ct)
 {
 	if (!(ct->nsmask & CLONE_NEWNS))
@@ -148,27 +195,12 @@ void fs_umount(struct container *ct)
 		ct->fs_ops->umount(ct->root_path, ct->fs_priv);
 }
 
-void fs_umount_ext(struct container *ct)
-{
-	struct fs_mount *fm;
-	char rdst[PATH_MAX];
-
-	list_for_each_entry_reverse(fm, &ct->fs_mnts, l)
-		umount_one(ct, fm, rdst);
-}
-
 void fs_free(struct container *ct)
 {
-	struct fs_mount *m, *mn;
-
 	if (ct->fs_ops)
 		ct->fs_ops->put(ct->fs_priv);
 	xfree(ct->root_path);
-
-	list_for_each_entry_safe(m, mn, &ct->fs_mnts, l) {
-		list_del(&m->l);
-		fs_mount_free(m);
-	}
+	free_ext(ct);
 }
 
 int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
@@ -203,22 +235,6 @@ int local_fs_set_root(ct_handler_t h, char *root)
 	if (!ct->root_path)
 		return -1;
 
-	return 0;
-}
-
-int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
-{
-	struct container *ct = cth2ct(h);
-	struct fs_mount *fm;
-
-	if (ct->state != CT_STOPPED)
-		/* FIXME -- implement */
-		return -1;
-
-	fm = fs_mount_alloc(src, dst);
-	if (!fm)
-		return -1;
-	list_add_tail(&fm->l, &ct->fs_mnts);
 	return 0;
 }
 
