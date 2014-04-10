@@ -296,6 +296,13 @@ static struct ct_net_veth *cn2vn(struct ct_net *n)
 	return container_of(n, struct ct_net_veth, n);
 }
 
+static void veth_free(struct ct_net_veth *vn)
+{
+	xfree(vn->v.host_name);
+	xfree(vn->v.ct_name);
+	xfree(vn);
+}
+
 static struct ct_net *veth_create(void *arg)
 {
 	struct ct_net_veth_arg *va = arg;
@@ -311,9 +318,7 @@ static struct ct_net *veth_create(void *arg)
 	vn->v.host_name = xstrdup(va->host_name);
 	vn->v.ct_name = xstrdup(va->ct_name);
 	if (!vn->v.host_name || !vn->v.ct_name) {
-		xfree(vn->v.host_name);
-		xfree(vn->v.ct_name);
-		xfree(vn);
+		veth_free(vn);
 		return NULL;
 	}
 
@@ -322,11 +327,7 @@ static struct ct_net *veth_create(void *arg)
 
 static void veth_destroy(struct ct_net *n)
 {
-	struct ct_net_veth *vn = cn2vn(n);
-
-	xfree(vn->v.host_name);
-	xfree(vn->v.ct_name);
-	xfree(vn);
+	veth_free(cn2vn(n));
 }
 
 static int veth_start(struct container *ct, struct ct_net *n)
