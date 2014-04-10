@@ -138,9 +138,9 @@ src/libctd/$(LIBCTD): src/libctd/built-in.o $(PROGRAM) src/protobuf/built-in.o
 
 #
 # Library itself
-src/%: $(EARLY-GEN) | src/protobuf/built-in.o
+src/%: $(EARLY-GEN) | src/protobuf
 	$(Q) $(MAKE) $(build)=src $@
-src: $(EARLY-GEN) | src/protobuf/built-in.o
+src: $(EARLY-GEN) | src/protobuf
 	$(Q) $(MAKE) $(build)=src all
 
 .PHONY: src
