@@ -97,6 +97,9 @@ static inline char *cgroup_get_path(int type, char *buf, int blen)
 
 int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 {
+	if (ctype >= CT_NR_CONTROLLERS)
+		return -1;
+
 	return ct->ops->add_controller(ct, ctype);
 }
 
@@ -129,9 +132,6 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return -1;
-
-	if (ctype >= CT_NR_CONTROLLERS)
 		return -1;
 
 	return add_controller(ct, ctype);
@@ -191,9 +191,6 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	struct container *ct = cth2ct(h);
 
 	if (!(ct->cgroups_mask & cbit(ctype)))
-		return -1;
-
-	if (!param || !value)
 		return -1;
 
 	if (ct->state != CT_RUNNING) {
@@ -381,6 +378,9 @@ int try_mount_cg(struct container *ct)
 int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 		char *param, char *value)
 {
+	if (!param || !value)
+		return -1;
+
 	return ct->ops->config_controller(ct, ctype, param, value);
 }
 

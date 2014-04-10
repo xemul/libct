@@ -215,12 +215,6 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 		/* FIXME -- implement */
 		return -1;
 
-	if (flags != 0)
-		return -1;
-
-	if (!src || !dst)
-		return -1;
-
 	fm = fs_mount_alloc(src, dst);
 	if (!fm)
 		return -1;
@@ -240,5 +234,11 @@ int libct_fs_set_root(ct_handler_t ct, char *root)
 
 int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst, int flags)
 {
+	if (flags != 0)
+		return -1;
+
+	if (!src || !dst)
+		return -1;
+
 	return ct->ops->fs_add_mount(ct, src, dst, flags);
 }
