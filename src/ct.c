@@ -206,6 +206,10 @@ static int ct_clone(void *arg)
 	if (try_mount_cg(ct))
 		goto err;
 
+	ret = cgroups_attach(ct);
+	if (ret < 0)
+		goto err_um;
+
 	if (ct->root_path) {
 		/*
 		 * Mount external in child, since it may live
@@ -226,10 +230,6 @@ static int ct_clone(void *arg)
 		goto err_um;
 
 	ret = try_mount_proc(ct);
-	if (ret < 0)
-		goto err_um;
-
-	ret = cgroups_attach(ct);
 	if (ret < 0)
 		goto err_um;
 
