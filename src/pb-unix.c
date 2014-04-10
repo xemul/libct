@@ -292,14 +292,26 @@ static int send_netdel_req(ct_handler_t h, enum ct_net_type ntype, void *arg)
 static int send_add_mount_req(ct_handler_t h, char *src, char *dst, int flags)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
-	AddmountReq am = ADDMOUNT_REQ__INIT;
+	MountReq mr = MOUNT_REQ__INIT;
 
-	req.addmnt = &am;
-	am.src = src;
-	am.dst = dst;
-	am.flags = flags;
+	req.mnt = &mr;
+	mr.src = src;
+	mr.dst = dst;
+	mr.has_flags = true;
+	mr.flags = flags;
 
 	return pbunix_req_ct(h, &req, REQ_TYPE__FS_ADD_MOUNT);
+}
+
+static int send_del_mount_req(ct_handler_t h, char *dst)
+{
+	RpcRequest req = RPC_REQUEST__INIT;
+	MountReq mr = MOUNT_REQ__INIT;
+
+	req.mnt = &mr;
+	mr.dst = dst;
+
+	return pbunix_req_ct(h, &req, REQ_TYPE__FS_DEL_MOUNT);
 }
 
 static int send_uname_req(ct_handler_t h, char *host, char *dom)
@@ -340,6 +352,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.fs_set_root		= send_setroot_req,
 	.fs_set_private		= send_setpriv_req,
 	.fs_add_mount		= send_add_mount_req,
+	.fs_del_mount		= send_del_mount_req,
 	.set_option		= send_set_option_req,
 	.net_add		= send_netadd_req,
 	.net_del		= send_netdel_req,

@@ -280,9 +280,19 @@ static int serve_addmount(int sk, struct container_srv *cs, RpcRequest *req)
 {
 	int ret = -1;
 
-	if (req->addmnt)
+	if (req->mnt)
 		ret = libct_fs_add_mount(cs->hnd,
-				req->addmnt->src, req->addmnt->dst, req->addmnt->flags);
+				req->mnt->src, req->mnt->dst, req->mnt->flags);
+
+	return send_resp(sk, ret);
+}
+
+static int serve_delmount(int sk, struct container_srv *cs, RpcRequest *req)
+{
+	int ret = -1;
+
+	if (req->mnt)
+		ret = libct_fs_del_mount(cs->hnd, req->mnt->dst);
 
 	return send_resp(sk, ret);
 }
@@ -409,6 +419,8 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 		return serve_setpriv(sk, cs, req);
 	case REQ_TYPE__FS_ADD_MOUNT:
 		return serve_addmount(sk, cs, req);
+	case REQ_TYPE__FS_DEL_MOUNT:
+		return serve_delmount(sk, cs, req);
 	case REQ_TYPE__CT_SET_OPTION:
 		return serve_set_option(sk, cs, req);
 	case REQ_TYPE__CT_NET_ADD:

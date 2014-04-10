@@ -112,6 +112,27 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 	return 0;
 }
 
+int local_del_mount(ct_handler_t h, char *dst)
+{
+	struct container *ct = cth2ct(h);
+	struct fs_mount *fm;
+
+	if (ct->state != CT_STOPPED)
+		/* FIXME -- implement */
+		return -1;
+
+	list_for_each_entry(fm, &ct->fs_mnts, l) {
+		if (strcmp(fm->dst, dst))
+			continue;
+
+		list_del(&fm->l);
+		fs_mount_free(fm);
+		return 0;
+	}
+
+	return -1;
+}
+
 /*
  * CT_FS_SUBDIR driver
  */
@@ -264,4 +285,12 @@ int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst, int flags)
 		return -1;
 
 	return ct->ops->fs_add_mount(ct, src, dst, flags);
+}
+
+int libct_fs_del_mount(ct_handler_t ct, char *dst)
+{
+	if (!dst)
+		return -1;
+
+	return ct->ops->fs_del_mount(ct, dst);
 }

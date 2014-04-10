@@ -17,6 +17,7 @@ const struct ct_fs_ops *fstype_get_ops(enum ct_fs_type type);
 int local_fs_set_root(ct_handler_t h, char *root);
 int local_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *priv);
 int local_add_mount(ct_handler_t ct, char *src, char *dst, int flags);
+int local_del_mount(ct_handler_t ct, char *dst);
 
 int fs_mount(struct container *ct);
 int fs_mount_ext(struct container *ct);

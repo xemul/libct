@@ -529,6 +529,7 @@ static const struct container_ops local_ct_ops = {
 	.fs_set_root		= local_fs_set_root,
 	.fs_set_private		= local_fs_set_private,
 	.fs_add_mount		= local_add_mount,
+	.fs_del_mount		= local_del_mount,
 	.get_state		= local_get_state,
 	.set_option		= local_set_option,
 	.net_add		= local_net_add,

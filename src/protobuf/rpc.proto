@@ -18,12 +18,13 @@ enum req_type {
 	FS_SETROOT	= 19;
 	FS_SETPRIVATE	= 20;
 	FS_ADD_MOUNT	= 21;
+	FS_DEL_MOUNT	= 22;
 
-	CT_SET_OPTION	= 22;
-	CT_NET_ADD	= 23;
-	CT_NET_DEL	= 24;
-	CT_UNAME	= 25;
-	CT_SET_CAPS	= 26;
+	CT_SET_OPTION	= 23;
+	CT_NET_ADD	= 24;
+	CT_NET_DEL	= 25;
+	CT_UNAME	= 26;
+	CT_SET_CAPS	= 27;
 }
 
 message create_req {
@@ -70,10 +71,10 @@ message netadd_req {
 	optional string	peername	= 3;
 }
 
-message addmount_req {
-	required string src		= 1;
-	required string dst		= 2;
-	required int32	flags		= 3;
+message mount_req {
+	required string dst		= 1;
+	optional string src		= 2;
+	optional int32	flags		= 3;
 }
 
 message uname_req {
@@ -107,7 +108,7 @@ message rpc_request {
 	optional setpriv_req	setpriv	= 9;
 	optional setoption_req	setopt	= 10;
 	optional netadd_req	netadd	= 11;
-	optional addmount_req	addmnt	= 12;
+	optional mount_req	mnt	= 12;
 	optional uname_req	uname	= 13;
 	optional caps_req	caps	= 14;
 }
