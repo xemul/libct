@@ -26,9 +26,10 @@ static enum ct_state local_get_state(ct_handler_t h)
 	return cth2ct(h)->state;
 }
 
-static void container_destroy(struct container *ct)
+static void local_ct_destroy(ct_handler_t h)
 {
-	list_del(&ct->h.s_lh);
+	struct container *ct = cth2ct(h);
+
 	cgroups_free(ct);
 	fs_free(ct);
 	net_release(ct);
@@ -37,19 +38,6 @@ static void container_destroy(struct container *ct)
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
 	xfree(ct);
-}
-
-static void local_ct_destroy(ct_handler_t h)
-{
-	container_destroy(cth2ct(h));
-}
-
-void containers_cleanup(struct list_head *cts)
-{
-	struct container *ct, *n;
-
-	list_for_each_entry_safe(ct, n, cts, h.s_lh)
-		container_destroy(ct);
 }
 
 static int local_set_nsmask(ct_handler_t h, unsigned long nsmask)
@@ -534,6 +522,7 @@ static const struct container_ops local_ct_ops = {
 	.kill			= local_ct_kill,
 	.wait			= local_ct_wait,
 	.destroy		= local_ct_destroy,
+	.detach			= local_ct_destroy,
 	.set_nsmask		= local_set_nsmask,
 	.add_controller		= local_add_controller,
 	.config_controller	= local_config_controller,

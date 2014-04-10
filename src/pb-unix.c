@@ -105,10 +105,9 @@ static inline int pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
 	return ret;
 }
 
-static void destroy_proxy(struct container_proxy *cp)
+static void detach_proxy(ct_handler_t h)
 {
-	list_del(&cp->h.s_lh);
-	xfree(cp);
+	xfree(ch2c(h));
 }
 
 static void send_destroy_req(ct_handler_t h)
@@ -117,7 +116,7 @@ static void send_destroy_req(ct_handler_t h)
 
 	pbunix_req_ct(h, &req, REQ_TYPE__CT_DESTROY);
 	/* FIXME what if it fails? */
-	destroy_proxy(ch2c(h));
+	detach_proxy(h);
 }
 
 static enum ct_state send_get_state_req(ct_handler_t h)
@@ -322,6 +321,7 @@ static const struct container_ops pbunix_ct_ops = {
 	.spawn_execve		= send_spawn_req,
 	.enter_execve		= send_enter_req,
 	.destroy		= send_destroy_req,
+	.detach			= detach_proxy,
 	.kill			= send_kill_req,
 	.wait			= send_wait_req,
 	.set_nsmask		= send_nsmask_req,
@@ -407,13 +407,8 @@ static ct_handler_t send_openct_req(libct_session_t s, char *name)
 static void close_pbunix_session(libct_session_t s)
 {
 	struct pbunix_session *us;
-	struct container_proxy *cp, *n;
 
 	us = s2us(s);
-
-	list_for_each_entry_safe(cp, n, &us->s.s_cts, h.s_lh)
-		destroy_proxy(cp);
-
 	close(us->sk);
 	xfree(us);
 }

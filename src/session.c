@@ -15,11 +15,7 @@ static inline struct local_session *s2ls(libct_session_t s)
 
 static void close_local_session(libct_session_t s)
 {
-	struct local_session *ls;
-
-	ls = s2ls(s);
-	containers_cleanup(&ls->s.s_cts);
-	xfree(ls);
+	xfree(s2ls(s));
 }
 
 static ct_handler_t create_local_ct(libct_session_t s, char *name)
@@ -53,6 +49,7 @@ static inline ct_handler_t new_ct(libct_session_t ses, ct_handler_t cth)
 {
 	if (cth)
 		list_add_tail(&cth->s_lh, &ses->s_cts);
+
 	return cth;
 }
 
@@ -83,5 +80,12 @@ ct_handler_t libct_container_open(libct_session_t ses, char *name)
 
 void libct_session_close(libct_session_t s)
 {
+	ct_handler_t cth, n;
+
+	list_for_each_entry_safe(cth, n, &s->s_cts, s_lh) {
+		list_del(&cth->s_lh);
+		cth->ops->detach(cth);
+	}
+
 	s->ops->close(s);
 }

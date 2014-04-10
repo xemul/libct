@@ -22,6 +22,7 @@ struct container_ops {
 	int (*fs_add_mount)(ct_handler_t, char *src, char *dst, int flags);
 	int (*set_option)(ct_handler_t h, int opt, va_list parms);
 	void (*destroy)(ct_handler_t);
+	void (*detach)(ct_handler_t);
 	int (*net_add)(ct_handler_t h, enum ct_net_type, void *);
 	int (*uname)(ct_handler_t h, char *host, char *domain);
 	int (*set_caps)(ct_handler_t h, unsigned long mask, unsigned int apply_to);
@@ -93,7 +94,6 @@ static inline struct container *cth2ct(struct ct_handler *h)
 }
 
 char *local_ct_name(ct_handler_t h);
-void containers_cleanup(struct list_head *cts);
 
 static inline bool fs_private(struct container *ct)
 {

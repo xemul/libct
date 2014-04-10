@@ -80,6 +80,7 @@ int libct_container_wait(ct_handler_t ct)
 
 void libct_container_destroy(ct_handler_t ct)
 {
+	list_del(&ct->s_lh);
 	ct->ops->destroy(ct);
 }
 
