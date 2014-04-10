@@ -18,7 +18,17 @@
 #define PATH_MAX	4096
 #endif
 
-struct cg_desc cg_descs[CT_NR_CONTROLLERS] = {
+/*
+ * Private controllers for libct internal needs
+ */
+enum {
+	CTL_SERVICE = CT_NR_CONTROLLERS,
+	CT_NR_CONTROLLERS_ALL
+};
+
+#define LIBCT_CTL_NAME	".libct"
+
+struct cg_desc cg_descs[CT_NR_CONTROLLERS_ALL] = {
 	[CTL_BLKIO]	= { .name = "blkio", },
 	[CTL_CPU]	= { .name = "cpu", },
 	[CTL_CPUACCT]	= { .name = "cpuacct", },
@@ -28,6 +38,7 @@ struct cg_desc cg_descs[CT_NR_CONTROLLERS] = {
 	[CTL_HUGETLB]	= { .name = "hugetlb", },
 	[CTL_MEMORY]	= { .name = "memory", },
 	[CTL_NETCLS]	= { .name = "net_cls", },
+	[CTL_SERVICE]	= { .name = LIBCT_CTL_NAME, },
 };
 
 int cgroup_add_mount(struct mntent *me)
@@ -51,7 +62,28 @@ int cgroup_add_mount(struct mntent *me)
 		}
 	}
 
+	if (found == -1 && hasmntopt(me, "name=libct")) {
+		i = CTL_SERVICE;
+		cg_descs[i].mounted_at = xstrdup(me->mnt_dir);
+		if (!cg_descs[i].mounted_at)
+			return -1;
+	}
+
 	/* FIXME -- add custom cgroups' mount points if found == -1 */
+	return 0;
+}
+
+int cgroups_create_service(void)
+{
+	if (cg_descs[CTL_SERVICE].mounted_at)
+		return 0;
+
+	mkdir(DEFAULT_CGROUPS_PATH"/"LIBCT_CTL_NAME, 0600);
+	if (mount("cgroup", DEFAULT_CGROUPS_PATH"/"LIBCT_CTL_NAME, "cgroup",
+				MS_MGC_VAL, "none,name=libct") < 0)
+		return -1;
+
+	cg_descs[CTL_SERVICE].mounted_at = DEFAULT_CGROUPS_PATH"/"LIBCT_CTL_NAME;
 	return 0;
 }
 
@@ -84,6 +116,19 @@ static int add_controller(struct container *ct, int ctype)
 	list_add_tail(&ctl->ct_l, &ct->cgroups);
 	ct->cgroups_mask |= cbit(ctype);
 	return 0;
+}
+
+int local_add_controller(ct_handler_t h, enum ct_controller ctype)
+{
+	struct container *ct = cth2ct(h);
+
+	if (ct->state != CT_STOPPED)
+		return -1;
+
+	if (ctype >= CT_NR_CONTROLLERS)
+		return -1;
+
+	return add_controller(ct, ctype);
 }
 
 int local_add_controller(ct_handler_t h, enum ct_controller ctype)
@@ -134,17 +179,7 @@ static int config_controller(struct container *ct, enum ct_controller ctype,
 	char path[PATH_MAX], *t;
 	int fd, ret;
 
-	t = cgroup_get_path(ctype, path, sizeof(path));
-	snprintf(t, sizeof(path) - (t - path), "/%s/%s", ct->name, param);
-
-	ret = fd = open(path, O_WRONLY);
-	if (fd >= 0) {
-		if (write(fd, value, strlen(value)) < 0)
-			ret = -1;
-		close(fd);
-	}
-
-	return ret;
+	return config_controller(ct, ctype, param, value);
 }
 
 int local_config_controller(ct_handler_t h, enum ct_controller ctype,
@@ -203,6 +238,12 @@ int cgroups_create(struct container *ct)
 	struct controller *ctl;
 	struct cg_config *cfg;
 	int ret = 0;
+
+	if (ct->flags & CT_KILLABLE) {
+		ret = add_controller(ct, CTL_SERVICE);
+		if (ret)
+			return ret;
+	}
 
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
 		ret = cgroup_create_one(ct, ctl);

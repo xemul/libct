@@ -2,7 +2,7 @@ TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter \
 	ct_create_exec ct_cgroup_basic ct_net_host \
 	ct_net_veth ct_create_exec_d ct_private_subdir \
 	ct_ext_mount ct_mhandle_exec_d ct_private_subdir_ns \
-	ct_cgroup_sub
+	ct_cgroup_sub ct_service
 
 PIGS  = file_piggy
 
