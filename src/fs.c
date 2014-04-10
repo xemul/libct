@@ -208,11 +208,17 @@ int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 	int ret = -1;
 	struct container *ct = cth2ct(h);
 
-	if (ct->state != CT_STOPPED || ct->fs_ops != NULL)
+	if (ct->state != CT_STOPPED)
 		return -1;
 
-	if (type == CT_FS_NONE)
+	if (type == CT_FS_NONE) {
+		if (ct->fs_ops) {
+			ct->fs_ops->put(ct->fs_priv);
+			ct->fs_priv = NULL;
+		}
+
 		return 0;
+	}
 
 	ct->fs_ops = fstype_get_ops(type);
 	if (ct->fs_ops) {
