@@ -128,12 +128,29 @@ static struct cg_config *cg_config_alloc(enum ct_controller ctype, char *param, 
 	return cg;
 }
 
+static int config_controller(struct container *ct, enum ct_controller ctype,
+		char *param, char *value)
+{
+	char path[PATH_MAX], *t;
+	int fd, ret;
+
+	t = cgroup_get_path(ctype, path, sizeof(path));
+	snprintf(t, sizeof(path) - (t - path), "/%s/%s", ct->name, param);
+
+	ret = fd = open(path, O_WRONLY);
+	if (fd >= 0) {
+		if (write(fd, value, strlen(value)) < 0)
+			ret = -1;
+		close(fd);
+	}
+
+	return ret;
+}
+
 int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		char *param, char *value)
 {
 	struct container *ct = cth2ct(h);
-	char path[PATH_MAX], *t;
-	int fd, ret;
 
 	if (!(ct->cgroups_mask & cbit(ctype)))
 		return -1;
@@ -168,17 +185,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		return 0;
 	}
 
-	t = cgroup_get_path(ctype, path, sizeof(path));
-	snprintf(t, sizeof(path) - (t - path), "/%s/%s", ct->name, param);
-
-	ret = fd = open(path, O_WRONLY);
-	if (fd >= 0) {
-		if (write(fd, value, strlen(value)) < 0)
-			ret = -1;
-		close(fd);
-	}
-
-	return ret;
+	return config_controller(ct, ctype, param, value);
 }
 
 static int cgroup_create_one(struct container *ct, struct controller *ctl)
@@ -214,7 +221,7 @@ int cgroups_create(struct container *ct)
 
 static int cgroup_attach_one(struct container *ct, struct controller *ctl, char *pid)
 {
-	return local_config_controller(&ct->h, ctl->ctype, "tasks", pid);
+	return config_controller(ct, ctl->ctype, "tasks", pid);
 }
 
 int cgroups_attach(struct container *ct)
