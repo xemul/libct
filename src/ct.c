@@ -200,7 +200,6 @@ static int ct_clone(void *arg)
 		 */
 		if (mount("none", "/", "none", MS_SLAVE|MS_REC, NULL))
 			goto err;
-
 	}
 
 	if (try_mount_cg(ct))
@@ -382,6 +381,10 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 
 		if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
 			char nroot[128];
+
+			/*
+			 * Otherwise switched by setns()
+			 */
 
 			snprintf(nroot, sizeof(nroot), "/proc/%d/root", ct->root_pid);
 			if (set_current_root(nroot))
