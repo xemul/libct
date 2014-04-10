@@ -118,17 +118,9 @@ static int add_controller(struct container *ct, int ctype)
 	return 0;
 }
 
-int local_add_controller(ct_handler_t h, enum ct_controller ctype)
+int add_service_controller(struct container *ct)
 {
-	struct container *ct = cth2ct(h);
-
-	if (ct->state != CT_STOPPED)
-		return -1;
-
-	if (ctype >= CT_NR_CONTROLLERS)
-		return -1;
-
-	return add_controller(ct, ctype);
+	return add_controller(ct, CTL_SERVICE);
 }
 
 int local_add_controller(ct_handler_t h, enum ct_controller ctype)
@@ -179,7 +171,17 @@ static int config_controller(struct container *ct, enum ct_controller ctype,
 	char path[PATH_MAX], *t;
 	int fd, ret;
 
-	return config_controller(ct, ctype, param, value);
+	t = cgroup_get_path(ctype, path, sizeof(path));
+	snprintf(t, sizeof(path) - (t - path), "/%s/%s", ct->name, param);
+
+	ret = fd = open(path, O_WRONLY);
+	if (fd >= 0) {
+		if (write(fd, value, strlen(value)) < 0)
+			ret = -1;
+		close(fd);
+	}
+
+	return ret;
 }
 
 int local_config_controller(ct_handler_t h, enum ct_controller ctype,
@@ -238,12 +240,6 @@ int cgroups_create(struct container *ct)
 	struct controller *ctl;
 	struct cg_config *cfg;
 	int ret = 0;
-
-	if (ct->flags & CT_KILLABLE) {
-		ret = add_controller(ct, CTL_SERVICE);
-		if (ret)
-			return ret;
-	}
 
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
 		ret = cgroup_create_one(ct, ctl);

@@ -44,6 +44,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 int try_mount_cg(struct container *);
 
 int cgroups_create_service(void);
+int add_service_controller(struct container *);
 
 #define DEFAULT_CGROUPS_PATH	"/sys/fs/cgroup"
 

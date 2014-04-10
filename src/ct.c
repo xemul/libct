@@ -265,6 +265,11 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	if (fs_mount(ct))
 		return -1;
 
+	if ((ct->flags & CT_KILLABLE) && !(ct->nsmask & CLONE_NEWPID)) {
+		if (add_service_controller(ct))
+			goto err_cg;
+	}
+
 	if (cgroups_create(ct))
 		goto err_cg;
 
