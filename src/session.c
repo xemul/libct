@@ -24,26 +24,13 @@ static void close_local_session(libct_session_t s)
 
 static ct_handler_t create_local_ct(libct_session_t s, char *name)
 {
-	struct local_session *ls;
-	struct container *ct;
+	ct_handler_t cth;
 
-	ls = s2ls(s);
-	ct = xzalloc(sizeof(*ct));
-	if (ct) {
-		ct->session = s;
-		ct->h.ops = &local_ct_ops;
-		ct->state = CT_STOPPED;
-		ct->name = xstrdup(name);
-		INIT_LIST_HEAD(&ct->cgroups);
-		INIT_LIST_HEAD(&ct->cg_configs);
-		INIT_LIST_HEAD(&ct->ct_nets);
-		INIT_LIST_HEAD(&ct->fs_mnts);
-		list_add_tail(&ct->h.s_lh, &ls->s.s_cts);
+	cth = ct_create(name);
+	if (cth)
+		list_add_tail(&cth->s_lh, &s->s_cts);
 
-		return &ct->h;
-	}
-
-	return NULL;
+	return cth;
 }
 
 static const struct backend_ops local_session_ops = {

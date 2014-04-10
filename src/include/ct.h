@@ -32,7 +32,7 @@ struct ct_handler {
 	struct list_head s_lh;
 };
 
-extern const struct container_ops local_ct_ops;
+ct_handler_t ct_create(char *name);
 
 #define CT_AUTO_PROC		0x1
 #define CT_KILLABLE		0x2
@@ -42,7 +42,6 @@ extern const struct container_ops local_ct_ops;
  */
 struct container {
 	char *name;
-	struct libct_session *session;
 	struct ct_handler h;
 	enum ct_state state;
 

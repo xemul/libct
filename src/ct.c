@@ -526,7 +526,7 @@ char *local_ct_name(ct_handler_t h)
 	return cth2ct(h)->name;
 }
 
-const struct container_ops local_ct_ops = {
+static const struct container_ops local_ct_ops = {
 	.spawn_cb		= local_spawn_cb,
 	.spawn_execve		= local_spawn_execve,
 	.enter_cb		= local_enter_cb,
@@ -546,3 +546,24 @@ const struct container_ops local_ct_ops = {
 	.uname			= local_uname,
 	.set_caps		= local_set_caps,
 };
+
+ct_handler_t ct_create(char *name)
+{
+	struct container *ct;
+
+	ct = xzalloc(sizeof(*ct));
+	if (ct) {
+		ct->h.ops = &local_ct_ops;
+		ct->state = CT_STOPPED;
+		ct->name = xstrdup(name);
+		INIT_LIST_HEAD(&ct->cgroups);
+		INIT_LIST_HEAD(&ct->cg_configs);
+		INIT_LIST_HEAD(&ct->ct_nets);
+		INIT_LIST_HEAD(&ct->fs_mnts);
+
+		return &ct->h;
+	}
+
+	return NULL;
+}
+
