@@ -69,16 +69,9 @@ int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 
 #define cbit(ctype)	(1 << ctype)
 
-int local_add_controller(ct_handler_t h, enum ct_controller ctype)
+static int add_controller(struct container *ct, int ctype)
 {
-	struct container *ct = cth2ct(h);
 	struct controller *ctl;
-
-	if (ct->state != CT_STOPPED)
-		return -1;
-
-	if (ctype >= CT_NR_CONTROLLERS)
-		return -1;
 
 	if (ct->cgroups_mask & cbit(ctype))
 		return 0;
@@ -91,6 +84,19 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	list_add_tail(&ctl->ct_l, &ct->cgroups);
 	ct->cgroups_mask |= cbit(ctype);
 	return 0;
+}
+
+int local_add_controller(ct_handler_t h, enum ct_controller ctype)
+{
+	struct container *ct = cth2ct(h);
+
+	if (ct->state != CT_STOPPED)
+		return -1;
+
+	if (ctype >= CT_NR_CONTROLLERS)
+		return -1;
+
+	return add_controller(ct, ctype);
 }
 
 static void cg_config_free(struct cg_config *cg)
