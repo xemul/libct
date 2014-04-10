@@ -380,7 +380,6 @@ static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type
 	}
 
 	cp->h.ops = &pbunix_ct_ops;
-	list_add_tail(&cp->h.s_lh, &us->s.s_cts);
 	cp->rid = resp->create->rid;
 	cp->ses = us;
 found:

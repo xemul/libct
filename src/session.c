@@ -24,13 +24,7 @@ static void close_local_session(libct_session_t s)
 
 static ct_handler_t create_local_ct(libct_session_t s, char *name)
 {
-	ct_handler_t cth;
-
-	cth = ct_create(name);
-	if (cth)
-		list_add_tail(&cth->s_lh, &s->s_cts);
-
-	return cth;
+	return ct_create(name);
 }
 
 static const struct backend_ops local_session_ops = {
@@ -55,23 +49,36 @@ libct_session_t libct_session_open_local(void)
 	return NULL;
 }
 
+static inline ct_handler_t new_ct(libct_session_t ses, ct_handler_t cth)
+{
+	if (cth)
+		list_add_tail(&cth->s_lh, &ses->s_cts);
+	return cth;
+}
+
 ct_handler_t libct_container_create(libct_session_t ses, char *name)
 {
+	ct_handler_t cth;
+
 	if (!name)
 		return NULL;
 
-	return ses->ops->create_ct(ses, name);
+	cth = ses->ops->create_ct(ses, name);
+	return new_ct(ses, cth);
 }
 
 ct_handler_t libct_container_open(libct_session_t ses, char *name)
 {
+	ct_handler_t cth;
+
 	if (!name)
 		return NULL;
 
 	if (!ses->ops->open_ct)
 		return NULL;
 
-	return ses->ops->open_ct(ses, name);
+	cth = ses->ops->open_ct(ses, name);
+	return new_ct(ses, cth);
 }
 
 void libct_session_close(libct_session_t s)
