@@ -27,6 +27,7 @@ enum {
 };
 
 #define LIBCT_CTL_NAME	".libct"
+#define LIBCT_CTL_PATH	DEFAULT_CGROUPS_PATH"/"LIBCT_CTL_NAME
 
 struct cg_desc cg_descs[CT_NR_CONTROLLERS_ALL] = {
 	[CTL_BLKIO]	= { .name = "blkio", },
@@ -78,12 +79,12 @@ int cgroups_create_service(void)
 	if (cg_descs[CTL_SERVICE].mounted_at)
 		return 0;
 
-	mkdir(DEFAULT_CGROUPS_PATH"/"LIBCT_CTL_NAME, 0600);
-	if (mount("cgroup", DEFAULT_CGROUPS_PATH"/"LIBCT_CTL_NAME, "cgroup",
+	mkdir(LIBCT_CTL_PATH, 0600);
+	if (mount("cgroup", LIBCT_CTL_PATH, "cgroup",
 				MS_MGC_VAL, "none,name=libct") < 0)
 		return -1;
 
-	cg_descs[CTL_SERVICE].mounted_at = DEFAULT_CGROUPS_PATH"/"LIBCT_CTL_NAME;
+	cg_descs[CTL_SERVICE].mounted_at = LIBCT_CTL_PATH;
 	return 0;
 }
 
