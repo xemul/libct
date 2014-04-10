@@ -13,15 +13,17 @@ OUTS = $(TESTS:%=%.out)
 
 all: $(PIGS) $(TESTS)
 
-clean:
-	rm -f $(TESTS)
+cleanouts:
 	rm -f $(OUTS)
+
+clean: cleanouts
+	rm -f $(TESTS)
 	rm -f $(PIGS)
 
 %.out: %
 	./$< > $@
 	@ tail -n1 $@
 
-run: $(OUTS)
+run: cleanouts $(OUTS)
 
 .PHONY: all clean run
