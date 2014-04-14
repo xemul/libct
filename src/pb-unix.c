@@ -229,7 +229,7 @@ static int send_setpriv_req(ct_handler_t h, enum ct_fs_type type, void *arg)
 
 	ops = fstype_get_ops(type);
 	if (!ops)
-		return -1;
+		return LCTERR_BADFSTYPE;
 
 	req.setpriv = &sp;
 	sp.type = type;
@@ -271,7 +271,7 @@ static int send_net_req(ct_handler_t h, enum ct_net_type ntype, void *arg, int r
 	if (ntype != CT_NET_NONE) {
 		nops = net_get_ops(ntype);
 		if (!nops)
-			return -1;
+			return LCTERR_BADNETTYPE;
 
 		nops->pb_pack(arg, &na);
 	}

@@ -189,7 +189,7 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	nops = net_get_ops(ntype);
 	if (!nops)
-		return -1;
+		return LCTERR_BADNETTYPE;
 
 	cn = nops->create(arg);
 	if (!cn)
@@ -215,7 +215,7 @@ int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	nops = net_get_ops(ntype);
 	if (!nops)
-		return -1;
+		return LCTERR_BADNETTYPE;
 
 	list_for_each_entry(cn, &ct->ct_nets, l) {
 		if (!cn->ops->match(cn, arg))

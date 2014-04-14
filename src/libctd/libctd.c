@@ -260,6 +260,7 @@ static int serve_setpriv(int sk, struct container_srv *cs, RpcRequest *req)
 	if (req->setpriv) {
 		const struct ct_fs_ops *ops;
 
+		ret = LCTERR_BADFSTYPE;
 		ops = fstype_get_ops(req->setpriv->type);
 		if (ops) {
 			void *arg;
@@ -324,6 +325,7 @@ static int serve_net_req(int sk, struct container_srv *cs, RpcRequest *req, bool
 		const struct ct_net_ops *nops;
 		void *arg = NULL;
 
+		ret = LCTERR_BADNETTYPE;
 		if (req->netadd->type != CT_NET_NONE) {
 			nops = net_get_ops(req->netadd->type);
 			if (nops) {

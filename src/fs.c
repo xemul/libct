@@ -227,7 +227,7 @@ void fs_free(struct container *ct)
 
 int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 {
-	int ret = -1;
+	int ret;
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
@@ -242,6 +242,7 @@ int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 		return 0;
 	}
 
+	ret = LCTERR_BADFSTYPE;
 	ct->fs_ops = fstype_get_ops(type);
 	if (ct->fs_ops) {
 		ct->fs_priv = ct->fs_ops->get(priv);
