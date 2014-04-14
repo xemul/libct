@@ -12,5 +12,6 @@
 #define LCTERR_BADCTRID		-42	/* Bad container remote ID given */
 #define LCTERR_BADCTRNAME	-43	/* Bad name on open */
 #define LCTERR_RPCUNKNOWN	-44	/* Remote problem , but err is not given */
+#define LCTERR_RPCCOMM		-45	/* Error communicating via channel */
 
 #endif /* __LIBCT_ERRORS_H__ */

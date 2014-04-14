@@ -98,7 +98,7 @@ static inline int pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
 
 	resp = do_pbunix_req_ct(h, req, type);
 	if (!resp)
-		return -1;
+		return LCTERR_RPCCOMM;
 
 	ret = resp_error(resp);
 	rpc_responce__free_unpacked(resp, NULL);
