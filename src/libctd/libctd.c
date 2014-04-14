@@ -20,8 +20,6 @@
 #include "../protobuf/rpc.pb-c.h"
 
 #define MAX_MSG		4096
-#define BADCTRID_ERR	-42
-#define BADCTRNAME_ERR	-43
 
 /* Buffer for keeping serialized messages */
 static unsigned char dbuf[MAX_MSG];
