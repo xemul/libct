@@ -88,7 +88,7 @@ static RpcResponce *do_pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
 
 static inline int resp_error(RpcResponce *resp)
 {
-	return resp->success ? 0 : (resp->has_error ? resp->error : -1);
+	return resp->success ? 0 : (resp->has_error ? resp->error : LCTERR_RPCUNKNOWN);
 }
 
 static inline int pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
