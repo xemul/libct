@@ -23,6 +23,11 @@
 /* FS-specific */
 #define LCTERR_CANTMOUNT	-10	/* Can't mount something */
 
+/* CGroups-specifig */
+#define LCTERR_CGCREATE		-21	/* Can't create cgroup */
+#define LCTERR_CGCONFIG		-22	/* Can't configure cgroup */
+#define	LCTERR_CGATTACH		-23	/* Can't attach to cgroup */
+
 /* RPC-specific ones */
 #define LCTERR_BADCTRID		-42	/* Bad container remote ID given */
 #define LCTERR_BADCTRNAME	-43	/* Bad name on open */

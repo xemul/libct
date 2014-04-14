@@ -260,9 +260,11 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 			goto err_cg;
 	}
 
-	if (cgroups_create(ct))
+	ret = cgroups_create(ct);
+	if (ret)
 		goto err_cg;
 
+	ret = -1;
 	if (pipe(ca.child_wait_pipe))
 		goto err_pipe;
 	if (pipe(ca.parent_wait_pipe))

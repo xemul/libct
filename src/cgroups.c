@@ -83,7 +83,7 @@ int cgroups_create_service(void)
 	mkdir(LIBCT_CTL_PATH, 0600);
 	if (mount("cgroup", LIBCT_CTL_PATH, "cgroup",
 				MS_MGC_VAL, "none,name=libct") < 0)
-		return -1;
+		return LCTERR_CGCREATE;
 
 	cg_descs[CTL_SERVICE].mounted_at = LIBCT_CTL_PATH;
 	return 0;
@@ -192,7 +192,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	struct container *ct = cth2ct(h);
 
 	if (!(ct->cgroups_mask & cbit(ctype)))
-		return -1;
+		return LCTERR_NOTFOUND;
 
 	if (ct->state != CT_RUNNING) {
 		struct cg_config *cfg;
@@ -221,7 +221,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		return 0;
 	}
 
-	return config_controller(ct, ctype, param, value);
+	return config_controller(ct, ctype, param, value) ? LCTERR_CGCONFIG : 0;
 }
 
 static int cgroup_create_one(struct container *ct, struct controller *ctl)
@@ -243,13 +243,13 @@ int cgroups_create(struct container *ct)
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
 		ret = cgroup_create_one(ct, ctl);
 		if (ret)
-			return ret;
+			return LCTERR_CGCREATE;
 	}
 
 	list_for_each_entry(cfg, &ct->cg_configs, l) {
 		ret = local_config_controller(&ct->h, cfg->ctype, cfg->param, cfg->value);
 		if (ret)
-			return ret;
+			return LCTERR_CGCONFIG;
 	}
 
 	return 0;
@@ -257,7 +257,7 @@ int cgroups_create(struct container *ct)
 
 static int cgroup_attach_one(struct container *ct, struct controller *ctl, char *pid)
 {
-	return config_controller(ct, ctl->ctype, "tasks", pid);
+	return config_controller(ct, ctl->ctype, "tasks", pid) ? LCTERR_CGATTACH : 0;
 }
 
 int cgroups_attach(struct container *ct)
