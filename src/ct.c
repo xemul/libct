@@ -186,6 +186,7 @@ static int ct_clone(void *arg)
 		 * Remount / as slave, so that it doesn't
 		 * propagate its changes to our container.
 		 */
+		ret = LCTERR_CANTMOUNT;
 		if (mount("none", "/", "none", MS_SLAVE|MS_REC, NULL))
 			goto err;
 	}
@@ -208,7 +209,8 @@ static int ct_clone(void *arg)
 		if (ret < 0)
 			goto err;
 
-		if (set_ct_root(ct))
+		ret = set_ct_root(ct);
+		if (ret < 0)
 			goto err_um;
 	}
 
