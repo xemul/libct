@@ -17,6 +17,7 @@
 #define LCTERR_BADARG		-4	/* Bad argument for request */
 #define LCTERR_NONS		-5	/* Required namespace is not available */
 #define LCTERR_NOTFOUND		-6	/* Requested object not found */
+#define LCTERR_INVARG		-7	/* Invalid API call argument */
 
 /* FS-specific */
 #define LCTERR_CANTMOUNT	-10	/* Can't mount something */

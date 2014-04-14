@@ -281,10 +281,10 @@ int libct_fs_set_root(ct_handler_t ct, char *root)
 int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst, int flags)
 {
 	if (flags != 0)
-		return -1;
+		return LCTERR_INVARG;
 
 	if (!src || !dst)
-		return -1;
+		return LCTERR_INVARG;
 
 	return ct->ops->fs_add_mount(ct, src, dst, flags);
 }
@@ -292,7 +292,7 @@ int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst, int flags)
 int libct_fs_del_mount(ct_handler_t ct, char *dst)
 {
 	if (!dst)
-		return -1;
+		return LCTERR_INVARG;
 
 	return ct->ops->fs_del_mount(ct, dst);
 }

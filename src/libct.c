@@ -121,7 +121,7 @@ int libct_container_uname(ct_handler_t ct, char *host, char *domain)
 int libct_container_set_caps(ct_handler_t ct, unsigned long mask, unsigned int apply_to)
 {
 	if (!apply_to || (apply_to & ~CAPS_ALL))
-		return -1;
+		return LCTERR_INVARG;
 
 	return ct->ops->set_caps(ct, mask, apply_to);
 }

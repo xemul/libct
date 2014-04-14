@@ -99,7 +99,7 @@ static inline char *cgroup_get_path(int type, char *buf, int blen)
 int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 {
 	if (ctype >= CT_NR_CONTROLLERS)
-		return -1;
+		return LCTERR_INVARG;
 
 	return ct->ops->add_controller(ct, ctype);
 }
@@ -380,7 +380,7 @@ int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 		char *param, char *value)
 {
 	if (!param || !value)
-		return -1;
+		return LCTERR_INVARG;
 
 	return ct->ops->config_controller(ct, ctype, param, value);
 }
