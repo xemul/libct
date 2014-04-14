@@ -5,6 +5,12 @@
  * library calls
  */
 
+/*
+ * -1 is "reserved" for generic "something went wrong" result
+ * since this value can be (well, is) widely explicitly used
+ * all over the code.
+ */
+
 /* Generic */
 #define LCTERR_BADCTSTATE	-2	/* Bad container state */
 #define LCTERR_BADFSTYPE	-3	/* Bad FS type */
