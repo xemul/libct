@@ -103,7 +103,7 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	fm = fs_mount_alloc(src, dst);
 	if (!fm)
@@ -119,7 +119,7 @@ int local_del_mount(ct_handler_t h, char *dst)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	list_for_each_entry(fm, &ct->fs_mnts, l) {
 		if (strcmp(fm->dst, dst))
@@ -231,7 +231,7 @@ int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	if (type == CT_FS_NONE) {
 		if (ct->fs_ops) {
@@ -257,7 +257,7 @@ int local_fs_set_root(ct_handler_t h, char *root)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	ct->root_path = xstrdup(root);
 	if (!ct->root_path)

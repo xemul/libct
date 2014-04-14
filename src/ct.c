@@ -45,7 +45,7 @@ static int local_set_nsmask(ct_handler_t h, unsigned long nsmask)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	/* Are all of these bits supported by kernel? */
 	if (nsmask & ~kernel_ns_mask)
@@ -247,7 +247,7 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	struct ct_clone_arg ca;
 
 	if (ct->state != CT_STOPPED)
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	if (fs_mount(ct))
 		return -1;
@@ -341,7 +341,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	int aux = -1, pid;
 
 	if (ct->state != CT_RUNNING)
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	if (ct->nsmask & CLONE_NEWPID) {
 		if (switch_ns(ct->root_pid, &pid_ns, &aux))
@@ -407,7 +407,7 @@ static int local_ct_kill(ct_handler_t h)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_RUNNING)
-		return -1;
+		return LCTERR_BADCTSTATE;
 	if (ct->nsmask & CLONE_NEWPID)
 		return kill(ct->root_pid, SIGKILL);
 	if (ct->flags & CT_KILLABLE)
@@ -421,7 +421,7 @@ static int local_ct_wait(ct_handler_t h)
 	int ret, status;
 
 	if (ct->state != CT_RUNNING)
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	ret = waitpid(ct->root_pid, &status, 0);
 	if (ret < 0)
@@ -468,7 +468,7 @@ static int local_uname(ct_handler_t h, char *host, char *dom)
 	if (!(ct->nsmask & CLONE_NEWUTS))
 		return -1;
 	if (ct->state != CT_STOPPED)
-		return -1; /* FIXME */
+		return LCTERR_BADCTSTATE; /* FIXME */
 
 	if (host) {
 		host = xstrdup(host);
@@ -494,7 +494,7 @@ static int local_set_caps(ct_handler_t h, unsigned long mask, unsigned int apply
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	if (apply_to & CAPS_BSET) {
 		ct->cap_mask |= CAPS_BSET;

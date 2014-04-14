@@ -5,6 +5,9 @@
  * library calls
  */
 
+/* Generic */
+#define LCTERR_BADCTSTATE	-2	/* Bad container state */
+
 /* RPC-specific ones */
 #define BADCTRID_ERR	-42		/* Bad container remote ID given */
 #define BADCTRNAME_ERR	-43		/* Bad name on open */

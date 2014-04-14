@@ -133,7 +133,7 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	return add_controller(ct, ctype);
 }

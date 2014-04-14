@@ -179,7 +179,7 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	if (!(ct->nsmask & CLONE_NEWNET))
 		return -1;
@@ -208,7 +208,7 @@ int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
-		return -1;
+		return LCTERR_BADCTSTATE;
 
 	if (ntype == CT_NET_NONE)
 		return 0;
