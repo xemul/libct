@@ -247,7 +247,8 @@ static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
 
 	switch (opt) {
 	default:
-		return -1;
+		return LCTERR_BADOPTION;
+
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
 	case LIBCT_OPT_KILLABLE:
 		break;

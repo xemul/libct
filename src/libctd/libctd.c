@@ -304,6 +304,9 @@ static int serve_set_option(int sk, struct container_srv *cs, RpcRequest *req)
 		opt = req->setopt->opt;
 
 	switch (opt) {
+	default:
+		return LCTERR_BADOPTION;
+
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
 	case LIBCT_OPT_KILLABLE:
 		ret = libct_container_set_option(cs->hnd, opt);
