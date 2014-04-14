@@ -226,7 +226,7 @@ int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
 		return 0;
 	}
 
-	return -1;
+	return LCTERR_NOTFOUND;
 }
 
 int libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)

@@ -16,6 +16,7 @@
 #define LCTERR_BADTYPE		-3	/* Bad type requested */
 #define LCTERR_BADARG		-4	/* Bad argument for request */
 #define LCTERR_NONS		-5	/* Required namespace is not available */
+#define LCTERR_NOTFOUND		-6	/* Requested object not found */
 
 /* RPC-specific ones */
 #define LCTERR_BADCTRID		-42	/* Bad container remote ID given */

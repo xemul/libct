@@ -130,7 +130,7 @@ int local_del_mount(ct_handler_t h, char *dst)
 		return 0;
 	}
 
-	return -1;
+	return LCTERR_NOTFOUND;
 }
 
 /*
