@@ -131,7 +131,7 @@ static int serve_ct_open(int sk, libct_session_t ses, CreateReq *req)
 
 	cs = find_ct_by_name(req->name);
 	if (!cs)
-		return send_err_resp(sk, BADCTRNAME_ERR);
+		return send_err_resp(sk, LCTERR_BADCTRNAME);
 
 	resp.create = &cr;
 	cr.rid = cs->rid;
@@ -390,7 +390,7 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 	if (req->has_ct_rid)
 		cs = find_ct_by_rid(req->ct_rid);
 	if (!cs)
-		return send_err_resp(sk, BADCTRID_ERR);
+		return send_err_resp(sk, LCTERR_BADCTRID);
 
 	switch (req->req) {
 	case REQ_TYPE__CT_DESTROY:
