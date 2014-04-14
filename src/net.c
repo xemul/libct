@@ -193,7 +193,7 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	cn = nops->create(arg);
 	if (!cn)
-		return -1;
+		return LCTERR_BADNETARG;
 
 	cn->ops = nops;
 	list_add_tail(&cn->l, &ct->ct_nets);

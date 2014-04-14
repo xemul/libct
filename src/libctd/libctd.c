@@ -265,6 +265,7 @@ static int serve_setpriv(int sk, struct container_srv *cs, RpcRequest *req)
 		if (ops) {
 			void *arg;
 
+			ret = LCTERR_BADFSARG;
 			arg = ops->pb_unpack(req->setpriv);
 			if (arg)
 				ret = libct_fs_set_private(cs->hnd, req->setpriv->type, arg);
@@ -330,6 +331,7 @@ static int serve_net_req(int sk, struct container_srv *cs, RpcRequest *req, bool
 
 		ret = LCTERR_BADNETTYPE;
 		if (req->netadd->type != CT_NET_NONE) {
+			ret = LCTERR_BADNETARG;
 			nops = net_get_ops(req->netadd->type);
 			if (nops) {
 				arg = nops->pb_unpack(req->netadd);

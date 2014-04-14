@@ -16,6 +16,8 @@
 #define LCTERR_BADFSTYPE	-3	/* Bad FS type */
 #define LCTERR_BADNETTYPE	-4	/* Bad Net type */
 #define LCTERR_BADOPTION	-5	/* Bad option requested */
+#define LCTERR_BADFSARG		-6	/* Bad argument for FS */
+#define LCTERR_BADNETARG	-7	/* Bad argument for Net */
 
 /* RPC-specific ones */
 #define LCTERR_BADCTRID		-42	/* Bad container remote ID given */
