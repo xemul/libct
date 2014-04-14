@@ -2,7 +2,7 @@
 #define __UAPI_LIBCT_H__
 
 #include <sys/types.h>
-#include "uapi/libct-errors.h"
+#include "libct-errors.h"
 
 /*
  * Session management
