@@ -13,12 +13,9 @@
 
 /* Generic */
 #define LCTERR_BADCTSTATE	-2	/* Bad container state */
-#define LCTERR_BADFSTYPE	-3	/* Bad FS type */
-#define LCTERR_BADNETTYPE	-4	/* Bad Net type */
-#define LCTERR_BADOPTION	-5	/* Bad option requested */
-#define LCTERR_BADFSARG		-6	/* Bad argument for FS */
-#define LCTERR_BADNETARG	-7	/* Bad argument for Net */
-#define LCTERR_NONS		-8	/* Required namespace is not available */
+#define LCTERR_BADTYPE		-3	/* Bad type requested */
+#define LCTERR_BADARG		-4	/* Bad argument for request */
+#define LCTERR_NONS		-5	/* Required namespace is not available */
 
 /* RPC-specific ones */
 #define LCTERR_BADCTRID		-42	/* Bad container remote ID given */

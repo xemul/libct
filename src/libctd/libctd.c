@@ -260,12 +260,12 @@ static int serve_setpriv(int sk, struct container_srv *cs, RpcRequest *req)
 	if (req->setpriv) {
 		const struct ct_fs_ops *ops;
 
-		ret = LCTERR_BADFSTYPE;
+		ret = LCTERR_BADTYPE;
 		ops = fstype_get_ops(req->setpriv->type);
 		if (ops) {
 			void *arg;
 
-			ret = LCTERR_BADFSARG;
+			ret = LCTERR_BADARG;
 			arg = ops->pb_unpack(req->setpriv);
 			if (arg)
 				ret = libct_fs_set_private(cs->hnd, req->setpriv->type, arg);
@@ -306,7 +306,7 @@ static int serve_set_option(int sk, struct container_srv *cs, RpcRequest *req)
 
 	switch (opt) {
 	default:
-		return LCTERR_BADOPTION;
+		return LCTERR_BADTYPE;
 
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
 	case LIBCT_OPT_KILLABLE:
@@ -329,9 +329,9 @@ static int serve_net_req(int sk, struct container_srv *cs, RpcRequest *req, bool
 		const struct ct_net_ops *nops;
 		void *arg = NULL;
 
-		ret = LCTERR_BADNETTYPE;
+		ret = LCTERR_BADTYPE;
 		if (req->netadd->type != CT_NET_NONE) {
-			ret = LCTERR_BADNETARG;
+			ret = LCTERR_BADARG;
 			nops = net_get_ops(req->netadd->type);
 			if (nops) {
 				arg = nops->pb_unpack(req->netadd);

@@ -242,10 +242,10 @@ int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 		return 0;
 	}
 
-	ret = LCTERR_BADFSTYPE;
+	ret = LCTERR_BADTYPE;
 	ct->fs_ops = fstype_get_ops(type);
 	if (ct->fs_ops) {
-		ret = LCTERR_BADFSARG;
+		ret = LCTERR_BADARG;
 		ct->fs_priv = ct->fs_ops->get(priv);
 		if (ct->fs_priv != NULL)
 			ret = 0;

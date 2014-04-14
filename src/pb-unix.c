@@ -229,7 +229,7 @@ static int send_setpriv_req(ct_handler_t h, enum ct_fs_type type, void *arg)
 
 	ops = fstype_get_ops(type);
 	if (!ops)
-		return LCTERR_BADFSTYPE;
+		return LCTERR_BADTYPE;
 
 	req.setpriv = &sp;
 	sp.type = type;
@@ -247,7 +247,7 @@ static int send_set_option_req(ct_handler_t h, int opt, va_list parms)
 
 	switch (opt) {
 	default:
-		return LCTERR_BADOPTION;
+		return LCTERR_BADTYPE;
 
 	case LIBCT_OPT_AUTO_PROC_MOUNT:
 	case LIBCT_OPT_KILLABLE:
@@ -272,7 +272,7 @@ static int send_net_req(ct_handler_t h, enum ct_net_type ntype, void *arg, int r
 	if (ntype != CT_NET_NONE) {
 		nops = net_get_ops(ntype);
 		if (!nops)
-			return LCTERR_BADNETTYPE;
+			return LCTERR_BADTYPE;
 
 		nops->pb_pack(arg, &na);
 	}
