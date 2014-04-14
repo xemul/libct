@@ -74,6 +74,11 @@ ct_handler_t libct_container_open(libct_session_t ses, char *name)
 	if (!ses->ops->open_ct)
 		return NULL;
 
+	/*
+	 * FIXME -- there can exist multiple handlers, need
+	 * to invalidate them all on container destruction.
+	 */
+
 	cth = ses->ops->open_ct(ses, name);
 	return new_ct(ses, cth);
 }
