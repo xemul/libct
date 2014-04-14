@@ -18,6 +18,7 @@
 #define LCTERR_BADOPTION	-5	/* Bad option requested */
 #define LCTERR_BADFSARG		-6	/* Bad argument for FS */
 #define LCTERR_BADNETARG	-7	/* Bad argument for Net */
+#define LCTERR_NONS		-8	/* Required namespace is not available */
 
 /* RPC-specific ones */
 #define LCTERR_BADCTRID		-42	/* Bad container remote ID given */

@@ -49,7 +49,7 @@ static int local_set_nsmask(ct_handler_t h, unsigned long nsmask)
 
 	/* Are all of these bits supported by kernel? */
 	if (nsmask & ~kernel_ns_mask)
-		return -1;
+		return LCTERR_NONS;
 
 	if (!(nsmask & CLONE_NEWNS))
 		net_release(ct);
@@ -466,7 +466,7 @@ static int local_uname(ct_handler_t h, char *host, char *dom)
 	struct container *ct = cth2ct(h);
 
 	if (!(ct->nsmask & CLONE_NEWUTS))
-		return -1;
+		return LCTERR_NONS;
 	if (ct->state != CT_STOPPED)
 		return LCTERR_BADCTSTATE; /* FIXME */
 
