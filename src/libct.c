@@ -40,7 +40,7 @@ int libct_container_spawn_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
 {
 	/* This one is optional -- only local ops support */
 	if (!ct->ops->spawn_cb)
-		return -1;
+		return LCTERR_OPNOTSUPP;
 
 	return ct->ops->spawn_cb(ct, cb, arg);
 }
@@ -58,7 +58,7 @@ int libct_container_spawn_execve(ct_handler_t ct, char *path, char **argv, char 
 int libct_container_enter_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
 {
 	if (!ct->ops->enter_cb)
-		return -1;
+		return LCTERR_OPNOTSUPP;
 
 	return ct->ops->enter_cb(ct, cb, arg);
 }
