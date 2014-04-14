@@ -18,6 +18,9 @@
 #define LCTERR_NONS		-5	/* Required namespace is not available */
 #define LCTERR_NOTFOUND		-6	/* Requested object not found */
 
+/* FS-specific */
+#define LCTERR_CANTMOUNT	-10	/* Can't mount something */
+
 /* RPC-specific ones */
 #define LCTERR_BADCTRID		-42	/* Bad container remote ID given */
 #define LCTERR_BADCTRNAME	-43	/* Bad name on open */

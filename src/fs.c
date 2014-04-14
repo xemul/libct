@@ -45,7 +45,7 @@ err:
 	list_for_each_entry_continue_reverse(fm, &ct->fs_mnts, l)
 		umount_one(ct, fm, rdst);
 
-	return -1;
+	return LCTERR_CANTMOUNT;
 }
 
 void fs_umount_ext(struct container *ct)
@@ -201,7 +201,7 @@ int fs_mount(struct container *ct)
 
 		ret = ct->fs_ops->mount(ct->root_path, ct->fs_priv);
 		if (ret < 0)
-			return ret;
+			return LCTERR_CANTMOUNT;
 	}
 
 	return 0;

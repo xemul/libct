@@ -243,14 +243,15 @@ err:
 static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
-	int pid, aux;
+	int ret = -1, pid, aux;
 	struct ct_clone_arg ca;
 
 	if (ct->state != CT_STOPPED)
 		return LCTERR_BADCTSTATE;
 
-	if (fs_mount(ct))
-		return -1;
+	ret = fs_mount(ct);
+	if (ret)
+		return ret;
 
 	if ((ct->flags & CT_KILLABLE) && !(ct->nsmask & CLONE_NEWPID)) {
 		if (add_service_controller(ct))
@@ -281,8 +282,10 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 
 	spawn_wake(ca.child_wait_pipe, 0);
 	aux = spawn_wait(ca.parent_wait_pipe);
-	if (aux != 0)
+	if (aux != 0) {
+		ret = aux;
 		goto err_ch;
+	}
 
 	ct->state = CT_RUNNING;
 	return 0;
@@ -302,7 +305,7 @@ err_pipe:
 	cgroups_destroy(ct);
 err_cg:
 	fs_umount(ct);
-	return -1;
+	return ret;
 }
 
 struct execv_args {
