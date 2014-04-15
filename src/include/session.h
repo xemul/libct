@@ -22,6 +22,7 @@ struct backend_ops {
 struct libct_session {
 	const struct backend_ops *ops;
 	struct list_head s_cts;
+	int server_sk;
 };
 
 void local_session_add(libct_session_t, struct container *);

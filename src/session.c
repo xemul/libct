@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include "xmalloc.h"
 #include "uapi/libct.h"
 #include "libct.h"
@@ -40,6 +42,7 @@ libct_session_t libct_session_open_local(void)
 	if (s) {
 		INIT_LIST_HEAD(&s->s.s_cts);
 		s->s.ops = &local_session_ops;
+		s->s.server_sk = -1;
 		return &s->s;
 	}
 
@@ -92,4 +95,9 @@ void libct_session_close(libct_session_t s)
 		libct_container_close(cth);
 
 	s->ops->close(s);
+
+	if (s->server_sk >= 0) {
+		close(s->server_sk);
+		s->server_sk = -1;
+	}
 }
