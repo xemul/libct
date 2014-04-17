@@ -178,6 +178,7 @@ static int config_controller(struct container *ct, enum ct_controller ctype,
 
 	ret = fd = open(path, O_WRONLY);
 	if (fd >= 0) {
+		ret = 0;
 		if (write(fd, value, strlen(value)) < 0)
 			ret = -1;
 		close(fd);
