@@ -477,7 +477,7 @@ static int serve(int sk, libct_session_t ses)
 	return ret;
 }
 
-int libct_session_server_loop(libct_session_t s, int (*cb)(void *arg), void *arg)
+int libct_session_export(libct_session_t s)
 {
 	struct epoll_event ev;
 	int efd, ret = -1;
@@ -490,12 +490,6 @@ int libct_session_server_loop(libct_session_t s, int (*cb)(void *arg), void *arg
 	ev.data.fd = s->server_sk;
 	if (epoll_ctl(efd, EPOLL_CTL_ADD, s->server_sk, &ev) < 0)
 		goto err;
-
-	if (cb) {
-		ret = cb(arg);
-		if (ret)
-			goto err;
-	}
 
 	while (1) {
 		int n;
@@ -547,7 +541,7 @@ err:
 	return ret;
 }
 
-int libct_session_make_servers(libct_session_t s, char *sk_path, int (*cb)(void *arg), void *arg)
+int libct_session_export_prepare(libct_session_t s, char *sk_path)
 {
 	struct sockaddr_un addr;
 	ct_handler_t ct;
@@ -586,12 +580,6 @@ int libct_session_make_servers(libct_session_t s, char *sk_path, int (*cb)(void 
 		if (!cs)
 			goto rollback;
 	}
-
-	/*
-	 * Notify we're done.
-	 */
-	if (cb && cb(arg))
-		goto rollback;
 
 	s->server_sk = sk;
 	return 0;

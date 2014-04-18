@@ -66,25 +66,6 @@ bad_usage:
 	return -1;
 }
 
-static int cb(void *arg)
-{
-	if (opt_daemon)
-		daemon(1, 0);
-
-	if (opt_pid_file) {
-		FILE *pf;
-
-		pf = fopen(opt_pid_file, "w");
-		if (!pf)
-			return -1;
-
-		fprintf(pf, "%d", getpid());
-		fclose(pf);
-	}
-
-	return 0;
-}
-
 int main(int argc, char **argv)
 {
 	libct_session_t ses;
@@ -96,9 +77,24 @@ int main(int argc, char **argv)
 	if (!ses)
 		goto err;
 
-	if (!libct_session_make_servers(ses, opt_sk_path, NULL, NULL))
-		libct_session_server_loop(ses, cb, NULL);
+	if (!libct_session_export_prepare(ses, opt_sk_path)) {
+		if (opt_daemon)
+			daemon(1, 0);
 
+		if (opt_pid_file) {
+			FILE *pf;
+
+			pf = fopen(opt_pid_file, "w");
+			if (!pf)
+				goto err_close;
+
+			fprintf(pf, "%d", getpid());
+			fclose(pf);
+		}
+		libct_session_export(ses);
+	}
+
+err_close:
 	libct_session_close(ses);
 err:
 	return 1;

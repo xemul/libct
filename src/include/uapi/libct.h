@@ -14,8 +14,8 @@ typedef struct libct_session *libct_session_t;
 libct_session_t libct_session_open(char *url);
 libct_session_t libct_session_open_local(void);
 libct_session_t libct_session_open_pbunix(char *sk_path);
-int libct_session_make_servers(libct_session_t s, char *sk_path, int (*cb)(void *arg), void *arg);
-int libct_session_server_loop(libct_session_t s, int (*cb)(void *arg), void *arg);
+int libct_session_export_prepare(libct_session_t s, char *sk_path);
+int libct_session_export(libct_session_t s);
 void libct_session_close(libct_session_t s);
 
 /*
