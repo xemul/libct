@@ -22,8 +22,17 @@ struct backend_ops {
 struct libct_session {
 	const struct backend_ops *ops;
 	struct list_head s_cts;
+};
+
+struct local_session {
+	struct libct_session s;
 	int server_sk;
 };
+
+static inline struct local_session *s2ls(libct_session_t s)
+{
+	return container_of(s, struct local_session, s);
+}
 
 void local_session_add(libct_session_t, struct container *);
 

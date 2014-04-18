@@ -470,7 +470,6 @@ libct_session_t libct_session_open_pbunix(char *sk_path)
 
 	INIT_LIST_HEAD(&us->s.s_cts);
 	us->s.ops = &pbunix_session_ops;
-	us->s.server_sk = -1;
 	return &us->s;
 
 err:

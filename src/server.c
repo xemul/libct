@@ -479,16 +479,20 @@ static int serve(int sk, libct_session_t ses)
 
 int libct_session_export(libct_session_t s)
 {
+	struct local_session *l = s2ls(s);
 	struct epoll_event ev;
 	int efd, ret = -1;
+
+	if (s->ops->type != BACKEND_LOCAL)
+		return -1;
 
 	efd = epoll_create1(0);
 	if (efd < 0)
 		return -1;
 
 	ev.events = EPOLLIN;
-	ev.data.fd = s->server_sk;
-	if (epoll_ctl(efd, EPOLL_CTL_ADD, s->server_sk, &ev) < 0)
+	ev.data.fd = l->server_sk;
+	if (epoll_ctl(efd, EPOLL_CTL_ADD, l->server_sk, &ev) < 0)
 		goto err;
 
 	while (1) {
@@ -498,7 +502,7 @@ int libct_session_export(libct_session_t s)
 		if (n <= 0)
 			 break;
 
-		if (ev.data.fd == s->server_sk) {
+		if (ev.data.fd == l->server_sk) {
 			/*
 			 * New connection
 			 */
@@ -507,7 +511,7 @@ int libct_session_export(libct_session_t s)
 			socklen_t alen = sizeof(addr);
 			int ask;
 
-			ask = accept(s->server_sk, (struct sockaddr *)&addr, &alen);
+			ask = accept(l->server_sk, (struct sockaddr *)&addr, &alen);
 			if (ask < 0)
 				continue;
 
@@ -543,6 +547,7 @@ err:
 
 int libct_session_export_prepare(libct_session_t s, char *sk_path)
 {
+	struct local_session *l = s2ls(s);
 	struct sockaddr_un addr;
 	ct_handler_t ct;
 	socklen_t alen;
@@ -581,7 +586,7 @@ int libct_session_export_prepare(libct_session_t s, char *sk_path)
 			goto rollback;
 	}
 
-	s->server_sk = sk;
+	l->server_sk = sk;
 	return 0;
 
 rollback:

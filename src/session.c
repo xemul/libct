@@ -6,18 +6,13 @@
 #include "session.h"
 #include "ct.h"
 
-struct local_session {
-	struct libct_session s;
-};
-
-static inline struct local_session *s2ls(libct_session_t s)
-{
-	return container_of(s, struct local_session, s);
-}
-
 static void close_local_session(libct_session_t s)
 {
-	xfree(s2ls(s));
+	struct local_session *l = s2ls(s);
+	if (l->server_sk >= 0) {
+		close(l->server_sk);
+	}
+	xfree(l);
 }
 
 static ct_handler_t create_local_ct(libct_session_t s, char *name)
@@ -42,7 +37,7 @@ libct_session_t libct_session_open_local(void)
 	if (s) {
 		INIT_LIST_HEAD(&s->s.s_cts);
 		s->s.ops = &local_session_ops;
-		s->s.server_sk = -1;
+		s->server_sk = -1;
 		return &s->s;
 	}
 
@@ -95,9 +90,4 @@ void libct_session_close(libct_session_t s)
 		libct_container_close(cth);
 
 	s->ops->close(s);
-
-	if (s->server_sk >= 0) {
-		close(s->server_sk);
-		s->server_sk = -1;
-	}
 }
