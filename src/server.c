@@ -483,7 +483,7 @@ int libct_session_export(libct_session_t s)
 	struct epoll_event ev;
 	int efd, ret = -1;
 
-	if (s->ops->type != BACKEND_LOCAL)
+	if (s->ops->type != BACKEND_LOCAL || l->server_sk < 0)
 		return -1;
 
 	efd = epoll_create1(0);
