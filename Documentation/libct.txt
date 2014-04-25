@@ -61,6 +61,16 @@ libct_session_t *libct_session_open_local*(void)::
 libct_session_t *libct_session_open_pbunix*(char *'sk_path')::
 	Same as *libct_session_open*("unix://'sk_path'").
 
+int *libct_session_export_prepare*(libct_session_t 's', char *'sk_path')::
+	Prepares "local" 's' session containers to operate in "unix" mode. Which
+	means every container in a session become listening for RPC commands.
+	This function only prepares containers to listen commands on 'sk_path'
+	"unix" socket. Returns 0 on success.
+
+int *libct_session_export*(libct_session_t 's')::
+	Initiate handling RPC commands for session 's' previously prepared
+	with help of *libct_session_export_prepare*. Returns 0 on success.
+
 void *libct_session_close*(libct_session_t 's')::
 	Closes the session 's'. If the session is local one then all containers in
 	the session will be destroyed.
