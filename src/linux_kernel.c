@@ -1,9 +1,11 @@
-#include <sys/types.h>
 #include <dirent.h>
 #include <sched.h>
 #include <string.h>
 #include <stdio.h>
 #include <mntent.h>
+
+#include <sys/types.h>
+
 #include "linux-kernel.h"
 #include "cgroups.h"
 

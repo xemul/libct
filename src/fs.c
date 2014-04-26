@@ -1,15 +1,18 @@
 #include <stdio.h>
-#include <sys/mount.h>
 #include <sched.h>
 #include <string.h>
 #include <limits.h>
 
-#include "bug.h"
+#include <sys/mount.h>
+
+#include "uapi/libct.h"
+
 #include "xmalloc.h"
 #include "list.h"
-#include "uapi/libct.h"
-#include "ct.h"
 #include "util.h"
+#include "bug.h"
+#include "ct.h"
+
 #include "protobuf/rpc.pb-c.h"
 
 /*

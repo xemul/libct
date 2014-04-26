@@ -2,11 +2,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <mntent.h>
 #include <limits.h>
+
+#include <sys/stat.h>
 #include <sys/mount.h>
+
 #include "uapi/libct.h"
+
 #include "list.h"
 #include "bug.h"
 #include "ct.h"

@@ -9,7 +9,7 @@ struct ns_desc {
 extern struct ns_desc *namespaces[];
 extern struct ns_desc pid_ns;
 
-int switch_ns(int pid, struct ns_desc *d, int *old_ns);
-void restore_ns(int ns_fd, struct ns_desc *d);
+extern int switch_ns(int pid, struct ns_desc *d, int *old_ns);
+extern void restore_ns(int ns_fd, struct ns_desc *d);
 
 #endif /* __LIBCT_NAMESPACES_H__ */

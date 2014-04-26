@@ -4,10 +4,12 @@
 
 #include <unistd.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <errno.h>
-#include "xmalloc.h"
+
+#include <sys/socket.h>
+
 #include "libnetlink.h"
+#include "xmalloc.h"
 
 #ifndef NLMSG_ERROR
 #define NLMSG_ERROR 0x2
@@ -18,7 +20,7 @@ struct nlmsghdr *nlmsg_alloc(int base_size)
 {
 	struct nlmsghdr *h;
 	size_t len;
-	
+
 	len = NLMSG_ALIGN(NLMSG_MIN_SIZE) + NLMSG_ALIGN(sizeof(struct nlmsghdr *));
 	h = xmalloc(len);
 	if (h) {

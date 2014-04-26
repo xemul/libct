@@ -1,12 +1,16 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+
 #include <sys/prctl.h>
+
 #include <linux/capability.h>
+
 #include "uapi/libct.h"
+
+#include "security.h"
 #include "list.h"
 #include "ct.h"
-#include "security.h"
 
 static int apply_bset(unsigned long mask)
 {

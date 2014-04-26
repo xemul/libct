@@ -1,9 +1,10 @@
 #include <unistd.h>
 
-#include "xmalloc.h"
 #include "uapi/libct.h"
-#include "libct.h"
+
 #include "session.h"
+#include "xmalloc.h"
+#include "libct.h"
 #include "ct.h"
 
 static void close_local_session(libct_session_t s)

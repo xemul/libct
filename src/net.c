@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <sched.h>
-#include "list.h"
+
 #include "uapi/libct.h"
-#include "ct.h"
-#include "net.h"
-#include "xmalloc.h"
+
 #include "libnetlink.h"
+#include "xmalloc.h"
+#include "list.h"
+#include "net.h"
+#include "ct.h"
+
 #include "protobuf/rpc.pb-c.h"
 
 /*

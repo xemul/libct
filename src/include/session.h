@@ -1,10 +1,10 @@
 #ifndef __LIBCT_SESSION_H__
 #define __LIBCT_SESSION_H__
 
+#include "uapi/libct.h"
+
 #include "list.h"
 #include "ct.h"
-
-struct container;
 
 enum {
 	BACKEND_NONE,
@@ -34,6 +34,6 @@ static inline struct local_session *s2ls(libct_session_t s)
 	return container_of(s, struct local_session, s);
 }
 
-void local_session_add(libct_session_t, struct container *);
+extern void local_session_add(libct_session_t, struct container *ct);
 
 #endif /* __LIBCT_SESSION_H__ */
