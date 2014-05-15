@@ -11,9 +11,11 @@
 /* Buffer for keeping serialized messages */
 static unsigned char dbuf[MAX_MSG];
 
-int do_send_resp(int sk, int err, RpcResponce *resp)
+int do_send_resp(int sk, RpcRequest *req, int err, RpcResponce *resp)
 {
 	size_t len;
+
+	resp->req_id = req->req_id;
 
 	if (err) {
 		resp->success	= false;
@@ -30,9 +32,9 @@ int do_send_resp(int sk, int err, RpcResponce *resp)
 		return 0;
 }
 
-int send_resp(int sk, int err)
+int send_resp(int sk, RpcRequest *req, int err)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
-	return do_send_resp(sk, err, &resp);
+	return do_send_resp(sk, req, err, &resp);
 }
 

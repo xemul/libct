@@ -87,55 +87,55 @@ static void __ct_server_destroy(ct_server_t *cs)
 	}
 }
 
-static int serve_ct_create(int sk, libct_session_t ses, CreateReq *req)
+static int serve_ct_create(int sk, libct_session_t ses, RpcRequest *req)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	CreateResp cr = CREATE_RESP__INIT;
 	ct_server_t *cs;
 
-	if (req == NULL)
-		return send_resp(sk, LCTERR_BADARG);
+	if (req->create == NULL)
+		return send_resp(sk, req, LCTERR_BADARG);
 
 	cs = __ct_server_create(NULL);
 	if (!cs)
 		goto err;
 
-	cs->ct = libct_container_create(ses, req->name);
+	cs->ct = libct_container_create(ses, req->create->name);
 	if (!cs->ct)
 		goto err;
 
 	resp.create = &cr;
 	cr.rid = cs->rid;
-	if (do_send_resp(sk, 0, &resp))
+	if (do_send_resp(sk, req, 0, &resp))
 		goto err;
 	return 0;
 err:
 	__ct_server_destroy(cs);
-	return send_resp(sk, -1);
+	return send_resp(sk, req, -1);
 }
 
-static int serve_ct_open(int sk, libct_session_t ses, CreateReq *req)
+static int serve_ct_open(int sk, libct_session_t ses, RpcRequest *req)
 {
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	CreateResp cr = CREATE_RESP__INIT;
 	ct_server_t *cs;
 
-	if (req == NULL)
-		return send_resp(sk, LCTERR_BADARG);
+	if (req->create == NULL)
+		return send_resp(sk, req, LCTERR_BADARG);
 
-	cs = find_ct_by_name(req->name);
+	cs = find_ct_by_name(req->create->name);
 	if (!cs)
-		return send_resp(sk, LCTERR_BADCTRNAME);
+		return send_resp(sk, req, LCTERR_BADCTRNAME);
 
 	resp.create = &cr;
 	cr.rid = cs->rid;
-	return do_send_resp(sk, 0, &resp);
+	return do_send_resp(sk, req, 0, &resp);
 }
 
 static int serve_ct_destroy(int sk, ct_server_t *cs, RpcRequest *req)
 {
 	__ct_server_destroy(cs);
-	return send_resp(sk, 0);
+	return send_resp(sk, req, 0);
 }
 
 static int serve_get_state(int sk, ct_server_t *cs, RpcRequest *req)
@@ -146,7 +146,7 @@ static int serve_get_state(int sk, ct_server_t *cs, RpcRequest *req)
 	resp.state = &gs;
 	gs.state = libct_container_state(cs->ct);
 
-	return do_send_resp(sk, 0, &resp);
+	return do_send_resp(sk, req, 0, &resp);
 }
 
 static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
@@ -170,7 +170,7 @@ static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
 		xfree(argv);
 	}
 out:
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_enter(int sk, ct_server_t *cs, RpcRequest *req)
@@ -179,7 +179,7 @@ static int serve_enter(int sk, ct_server_t *cs, RpcRequest *req)
 	int ret = -1;
 
 	if (!er)
-		return send_resp(sk, ret);
+		return send_resp(sk, req, ret);
 
 	if (er->n_env)
 		ret = libct_container_enter_execve(cs->ct, er->path,
@@ -187,17 +187,17 @@ static int serve_enter(int sk, ct_server_t *cs, RpcRequest *req)
 	else
 		ret = libct_container_enter_execv(cs->ct, er->path,
 						  er->args);
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_kill(int sk, ct_server_t *cs, RpcRequest *req)
 {
-	return send_resp(sk, libct_container_kill(cs->ct));
+	return send_resp(sk, req, libct_container_kill(cs->ct));
 }
 
 static int serve_wait(int sk, ct_server_t *cs, RpcRequest *req)
 {
-	return send_resp(sk, libct_container_wait(cs->ct));
+	return send_resp(sk, req, libct_container_wait(cs->ct));
 }
 
 static int serve_setnsmask(int sk, ct_server_t *cs, RpcRequest *req)
@@ -206,7 +206,7 @@ static int serve_setnsmask(int sk, ct_server_t *cs, RpcRequest *req)
 
 	if (req->nsmask)
 		ret = libct_container_set_nsmask(cs->ct, req->nsmask->mask);
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_addcntl(int sk, ct_server_t *cs, RpcRequest *req)
@@ -215,7 +215,7 @@ static int serve_addcntl(int sk, ct_server_t *cs, RpcRequest *req)
 
 	if (req->addcntl)
 		ret = libct_controller_add(cs->ct, req->addcntl->ctype);
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_cfgcntl(int sk, ct_server_t *cs, RpcRequest *req)
@@ -226,7 +226,7 @@ static int serve_cfgcntl(int sk, ct_server_t *cs, RpcRequest *req)
 		ret = libct_controller_configure(cs->ct, req->cfgcntl->ctype,
 						 req->cfgcntl->param,
 						 req->cfgcntl->value);
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_setroot(int sk, ct_server_t *cs, RpcRequest *req)
@@ -235,7 +235,7 @@ static int serve_setroot(int sk, ct_server_t *cs, RpcRequest *req)
 
 	if (req->setroot)
 		ret = libct_fs_set_root(cs->ct, req->setroot->root);
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_setpriv(int sk, ct_server_t *cs, RpcRequest *req)
@@ -258,7 +258,7 @@ static int serve_setpriv(int sk, ct_server_t *cs, RpcRequest *req)
 		}
 	}
 
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_addmount(int sk, ct_server_t *cs, RpcRequest *req)
@@ -269,7 +269,7 @@ static int serve_addmount(int sk, ct_server_t *cs, RpcRequest *req)
 		ret = libct_fs_add_mount(cs->ct, req->mnt->src,
 					 req->mnt->dst, req->mnt->flags);
 
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_delmount(int sk, ct_server_t *cs, RpcRequest *req)
@@ -279,7 +279,7 @@ static int serve_delmount(int sk, ct_server_t *cs, RpcRequest *req)
 	if (req->mnt)
 		ret = libct_fs_del_mount(cs->ct, req->mnt->dst);
 
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_set_option(int sk, ct_server_t *cs, RpcRequest *req)
@@ -303,7 +303,7 @@ static int serve_set_option(int sk, ct_server_t *cs, RpcRequest *req)
 		break;
 	}
 
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_net_req(int sk, ct_server_t *cs, RpcRequest *req, bool add)
@@ -335,7 +335,7 @@ static int serve_net_req(int sk, ct_server_t *cs, RpcRequest *req, bool add)
 		xfree(arg);
 	}
 
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_net_add(int sk, ct_server_t *cs, RpcRequest *req)
@@ -355,7 +355,7 @@ static int serve_uname(int sk, ct_server_t *cs, RpcRequest *req)
 	if (req->uname)
 		ret = libct_container_uname(cs->ct, req->uname->host, req->uname->domain);
 
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_caps(int sk, ct_server_t *cs, RpcRequest *req)
@@ -366,7 +366,7 @@ static int serve_caps(int sk, ct_server_t *cs, RpcRequest *req)
 		ret = libct_container_set_caps(cs->ct,
 					       (unsigned long)req->caps->mask,
 					       (unsigned int)req->caps->apply_to);
-	return send_resp(sk, ret);
+	return send_resp(sk, req, ret);
 }
 
 static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
@@ -374,14 +374,14 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 	ct_server_t *cs = NULL;
 
 	if (req->req == REQ_TYPE__CT_CREATE)
-		return serve_ct_create(sk, ses, req->create);
+		return serve_ct_create(sk, ses, req);
 	else if (req->req == REQ_TYPE__CT_OPEN)
-		return serve_ct_open(sk, ses, req->create);
+		return serve_ct_open(sk, ses, req);
 
 	if (req->has_ct_rid)
 		cs = find_ct_by_rid(req->ct_rid);
 	if (!cs)
-		return send_resp(sk, LCTERR_BADCTRID);
+		return send_resp(sk, req, LCTERR_BADCTRID);
 
 	switch (req->req) {
 	case REQ_TYPE__CT_DESTROY:

@@ -111,6 +111,8 @@ message rpc_request {
 	optional mount_req	mnt	= 12;
 	optional uname_req	uname	= 13;
 	optional caps_req	caps	= 14;
+
+	required uint64		req_id	= 15;
 }
 
 message rpc_responce {
@@ -119,4 +121,6 @@ message rpc_responce {
 
 	optional create_resp	create	= 3;
 	optional state_resp	state	= 4;
+
+	required uint64		req_id	= 5;
 }
