@@ -130,6 +130,9 @@ static int serve_ct_create(int sk, libct_session_t ses, CreateReq *req)
 	CreateResp cr = CREATE_RESP__INIT;
 	ct_server_t *cs;
 
+	if (req == NULL)
+		return send_err_resp(sk, LCTERR_BADARG);
+
 	cs = __ct_server_create(NULL);
 	if (!cs)
 		goto err;
@@ -153,6 +156,9 @@ static int serve_ct_open(int sk, libct_session_t ses, CreateReq *req)
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	CreateResp cr = CREATE_RESP__INIT;
 	ct_server_t *cs;
+
+	if (req == NULL)
+		return send_err_resp(sk, LCTERR_BADARG);
 
 	cs = find_ct_by_name(req->name);
 	if (!cs)
