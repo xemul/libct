@@ -8,7 +8,7 @@ PIGS  = file_piggy
 
 CC = gcc
 CFLAGS = -I../src/include/uapi/ -g
-LDFLAGS = -lct -L../src/ -lprotobuf-c
+LDFLAGS = -Wl,--no-as-needed -lct -L../src/ -lprotobuf-c
 OUTS = $(TESTS:%=%.out)
 
 all: $(PIGS) $(TESTS)
@@ -20,9 +20,18 @@ clean: cleanouts
 	rm -f $(TESTS)
 	rm -f $(PIGS)
 
-%.out: %
-	./$< > $@
-	@ tail -n1 $@
+%.o: %.c
+	$(CC) -c $(CFLAGS) $^ -o $@
+
+define gen-out
+$(1): $(1).o
+	$$(CC) -o $$@ $$^ $$(LDFLAGS)
+
+$(1).out: $(1)
+	./$$^ > $$@
+	@ tail -n1 $$@
+endef
+$(foreach t, $(TESTS), $(eval $(call gen-out,$(t))))
 
 run: cleanouts $(OUTS)
 
