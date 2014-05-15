@@ -13,6 +13,7 @@ obj-y			+= net.o
 obj-y			+= security.o
 obj-y			+= libnetlink.o
 obj-y			+= pb-unix.o
+obj-y			+= rpc.o
 
 #
 # We need protobuf
