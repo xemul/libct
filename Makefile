@@ -132,7 +132,7 @@ src/libctd: src/protobuf
 
 .PHONY: src/libctd
 
-src/libctd/$(LIBCTD): src/libctd/built-in.o $(PROGRAM) src/protobuf/built-in.o
+src/libctd/$(LIBCTD): src/libctd/built-in.o $(LIBCT) src/protobuf/built-in.o
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -lct -o $@
 
