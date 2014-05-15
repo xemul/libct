@@ -5,7 +5,6 @@ struct _RpcResponce;
 typedef struct _RpcResponce RpcResponce;
 
 extern int do_send_resp(int sk, int err, RpcResponce *resp);
-extern int send_err_resp(int sk, int err);
 extern int send_resp(int sk, int err);
 
 #endif
