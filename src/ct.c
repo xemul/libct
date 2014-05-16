@@ -319,28 +319,45 @@ struct execv_args {
 	char *path;
 	char **argv;
 	char **env;
+	int *fds;
 };
 
 static int ct_execv(void *a)
 {
 	struct execv_args *ea = a;
+	int ret, i;
+
+	if (ea->fds) {
+		ret  = dup2(ea->fds[0], 0);
+		if (ret >= 0)
+			ret = dup2(ea->fds[1], 1);
+		if (ret >= 0)
+			ret = dup2(ea->fds[2], 2);
+		if (ret < 0) {
+			pr_perror("Unable to duplicate file descriptors");
+			goto err;
+		}
+		for (i = 0; i < 3; i++)
+			close(ea->fds[i]);
+	}
 
 	/* This gets control in the container's new root (if any) */
 	if (ea->env)
 		execve(ea->path, ea->argv, ea->env);
 	else
 		execv(ea->path, ea->argv);
-
+err:
 	return -1;
 }
 
-static int local_spawn_execve(ct_handler_t ct, char *path, char **argv, char **env)
+static int local_spawn_execve(ct_handler_t ct, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea;
 
 	ea.path = path;
 	ea.argv = argv;
 	ea.env = env;
+	ea.fds = fds;
 
 	return local_spawn_cb(ct, ct_execv, &ea);
 }
@@ -404,7 +421,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 
 static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **env)
 {
-	struct execv_args ea;
+	struct execv_args ea = {};
 
 	ea.path	= path;
 	ea.argv	= argv;

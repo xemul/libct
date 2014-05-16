@@ -160,7 +160,7 @@ static int send_execve_req(ct_handler_t h, int type, char *path, char **argv, ch
 	return pbunix_req_ct(h, &req, type);
 }
 
-static int send_spawn_req(ct_handler_t h, char *path, char **argv, char **env)
+static int send_spawn_req(ct_handler_t h, char *path, char **argv, char **env, int *fds)
 {
 	return send_execve_req(h, REQ_TYPE__CT_SPAWN, path, argv, env);
 }

@@ -148,7 +148,7 @@ static int serve_get_state(int sk, ct_server_t *cs, RpcRequest *req)
 	return do_send_resp(sk, req, 0, &resp);
 }
 
-static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
+static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req, int *fds, int nr_fds)
 {
 	int ret = -1;
 
@@ -156,6 +156,11 @@ static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
 		ExecvReq *er = req->execv;
 		char **argv, **env = NULL;
 		int i;
+
+		if (req->execv->pipes && nr_fds != 3) {
+			ret = LCTERR_BADARG;
+			goto out;
+		}
 
 		argv = xmalloc((er->n_args + 1) * sizeof(char *));
 		if (!argv)
@@ -177,7 +182,8 @@ static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
 			env[i] = NULL;
 		}
 
-		ret = libct_container_spawn_execve(cs->ct, er->path, argv, env);
+		ret = libct_container_spawn_execver(cs->ct, er->path, argv, env,
+							req->execv->pipes ? fds : NULL);
 		xfree(argv);
 		xfree(env);
 	}
@@ -430,7 +436,7 @@ static int serve_caps(int sk, ct_server_t *cs, RpcRequest *req)
 	return send_resp(sk, req, ret);
 }
 
-static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
+static int serve_req(int sk, libct_session_t ses, RpcRequest *req, int *fds, int nr_fds)
 {
 	ct_server_t *cs = NULL;
 
@@ -450,7 +456,7 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 	case REQ_TYPE__CT_GET_STATE:
 		return serve_get_state(sk, cs, req);
 	case REQ_TYPE__CT_SPAWN:
-		return serve_spawn(sk, cs, req);
+		return serve_spawn(sk, cs, req, fds, nr_fds);
 	case REQ_TYPE__CT_ENTER:
 		return serve_enter(sk, cs, req);
 	case REQ_TYPE__CT_KILL:
@@ -492,13 +498,17 @@ static int serve(int sk, libct_session_t ses)
 {
 	RpcRequest *req;
 	int *fds, nr_fds;
-	int ret;
+	int ret, i;
 
 	ret = recv_req(sk, &req, &fds, &nr_fds);
 	if (ret <= 0)
 		return -1;
 
-	ret = serve_req(sk, ses, req);
+	ret = serve_req(sk, ses, req, fds, nr_fds);
+
+	for (i = 0; i < nr_fds; i++)
+		close(fds[i]);
+
 	if (ret != 1)
 		rpc_request__free_unpacked(req, NULL);
 

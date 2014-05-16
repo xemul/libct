@@ -35,6 +35,7 @@ message execv_req {
 	required string path		= 1;
 	repeated string args		= 2;
 	repeated string env		= 3;
+	optional bool	pipes		= 4;
 }
 
 message nsmask_req {
