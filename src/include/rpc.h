@@ -9,4 +9,6 @@ typedef struct _RpcRequest RpcRequest;
 extern int do_send_resp(int sk, RpcRequest *req, int err, RpcResponce *resp);
 extern int send_resp(int sk, RpcRequest *req, int err);
 
+extern int recv_req(int sk, RpcRequest **req);
+
 #endif
