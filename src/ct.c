@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <errno.h>
 
 #include <sys/wait.h>
 #include <sys/mount.h>
