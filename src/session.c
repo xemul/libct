@@ -32,6 +32,8 @@ void update_local_ct_state(libct_session_t s, pid_t pid)
 			continue;
 
 		h->ops->wait(h);
+
+		async_req_run(s, CT_STATE, (void *) h);
 	}
 }
 
