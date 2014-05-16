@@ -5,6 +5,7 @@
 #include "session.h"
 #include "xmalloc.h"
 #include "libct.h"
+#include "async.h"
 #include "ct.h"
 
 static void close_local_session(libct_session_t s)
@@ -51,6 +52,7 @@ libct_session_t libct_session_open_local(void)
 	s = xmalloc(sizeof(*s));
 	if (s) {
 		INIT_LIST_HEAD(&s->s.s_cts);
+		INIT_LIST_HEAD(&s->s.async_list);
 		s->s.ops = &local_session_ops;
 		s->server_sk = -1;
 		return &s->s;
@@ -103,6 +105,8 @@ void libct_session_close(libct_session_t s)
 
 	list_for_each_entry_safe(cth, n, &s->s_cts, s_lh)
 		libct_container_close(cth);
+
+	async_req_destroy(s);
 
 	s->ops->close(s);
 }

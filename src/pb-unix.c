@@ -473,6 +473,7 @@ libct_session_t libct_session_open_pbunix(char *sk_path)
 		goto err;
 
 	INIT_LIST_HEAD(&us->s.s_cts);
+	INIT_LIST_HEAD(&us->s.async_list);
 	us->s.ops = &pbunix_session_ops;
 	return &us->s;
 
