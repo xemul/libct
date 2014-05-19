@@ -184,6 +184,11 @@ static int ct_clone(void *arg)
 	close(ca->child_wait_pipe[1]);
 	close(ca->parent_wait_pipe[0]);
 
+	if (setsid() < 0) {
+		pr_perror("Unable to create a new session");
+		return -1;
+	}
+
 	if (ct->nsmask & CLONE_NEWNS) {
 		/*
 		 * Remount / as slave, so that it doesn't
