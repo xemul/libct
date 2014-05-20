@@ -405,8 +405,9 @@ static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **en
 {
 	struct execv_args ea;
 
-	ea.path = path;
-	ea.argv = argv;
+	ea.path	= path;
+	ea.argv	= argv;
+	ea.env	= env;
 
 	return local_spawn_cb(h, ct_execv, &ea);
 }
