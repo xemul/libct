@@ -96,6 +96,10 @@ message state_resp {
 	required uint32 state		= 1;
 }
 
+message execv_resp {
+	required int32 pid		= 1;
+}
+
 message rpc_request {
 	required req_type	req	= 1;
 	optional uint64		ct_rid	= 2;
@@ -122,6 +126,7 @@ message rpc_response {
 
 	optional create_resp	create	= 3;
 	optional state_resp	state	= 4;
+	optional execv_resp	execv	= 5;
 
-	required uint64		req_id	= 5;
+	required uint64		req_id	= 6;
 }
