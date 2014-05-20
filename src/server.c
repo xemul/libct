@@ -88,7 +88,7 @@ static void __ct_server_destroy(ct_server_t *cs)
 
 static int serve_ct_create(int sk, libct_session_t ses, RpcRequest *req)
 {
-	RpcResponce resp = RPC_RESPONCE__INIT;
+	RpcResponse resp = RPC_RESPONSE__INIT;
 	CreateResp cr = CREATE_RESP__INIT;
 	ct_server_t *cs;
 
@@ -115,7 +115,7 @@ err:
 
 static int serve_ct_open(int sk, libct_session_t ses, RpcRequest *req)
 {
-	RpcResponce resp = RPC_RESPONCE__INIT;
+	RpcResponse resp = RPC_RESPONSE__INIT;
 	CreateResp cr = CREATE_RESP__INIT;
 	ct_server_t *cs;
 
@@ -139,7 +139,7 @@ static int serve_ct_destroy(int sk, ct_server_t *cs, RpcRequest *req)
 
 static int serve_get_state(int sk, ct_server_t *cs, RpcRequest *req)
 {
-	RpcResponce resp = RPC_RESPONCE__INIT;
+	RpcResponse resp = RPC_RESPONSE__INIT;
 	StateResp gs = STATE_RESP__INIT;
 
 	resp.state = &gs;

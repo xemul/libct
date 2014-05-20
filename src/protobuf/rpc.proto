@@ -116,7 +116,7 @@ message rpc_request {
 	required uint64		req_id	= 15;
 }
 
-message rpc_responce {
+message rpc_response {
 	required bool		success	= 1;
 	optional int32		error	= 2;
 
