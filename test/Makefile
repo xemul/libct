@@ -33,6 +33,6 @@ $(1).out: $(1)
 endef
 $(foreach t, $(TESTS), $(eval $(call gen-out,$(t))))
 
-run: cleanouts $(OUTS)
+run: cleanouts $(PIGS) $(OUTS)
 
 .PHONY: all clean run
