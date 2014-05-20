@@ -155,7 +155,7 @@ static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
 
 	if (req->execv) {
 		ExecvReq *er = req->execv;
-		char **argv;
+		char **argv, **env = NULL;
 		int i;
 
 		argv = xmalloc((er->n_args + 1) * sizeof(char *));
@@ -166,8 +166,21 @@ static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
 			argv[i] = er->args[i];
 		argv[i] = NULL;
 
-		ret = libct_container_spawn_execv(cs->ct, er->path, argv);
+		if (er->n_env) {
+			env = xmalloc((er->n_env + 1) * sizeof(char *));
+			if (!env) {
+				xfree(argv);
+				goto out;
+			}
+
+			for (i = 0; i < er->n_env; i++)
+				env[i] = er->env[i];
+			env[i] = NULL;
+		}
+
+		ret = libct_container_spawn_execve(cs->ct, er->path, argv, env);
 		xfree(argv);
+		xfree(env);
 	}
 out:
 	return send_resp(sk, req, ret);
