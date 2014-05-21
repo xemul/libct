@@ -491,9 +491,10 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 static int serve(int sk, libct_session_t ses)
 {
 	RpcRequest *req;
+	int *fds, nr_fds;
 	int ret;
 
-	ret = recv_req(sk, &req);
+	ret = recv_req(sk, &req, &fds, &nr_fds);
 	if (ret <= 0)
 		return -1;
 
