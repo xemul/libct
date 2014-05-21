@@ -108,6 +108,15 @@ func (s *Session) makeReqWithPipes(req *RpcRequest, pipes *Pipes) (*RpcResponse,
 	}
 
 	resp := <-c
+
+	if resp == nil {
+		return nil, LibctError{-1}
+	}
+
+	if !(*resp.Success) {
+		return nil, LibctError{resp.GetError()}
+	}
+
 	return resp, nil
 }
 
