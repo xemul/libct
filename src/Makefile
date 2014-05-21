@@ -14,6 +14,7 @@ obj-y			+= security.o
 obj-y			+= libnetlink.o
 obj-y			+= pb-unix.o
 obj-y			+= rpc.o
+obj-y			+= async.o
 
 #
 # We need protobuf

@@ -1,7 +1,12 @@
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "xmalloc.h"
+#include "session.h"
+#include "list.h"
+#include "log.h"
 #include "rpc.h"
 
 #include "protobuf/rpc.pb-c.h"
@@ -37,4 +42,3 @@ int send_resp(int sk, RpcRequest *req, int err)
 	RpcResponce resp = RPC_RESPONCE__INIT;
 	return do_send_resp(sk, req, err, &resp);
 }
-
