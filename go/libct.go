@@ -2,6 +2,7 @@ package libct
 
 import "net"
 import "fmt"
+import "syscall"
 import "sync/atomic"
 import prot "code.google.com/p/goprotobuf/proto"
 
@@ -63,13 +64,20 @@ func getRpcReq() (*RpcRequest) {
 }
 
 // Send request to the server
-func (s *Session) __sendReq(req *RpcRequest) (error) {
+func (s *Session) __sendReq(req *RpcRequest, pipes *Pipes) (error) {
 	pkt, err := prot.Marshal(req)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = s.sk.WriteMsgUnix(pkt, nil, nil)
+	var rights []byte;
+	if pipes != nil {
+		rights = syscall.UnixRights(pipes.Stdin, pipes.Stdout, pipes.Stderr)
+	} else {
+		rights = nil
+	}
+
+	_, _, err = s.sk.WriteMsgUnix(pkt, rights, nil)
 	if err != nil {
 		return err
 	}
@@ -78,11 +86,11 @@ func (s *Session) __sendReq(req *RpcRequest) (error) {
 }
 
 // Send request and return a channel with response
-func (s *Session)sendReq(req *RpcRequest) (chan *RpcResponce, error) {
+func (s *Session)sendReq(req *RpcRequest, pipes *Pipes) (chan *RpcResponce, error) {
 	c := make(chan *RpcResponce, 1)
 	s.resp_map[*req.ReqId] = c
 
-	err := s.__sendReq(req)
+	err := s.__sendReq(req, pipes)
 	if err != nil {
 		close(s.resp_map[*req.ReqId])
 		delete(s.resp_map, *req.ReqId)
@@ -93,14 +101,18 @@ func (s *Session)sendReq(req *RpcRequest) (chan *RpcResponce, error) {
 }
 
 // Send request and return response
-func (s *Session) makeReq(req *RpcRequest) (*RpcResponce, error) {
-	c, err := s.sendReq(req)
+func (s *Session) makeReqWithPipes(req *RpcRequest, pipes *Pipes) (*RpcResponce, error) {
+	c, err := s.sendReq(req, pipes)
 	if err != nil {
 		return nil, err
 	}
 
 	resp := <-c
 	return resp, nil
+}
+
+func (s *Session) makeReq(req *RpcRequest) (*RpcResponce, error) {
+	return s.makeReqWithPipes(req, nil)
 }
 
 // receive response from the server
@@ -163,7 +175,8 @@ type Pipes struct {
 	Stdin, Stdout, Stderr int;
 }
 
-func (ct *Container) Run(path string, argv []string, env []string) (error) {
+func (ct *Container) Run(path string, argv []string, env []string, pipes *Pipes) (error) {
+	pipes_here := (pipes != nil)
 	req := getRpcReq()
 
 	req.Req = ReqType_CT_SPAWN.Enum()
@@ -173,9 +186,10 @@ func (ct *Container) Run(path string, argv []string, env []string) (error) {
 		Path: &path,
 		Args: argv,
 		Env:  env,
+		Pipes: &pipes_here,
 	}
 
-	_, err := ct.s.makeReq(req)
+	_, err := ct.s.makeReqWithPipes(req, pipes)
 	return err
 }
 
