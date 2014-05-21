@@ -16,11 +16,13 @@ struct backend_ops {
 	int type;
 	ct_handler_t (*create_ct)(libct_session_t s, char *name);
 	ct_handler_t (*open_ct)(libct_session_t s, char *name);
+	void	     (*update_ct_state)(libct_session_t s, pid_t pid);
 	void (*close)(libct_session_t s);
 };
 
 struct libct_session {
 	const struct backend_ops *ops;
+	struct list_head async_list;
 	struct list_head s_cts;
 };
 

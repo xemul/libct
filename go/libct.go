@@ -2,12 +2,13 @@ package libct
 
 import "net"
 import "fmt"
+import "syscall"
 import "sync/atomic"
 import prot "code.google.com/p/goprotobuf/proto"
 
 type Session struct {
 	sk *net.UnixConn
-	resp_map map[uint64]chan *RpcResponce
+	resp_map map[uint64]chan *RpcResponse
 }
 
 type Container struct {
@@ -34,7 +35,7 @@ func OpenSession() (*Session, error) {
 		return nil, err
 	}
 
-	s := &Session{sk, map[uint64]chan *RpcResponce{}}
+	s := &Session{sk, map[uint64]chan *RpcResponse{}}
 
 	// each request has a channel for response. All this channels are
 	// collect in a map, where a key value is a request ID.
@@ -42,6 +43,10 @@ func OpenSession() (*Session, error) {
 		for {
 			resp, err := s.__recvRes()
 			if err != nil {
+				for _, c := range(s.resp_map) {
+					close(c)
+				}
+				s.sk.Close()
 				return
 			}
 			s.resp_map[*resp.ReqId] <- resp
@@ -63,13 +68,20 @@ func getRpcReq() (*RpcRequest) {
 }
 
 // Send request to the server
-func (s *Session) __sendReq(req *RpcRequest) (error) {
+func (s *Session) __sendReq(req *RpcRequest, pipes *Pipes) (error) {
 	pkt, err := prot.Marshal(req)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = s.sk.WriteMsgUnix(pkt, nil, nil)
+	var rights []byte;
+	if pipes != nil {
+		rights = syscall.UnixRights(pipes.Stdin, pipes.Stdout, pipes.Stderr)
+	} else {
+		rights = nil
+	}
+
+	_, _, err = s.sk.WriteMsgUnix(pkt, rights, nil)
 	if err != nil {
 		return err
 	}
@@ -78,11 +90,11 @@ func (s *Session) __sendReq(req *RpcRequest) (error) {
 }
 
 // Send request and return a channel with response
-func (s *Session)sendReq(req *RpcRequest) (chan *RpcResponce, error) {
-	c := make(chan *RpcResponce, 1)
+func (s *Session)sendReq(req *RpcRequest, pipes *Pipes) (chan *RpcResponse, error) {
+	c := make(chan *RpcResponse, 1)
 	s.resp_map[*req.ReqId] = c
 
-	err := s.__sendReq(req)
+	err := s.__sendReq(req, pipes)
 	if err != nil {
 		close(s.resp_map[*req.ReqId])
 		delete(s.resp_map, *req.ReqId)
@@ -93,18 +105,31 @@ func (s *Session)sendReq(req *RpcRequest) (chan *RpcResponce, error) {
 }
 
 // Send request and return response
-func (s *Session) makeReq(req *RpcRequest) (*RpcResponce, error) {
-	c, err := s.sendReq(req)
+func (s *Session) makeReqWithPipes(req *RpcRequest, pipes *Pipes) (*RpcResponse, error) {
+	c, err := s.sendReq(req, pipes)
 	if err != nil {
 		return nil, err
 	}
 
 	resp := <-c
+
+	if resp == nil {
+		return nil, LibctError{-1}
+	}
+
+	if !(*resp.Success) {
+		return nil, LibctError{resp.GetError()}
+	}
+
 	return resp, nil
 }
 
+func (s *Session) makeReq(req *RpcRequest) (*RpcResponse, error) {
+	return s.makeReqWithPipes(req, nil)
+}
+
 // receive response from the server
-func (s *Session) __recvRes() (*RpcResponce, error) {
+func (s *Session) __recvRes() (*RpcResponse, error) {
 
 	pkt := make([]byte, 4096)
 	size, err := s.sk.Read(pkt)
@@ -112,7 +137,7 @@ func (s *Session) __recvRes() (*RpcResponce, error) {
 		return nil, err
 	}
 
-	res := &RpcResponce{}
+	res := &RpcResponse{}
 	err = prot.Unmarshal(pkt[0:size], res)
 	if err != nil {
 		return nil, err
@@ -163,7 +188,8 @@ type Pipes struct {
 	Stdin, Stdout, Stderr int;
 }
 
-func (ct *Container) Run(path string, argv []string, env []string) (error) {
+func (ct *Container) Run(path string, argv []string, env []string, pipes *Pipes) (error) {
+	pipes_here := (pipes != nil)
 	req := getRpcReq()
 
 	req.Req = ReqType_CT_SPAWN.Enum()
@@ -173,9 +199,10 @@ func (ct *Container) Run(path string, argv []string, env []string) (error) {
 		Path: &path,
 		Args: argv,
 		Env:  env,
+		Pipes: &pipes_here,
 	}
 
-	_, err := ct.s.makeReq(req)
+	_, err := ct.s.makeReqWithPipes(req, pipes)
 	return err
 }
 

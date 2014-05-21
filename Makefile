@@ -73,7 +73,7 @@ LIBS		:= -lrt -lprotobuf-c
 DEFINES		+= -D_FILE_OFFSET_BITS=64
 DEFINES		+= -D_GNU_SOURCE
 
-WARNINGS	:= -Wall
+WARNINGS	:= -Wall -Wno-unused-result
 
 ifneq ($(WERROR),0)
 	WARNINGS += -Werror

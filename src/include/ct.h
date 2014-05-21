@@ -12,7 +12,7 @@
 
 struct container_ops {
 	int (*spawn_cb)(ct_handler_t h, int (*cb)(void *), void *arg);
-	int (*spawn_execve)(ct_handler_t ct, char *path, char **argv, char **env);
+	int (*spawn_execve)(ct_handler_t, char *path, char **argv, char **env, int *fds);
 	int (*enter_cb)(ct_handler_t h, int (*cb)(void *), void *arg);
 	int (*enter_execve)(ct_handler_t h, char *path, char **argv, char **env);
 	int (*kill)(ct_handler_t h);

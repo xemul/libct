@@ -8,10 +8,14 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <fcntl.h>
 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <sys/un.h>
+#include <sys/signalfd.h>
+#include <sys/wait.h>
 
 #include "uapi/libct.h"
 
@@ -22,13 +26,9 @@
 #include "fs.h"
 #include "ct.h"
 #include "rpc.h"
+#include "async.h"
 
 #include "protobuf/rpc.pb-c.h"
-
-#define MAX_MSG		4096
-
-/* Buffer for keeping serialized messages */
-static unsigned char dbuf[MAX_MSG];
 
 typedef struct {
 	struct list_head	list;
@@ -89,7 +89,7 @@ static void __ct_server_destroy(ct_server_t *cs)
 
 static int serve_ct_create(int sk, libct_session_t ses, RpcRequest *req)
 {
-	RpcResponce resp = RPC_RESPONCE__INIT;
+	RpcResponse resp = RPC_RESPONSE__INIT;
 	CreateResp cr = CREATE_RESP__INIT;
 	ct_server_t *cs;
 
@@ -116,7 +116,7 @@ err:
 
 static int serve_ct_open(int sk, libct_session_t ses, RpcRequest *req)
 {
-	RpcResponce resp = RPC_RESPONCE__INIT;
+	RpcResponse resp = RPC_RESPONSE__INIT;
 	CreateResp cr = CREATE_RESP__INIT;
 	ct_server_t *cs;
 
@@ -140,7 +140,7 @@ static int serve_ct_destroy(int sk, ct_server_t *cs, RpcRequest *req)
 
 static int serve_get_state(int sk, ct_server_t *cs, RpcRequest *req)
 {
-	RpcResponce resp = RPC_RESPONCE__INIT;
+	RpcResponse resp = RPC_RESPONSE__INIT;
 	StateResp gs = STATE_RESP__INIT;
 
 	resp.state = &gs;
@@ -149,7 +149,7 @@ static int serve_get_state(int sk, ct_server_t *cs, RpcRequest *req)
 	return do_send_resp(sk, req, 0, &resp);
 }
 
-static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
+static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req, int *fds, int nr_fds)
 {
 	int ret = -1;
 
@@ -157,6 +157,11 @@ static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
 		ExecvReq *er = req->execv;
 		char **argv, **env = NULL;
 		int i;
+
+		if (req->execv->pipes && nr_fds != 3) {
+			ret = LCTERR_BADARG;
+			goto out;
+		}
 
 		argv = xmalloc((er->n_args + 1) * sizeof(char *));
 		if (!argv)
@@ -178,7 +183,8 @@ static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req)
 			env[i] = NULL;
 		}
 
-		ret = libct_container_spawn_execve(cs->ct, er->path, argv, env);
+		ret = libct_container_spawn_execver(cs->ct, er->path, argv, env,
+							req->execv->pipes ? fds : NULL);
 		xfree(argv);
 		xfree(env);
 	}
@@ -208,9 +214,58 @@ static int serve_kill(int sk, ct_server_t *cs, RpcRequest *req)
 	return send_resp(sk, req, libct_container_kill(cs->ct));
 }
 
-static int serve_wait(int sk, ct_server_t *cs, RpcRequest *req)
+struct srv_async_args {
+	int		sk;
+	RpcRequest	*req;
+	ct_handler_t	h;
+};
+
+static void rpc_wait_callback_destroy(libct_session_t s, void *req_args)
 {
-	return send_resp(sk, req, libct_container_wait(cs->ct));
+	struct srv_async_args *srv_args = req_args;
+
+	rpc_request__free_unpacked(srv_args->req, NULL);
+	xfree(srv_args);
+}
+
+static int rpc_wait_callback(libct_session_t s, void *req_args, int type, void *args)
+{
+	struct srv_async_args *srv_args = req_args;
+	ct_handler_t h = args;
+
+	if (type != CT_STATE)
+		return 0;
+	if (h != srv_args->h)
+		return 0;
+
+	send_resp(srv_args->sk, srv_args->req, 0);
+
+	rpc_wait_callback_destroy(s, req_args);
+
+	return 1;
+}
+
+static int serve_wait(int sk, libct_session_t ses, ct_server_t *cs, RpcRequest *req)
+{
+	struct srv_async_args *srv_args = NULL;
+
+	srv_args = xmalloc(sizeof(struct srv_async_args));
+	if (srv_args == NULL)
+		goto err;
+
+	srv_args->sk = sk;
+	srv_args->h = cs->ct;
+	srv_args->req = req;
+
+	if (async_req_add(ses, rpc_wait_callback,
+				rpc_wait_callback_destroy, srv_args) < 0)
+		goto err;
+
+	return 1;
+err:
+	xfree(srv_args);
+	send_resp(sk,  srv_args->req, -1);
+	return -1;
 }
 
 static int serve_setnsmask(int sk, ct_server_t *cs, RpcRequest *req)
@@ -382,7 +437,7 @@ static int serve_caps(int sk, ct_server_t *cs, RpcRequest *req)
 	return send_resp(sk, req, ret);
 }
 
-static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
+static int serve_req(int sk, libct_session_t ses, RpcRequest *req, int *fds, int nr_fds)
 {
 	ct_server_t *cs = NULL;
 
@@ -402,13 +457,13 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 	case REQ_TYPE__CT_GET_STATE:
 		return serve_get_state(sk, cs, req);
 	case REQ_TYPE__CT_SPAWN:
-		return serve_spawn(sk, cs, req);
+		return serve_spawn(sk, cs, req, fds, nr_fds);
 	case REQ_TYPE__CT_ENTER:
 		return serve_enter(sk, cs, req);
 	case REQ_TYPE__CT_KILL:
 		return serve_kill(sk, cs, req);
 	case REQ_TYPE__CT_WAIT:
-		return serve_wait(sk, cs, req);
+		return serve_wait(sk, ses, cs, req);
 	case REQ_TYPE__CT_SETNSMASK:
 		return serve_setnsmask(sk, cs, req);
 	case REQ_TYPE__CT_ADD_CNTL:
@@ -443,18 +498,20 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 static int serve(int sk, libct_session_t ses)
 {
 	RpcRequest *req;
-	int ret;
+	int *fds, nr_fds;
+	int ret, i;
 
-	ret = recv(sk, dbuf, MAX_MSG, 0);
+	ret = recv_req(sk, &req, &fds, &nr_fds);
 	if (ret <= 0)
 		return -1;
 
-	req = rpc_request__unpack(NULL, ret, dbuf);
-	if (!req)
-		return -1;
+	ret = serve_req(sk, ses, req, fds, nr_fds);
 
-	ret = serve_req(sk, ses, req);
-	rpc_request__free_unpacked(req, NULL);
+	for (i = 0; i < nr_fds; i++)
+		close(fds[i]);
+
+	if (ret != 1)
+		rpc_request__free_unpacked(req, NULL);
 
 	return ret;
 }
@@ -463,7 +520,8 @@ int libct_session_export(libct_session_t s)
 {
 	struct local_session *l = s2ls(s);
 	struct epoll_event ev;
-	int efd, ret = -1;
+	int efd, ret = -1, sig_fd;
+	sigset_t mask;
 
 	if (s->ops->type != BACKEND_LOCAL || l->server_sk < 0)
 		return -1;
@@ -475,6 +533,20 @@ int libct_session_export(libct_session_t s)
 	ev.events = EPOLLIN;
 	ev.data.fd = l->server_sk;
 	if (epoll_ctl(efd, EPOLL_CTL_ADD, l->server_sk, &ev) < 0)
+		goto err;
+
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &mask, NULL);
+	sig_fd = signalfd(-1, &mask, SFD_CLOEXEC);
+	if (sig_fd < 0) {
+		pr_perror("signalfd");
+		goto err;
+	}
+
+	ev.events = EPOLLIN;
+	ev.data.fd = sig_fd;
+	if (epoll_ctl(efd, EPOLL_CTL_ADD, sig_fd, &ev) < 0)
 		goto err;
 
 	while (1) {
@@ -497,10 +569,45 @@ int libct_session_export(libct_session_t s)
 			if (ask < 0)
 				continue;
 
+			if (fcntl(ask, F_SETFD, fcntl(ask, F_GETFD) | FD_CLOEXEC) == -1) {
+				pr_perror("Unable to set FD_CLOEXEC");
+				return -1;
+			}
+
 			ev.events = EPOLLIN;
 			ev.data.fd = ask;
 			if (epoll_ctl(efd, EPOLL_CTL_ADD, ask, &ev) < 0)
 				close(ask);
+
+			continue;
+		} else if (ev.data.fd == sig_fd) {
+			struct signalfd_siginfo info;
+
+			if (read(sig_fd, &info, sizeof(info)) != sizeof(info)) {
+				pr_perror("read from signalfd");
+				goto err;
+			}
+			pr_debug("signalfd: pid %d\n", info.ssi_pid);
+
+			while (1) {
+				siginfo_t info = { .si_pid = 0 };
+
+				ret = waitid(P_ALL, -1, &info, WNOHANG | WNOWAIT | WEXITED);
+				if (ret < 0 && errno == ECHILD)
+					break;
+				if (ret < 0) {
+					pr_perror("waitid failed");
+					goto err;
+				}
+
+				/* there are no children in a waitable state */
+				if (info.si_pid == 0)
+					break;
+
+				pr_debug("The %d process exited with %x", info.si_pid);
+
+				l->s.ops->update_ct_state(&l->s, info.si_pid);
+			}
 
 			continue;
 		}
@@ -538,7 +645,7 @@ int libct_session_export_prepare(libct_session_t s, char *sk_path)
 	if (s->ops->type != BACKEND_LOCAL || !sk_path)
 		return -1;
 
-	sk = socket(PF_UNIX, SOCK_SEQPACKET, 0);
+	sk = socket(PF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
 	if (sk < 0)
 		return -1;
 

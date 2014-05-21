@@ -5,6 +5,7 @@
 #include "session.h"
 #include "xmalloc.h"
 #include "libct.h"
+#include "async.h"
 #include "ct.h"
 
 static void close_local_session(libct_session_t s)
@@ -21,10 +22,26 @@ static ct_handler_t create_local_ct(libct_session_t s, char *name)
 	return ct_create(name);
 }
 
+void update_local_ct_state(libct_session_t s, pid_t pid)
+{
+	ct_handler_t h;
+
+	list_for_each_entry(h, &s->s_cts, s_lh) {
+		struct container *ct = cth2ct(h);
+		if (ct->root_pid != pid)
+			continue;
+
+		h->ops->wait(h);
+
+		async_req_run(s, CT_STATE, (void *) h);
+	}
+}
+
 static const struct backend_ops local_session_ops = {
 	.type = BACKEND_LOCAL,
 	.create_ct = create_local_ct,
 	.close = close_local_session,
+	.update_ct_state = update_local_ct_state,
 };
 
 libct_session_t libct_session_open_local(void)
@@ -37,6 +54,7 @@ libct_session_t libct_session_open_local(void)
 	s = xmalloc(sizeof(*s));
 	if (s) {
 		INIT_LIST_HEAD(&s->s.s_cts);
+		INIT_LIST_HEAD(&s->s.async_list);
 		s->s.ops = &local_session_ops;
 		s->server_sk = -1;
 		return &s->s;
@@ -89,6 +107,8 @@ void libct_session_close(libct_session_t s)
 
 	list_for_each_entry_safe(cth, n, &s->s_cts, s_lh)
 		libct_container_close(cth);
+
+	async_req_destroy(s);
 
 	s->ops->close(s);
 }

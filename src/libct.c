@@ -54,7 +54,17 @@ int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv)
 
 int libct_container_spawn_execve(ct_handler_t ct, char *path, char **argv, char **env)
 {
-	return ct->ops->spawn_execve(ct, path, argv, env);
+	return ct->ops->spawn_execve(ct, path, argv, env, NULL);
+}
+
+int libct_container_spawn_execvr(ct_handler_t ct, char *path, char **argv, int *fds)
+{
+	return libct_container_spawn_execver(ct, path, argv, NULL, fds);
+}
+
+int libct_container_spawn_execver(ct_handler_t ct, char *path, char **argv, char **env, int *fds)
+{
+	return ct->ops->spawn_execve(ct, path, argv, env, fds);
 }
 
 int libct_container_enter_cb(ct_handler_t ct, int (*cb)(void *), void *arg)

@@ -29,11 +29,11 @@ static inline struct pbunix_session *s2us(libct_session_t s)
 	return container_of(s, struct pbunix_session, s);
 }
 
-static RpcResponce *pbunix_req(struct pbunix_session *us, RpcRequest *req)
+static RpcResponse *pbunix_req(struct pbunix_session *us, RpcRequest *req)
 {
 	int len, ret;
 	unsigned char *data, dbuf[MAX_MSG_ONSTACK];
-	RpcResponce *resp = NULL;
+	RpcResponse *resp = NULL;
 
 	len = rpc_request__get_packed_size(req);
 	if (len > MAX_MSG_ONSTACK) {
@@ -55,7 +55,7 @@ static RpcResponce *pbunix_req(struct pbunix_session *us, RpcRequest *req)
 	if (len < 0)
 		goto out;
 
-	resp = rpc_responce__unpack(NULL, len, dbuf);
+	resp = rpc_response__unpack(NULL, len, dbuf);
 out:
 	if (data != dbuf)
 		xfree(data);
@@ -84,13 +84,13 @@ static inline void pack_ct_req(RpcRequest *req, int t, ct_handler_t h)
 	req->ct_rid = cp->rid;
 }
 
-static RpcResponce *do_pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
+static RpcResponse *do_pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
 {
 	pack_ct_req(req, type, h);
 	return pbunix_req(ch2c(h)->ses, req);
 }
 
-static inline int resp_error(RpcResponce *resp)
+static inline int resp_error(RpcResponse *resp)
 {
 	return resp->success ? 0 : (resp->has_error ? resp->error : LCTERR_RPCUNKNOWN);
 }
@@ -98,14 +98,14 @@ static inline int resp_error(RpcResponce *resp)
 static inline int pbunix_req_ct(ct_handler_t h, RpcRequest *req, int type)
 {
 	int ret;
-	RpcResponce *resp;
+	RpcResponse *resp;
 
 	resp = do_pbunix_req_ct(h, req, type);
 	if (!resp)
 		return LCTERR_RPCCOMM;
 
 	ret = resp_error(resp);
-	rpc_responce__free_unpacked(resp, NULL);
+	rpc_response__free_unpacked(resp, NULL);
 	return ret;
 }
 
@@ -126,14 +126,14 @@ static void send_destroy_req(ct_handler_t h)
 static enum ct_state send_get_state_req(ct_handler_t h)
 {
 	RpcRequest req = RPC_REQUEST__INIT;
-	RpcResponce *resp;
+	RpcResponse *resp;
 	enum ct_state st = CT_ERROR;
 
 	resp = do_pbunix_req_ct(h, &req, REQ_TYPE__CT_GET_STATE);
 	if (resp) {
 		if (!resp_error(resp) && resp->state)
 			st = resp->state->state;
-		rpc_responce__free_unpacked(resp, NULL);
+		rpc_response__free_unpacked(resp, NULL);
 	}
 
 	return st;
@@ -160,7 +160,7 @@ static int send_execve_req(ct_handler_t h, int type, char *path, char **argv, ch
 	return pbunix_req_ct(h, &req, type);
 }
 
-static int send_spawn_req(ct_handler_t h, char *path, char **argv, char **env)
+static int send_spawn_req(ct_handler_t h, char *path, char **argv, char **env, int *fds)
 {
 	return send_execve_req(h, REQ_TYPE__CT_SPAWN, path, argv, env);
 }
@@ -371,7 +371,7 @@ static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type
 	struct container_proxy *cp = NULL;
 	RpcRequest req = RPC_REQUEST__INIT;
 	CreateReq cr = CREATE_REQ__INIT;
-	RpcResponce *resp;
+	RpcResponse *resp;
 
 	us = s2us(s);
 
@@ -413,11 +413,11 @@ static ct_handler_t send_create_open_req(libct_session_t s, char *name, int type
 	cp->rid = resp->create->rid;
 	cp->ses = us;
 found:
-	rpc_responce__free_unpacked(resp, NULL);
+	rpc_response__free_unpacked(resp, NULL);
 	return &cp->h;
 
 err3:
-	rpc_responce__free_unpacked(resp, NULL);
+	rpc_response__free_unpacked(resp, NULL);
 err2:
 	xfree(cp);
 err1:
@@ -473,6 +473,7 @@ libct_session_t libct_session_open_pbunix(char *sk_path)
 		goto err;
 
 	INIT_LIST_HEAD(&us->s.s_cts);
+	INIT_LIST_HEAD(&us->s.async_list);
 	us->s.ops = &pbunix_session_ops;
 	return &us->s;
 
