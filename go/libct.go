@@ -43,6 +43,10 @@ func OpenSession() (*Session, error) {
 		for {
 			resp, err := s.__recvRes()
 			if err != nil {
+				for _, c := range(s.resp_map) {
+					close(c)
+				}
+				s.sk.Close()
 				return
 			}
 			s.resp_map[*resp.ReqId] <- resp
