@@ -409,7 +409,7 @@ static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **en
 	ea.argv	= argv;
 	ea.env	= env;
 
-	return local_spawn_cb(h, ct_execv, &ea);
+	return local_enter_cb(h, ct_execv, &ea);
 }
 
 static int local_ct_kill(ct_handler_t h)
