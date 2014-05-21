@@ -25,6 +25,7 @@
 #include "fs.h"
 #include "ct.h"
 #include "rpc.h"
+#include "async.h"
 
 #include "protobuf/rpc.pb-c.h"
 
@@ -211,9 +212,58 @@ static int serve_kill(int sk, ct_server_t *cs, RpcRequest *req)
 	return send_resp(sk, req, libct_container_kill(cs->ct));
 }
 
-static int serve_wait(int sk, ct_server_t *cs, RpcRequest *req)
+struct srv_async_args {
+	int		sk;
+	RpcRequest	*req;
+	ct_handler_t	h;
+};
+
+static void rpc_wait_callback_destroy(libct_session_t s, void *req_args)
 {
-	return send_resp(sk, req, libct_container_wait(cs->ct));
+	struct srv_async_args *srv_args = req_args;
+
+	rpc_request__free_unpacked(srv_args->req, NULL);
+	xfree(srv_args);
+}
+
+static int rpc_wait_callback(libct_session_t s, void *req_args, int type, void *args)
+{
+	struct srv_async_args *srv_args = req_args;
+	ct_handler_t h = args;
+
+	if (type != CT_STATE)
+		return 0;
+	if (h != srv_args->h)
+		return 0;
+
+	send_resp(srv_args->sk, srv_args->req, 0);
+
+	rpc_wait_callback_destroy(s, req_args);
+
+	return 1;
+}
+
+static int serve_wait(int sk, libct_session_t ses, ct_server_t *cs, RpcRequest *req)
+{
+	struct srv_async_args *srv_args = NULL;
+
+	srv_args = xmalloc(sizeof(struct srv_async_args));
+	if (srv_args == NULL)
+		goto err;
+
+	srv_args->sk = sk;
+	srv_args->h = cs->ct;
+	srv_args->req = req;
+
+	if (async_req_add(ses, rpc_wait_callback,
+				rpc_wait_callback_destroy, srv_args) < 0)
+		goto err;
+
+	return 1;
+err:
+	xfree(srv_args);
+	send_resp(sk,  srv_args->req, -1);
+	return -1;
 }
 
 static int serve_setnsmask(int sk, ct_server_t *cs, RpcRequest *req)
@@ -411,7 +461,7 @@ static int serve_req(int sk, libct_session_t ses, RpcRequest *req)
 	case REQ_TYPE__CT_KILL:
 		return serve_kill(sk, cs, req);
 	case REQ_TYPE__CT_WAIT:
-		return serve_wait(sk, cs, req);
+		return serve_wait(sk, ses, cs, req);
 	case REQ_TYPE__CT_SETNSMASK:
 		return serve_setnsmask(sk, cs, req);
 	case REQ_TYPE__CT_ADD_CNTL:
@@ -457,7 +507,8 @@ static int serve(int sk, libct_session_t ses)
 		return -1;
 
 	ret = serve_req(sk, ses, req);
-	rpc_request__free_unpacked(req, NULL);
+	if (ret != 1)
+		rpc_request__free_unpacked(req, NULL);
 
 	return ret;
 }
