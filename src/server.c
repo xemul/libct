@@ -29,11 +29,6 @@
 
 #include "protobuf/rpc.pb-c.h"
 
-#define MAX_MSG		4096
-
-/* Buffer for keeping serialized messages */
-static unsigned char dbuf[MAX_MSG];
-
 typedef struct {
 	struct list_head	list;
 	unsigned long		rid;
@@ -498,12 +493,8 @@ static int serve(int sk, libct_session_t ses)
 	RpcRequest *req;
 	int ret;
 
-	ret = recv(sk, dbuf, MAX_MSG, 0);
+	ret = recv_req(sk, &req);
 	if (ret <= 0)
-		return -1;
-
-	req = rpc_request__unpack(NULL, ret, dbuf);
-	if (!req)
 		return -1;
 
 	ret = serve_req(sk, ses, req);
