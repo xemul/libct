@@ -8,7 +8,7 @@ import prot "code.google.com/p/goprotobuf/proto"
 
 type Session struct {
 	sk *net.UnixConn
-	resp_map map[uint64]chan *RpcResponce
+	resp_map map[uint64]chan *RpcResponse
 }
 
 type Container struct {
@@ -35,7 +35,7 @@ func OpenSession() (*Session, error) {
 		return nil, err
 	}
 
-	s := &Session{sk, map[uint64]chan *RpcResponce{}}
+	s := &Session{sk, map[uint64]chan *RpcResponse{}}
 
 	// each request has a channel for response. All this channels are
 	// collect in a map, where a key value is a request ID.
@@ -86,8 +86,8 @@ func (s *Session) __sendReq(req *RpcRequest, pipes *Pipes) (error) {
 }
 
 // Send request and return a channel with response
-func (s *Session)sendReq(req *RpcRequest, pipes *Pipes) (chan *RpcResponce, error) {
-	c := make(chan *RpcResponce, 1)
+func (s *Session)sendReq(req *RpcRequest, pipes *Pipes) (chan *RpcResponse, error) {
+	c := make(chan *RpcResponse, 1)
 	s.resp_map[*req.ReqId] = c
 
 	err := s.__sendReq(req, pipes)
@@ -101,7 +101,7 @@ func (s *Session)sendReq(req *RpcRequest, pipes *Pipes) (chan *RpcResponce, erro
 }
 
 // Send request and return response
-func (s *Session) makeReqWithPipes(req *RpcRequest, pipes *Pipes) (*RpcResponce, error) {
+func (s *Session) makeReqWithPipes(req *RpcRequest, pipes *Pipes) (*RpcResponse, error) {
 	c, err := s.sendReq(req, pipes)
 	if err != nil {
 		return nil, err
@@ -111,12 +111,12 @@ func (s *Session) makeReqWithPipes(req *RpcRequest, pipes *Pipes) (*RpcResponce,
 	return resp, nil
 }
 
-func (s *Session) makeReq(req *RpcRequest) (*RpcResponce, error) {
+func (s *Session) makeReq(req *RpcRequest) (*RpcResponse, error) {
 	return s.makeReqWithPipes(req, nil)
 }
 
 // receive response from the server
-func (s *Session) __recvRes() (*RpcResponce, error) {
+func (s *Session) __recvRes() (*RpcResponse, error) {
 
 	pkt := make([]byte, 4096)
 	size, err := s.sk.Read(pkt)
@@ -124,7 +124,7 @@ func (s *Session) __recvRes() (*RpcResponce, error) {
 		return nil, err
 	}
 
-	res := &RpcResponce{}
+	res := &RpcResponse{}
 	err = prot.Unmarshal(pkt[0:size], res)
 	if err != nil {
 		return nil, err
