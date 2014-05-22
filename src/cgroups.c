@@ -330,8 +330,10 @@ static int re_mount_controller(struct container *ct, struct controller *ctl, cha
 	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
 	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
 
-	if (bind_mount(path, to))
+	if (bind_mount(path, to)) {
+		rmdir(to);
 		return -1;
+	}
 
 	return 0;
 }
