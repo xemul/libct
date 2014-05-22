@@ -26,15 +26,6 @@ func TestCreateCT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = ct.SetFsPrivate(CT_FS_SUBDIR, "/home/avagin/centos")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = ct.SetFsRoot("/home/avagin/centos-root")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	argv := make([]string, 3)
 	argv[0] = "bash"
 	argv[1] = "-c"
