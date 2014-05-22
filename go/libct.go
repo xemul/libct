@@ -7,7 +7,7 @@ import "sync/atomic"
 import prot "code.google.com/p/goprotobuf/proto"
 
 type Session struct {
-	sk *net.UnixConn
+	sk       *net.UnixConn
 	resp_map map[uint64]chan *RpcResponse
 }
 
@@ -43,7 +43,7 @@ func OpenSession() (*Session, error) {
 		for {
 			resp, err := s.__recvRes()
 			if err != nil {
-				for _, c := range(s.resp_map) {
+				for _, c := range s.resp_map {
 					close(c)
 				}
 				s.sk.Close()
@@ -58,9 +58,9 @@ func OpenSession() (*Session, error) {
 	return s, nil
 }
 
-var curReqID uint64 = 100;
+var curReqID uint64 = 100
 
-func getRpcReq() (*RpcRequest) {
+func getRpcReq() *RpcRequest {
 	req := &RpcRequest{}
 	id := atomic.AddUint64(&curReqID, 1)
 	req.ReqId = &id
@@ -68,13 +68,13 @@ func getRpcReq() (*RpcRequest) {
 }
 
 // Send request to the server
-func (s *Session) __sendReq(req *RpcRequest, pipes *Pipes) (error) {
+func (s *Session) __sendReq(req *RpcRequest, pipes *Pipes) error {
 	pkt, err := prot.Marshal(req)
 	if err != nil {
 		return err
 	}
 
-	var rights []byte;
+	var rights []byte
 	if pipes != nil {
 		rights = syscall.UnixRights(pipes.Stdin, pipes.Stdout, pipes.Stderr)
 	} else {
@@ -90,7 +90,7 @@ func (s *Session) __sendReq(req *RpcRequest, pipes *Pipes) (error) {
 }
 
 // Send request and return a channel with response
-func (s *Session)sendReq(req *RpcRequest, pipes *Pipes) (chan *RpcResponse, error) {
+func (s *Session) sendReq(req *RpcRequest, pipes *Pipes) (chan *RpcResponse, error) {
 	c := make(chan *RpcResponse, 1)
 	s.resp_map[*req.ReqId] = c
 
@@ -185,10 +185,10 @@ func (s *Session) OpenCt(name string) (*Container, error) {
 }
 
 type Pipes struct {
-	Stdin, Stdout, Stderr int;
+	Stdin, Stdout, Stderr int
 }
 
-func (ct *Container) Run(path string, argv []string, env []string, pipes *Pipes) (error) {
+func (ct *Container) Run(path string, argv []string, env []string, pipes *Pipes) error {
 	pipes_here := (pipes != nil)
 	req := getRpcReq()
 
@@ -196,9 +196,9 @@ func (ct *Container) Run(path string, argv []string, env []string, pipes *Pipes)
 	req.CtRid = &ct.Rid
 
 	req.Execv = &ExecvReq{
-		Path: &path,
-		Args: argv,
-		Env:  env,
+		Path:  &path,
+		Args:  argv,
+		Env:   env,
 		Pipes: &pipes_here,
 	}
 
@@ -229,9 +229,9 @@ func (ct *Container) Kill() error {
 }
 
 const (
-	CT_ERROR int	= -1
-	CT_STOPPED	= 0
-	CT_RUNNING	= 1
+	CT_ERROR   int = -1
+	CT_STOPPED     = 0
+	CT_RUNNING     = 1
 )
 
 func (ct *Container) State() (int, error) {
@@ -252,18 +252,18 @@ func (ct *Container) SetNsMask(nsmask uint64) error {
 	req := getRpcReq()
 	req.Req = ReqType_CT_SETNSMASK.Enum()
 	req.CtRid = &ct.Rid
-	req.Nsmask = &NsmaskReq{Mask : &nsmask}
+	req.Nsmask = &NsmaskReq{Mask: &nsmask}
 
 	_, err := ct.s.makeReq(req)
 
 	return err
 }
 
-func (ct *Container)SetFsRoot(root string) error {
+func (ct *Container) SetFsRoot(root string) error {
 	req := getRpcReq()
 	req.Req = ReqType_FS_SETROOT.Enum()
 	req.CtRid = &ct.Rid
-	req.Setroot = &SetrootReq{Root : &root}
+	req.Setroot = &SetrootReq{Root: &root}
 
 	_, err := ct.s.makeReq(req)
 
@@ -271,42 +271,42 @@ func (ct *Container)SetFsRoot(root string) error {
 }
 
 const (
-	CT_FS_NONE	= 0
-	CT_FS_SUBDIR	= 1
+	CT_FS_NONE   = 0
+	CT_FS_SUBDIR = 1
 )
 
-func (ct *Container)SetFsPrivate(ptype int32, path string) error {
+func (ct *Container) SetFsPrivate(ptype int32, path string) error {
 	req := getRpcReq()
 	req.Req = ReqType_FS_SETPRIVATE.Enum()
 	req.CtRid = &ct.Rid
-	req.Setpriv = &SetprivReq{Type : &ptype, Path : &path}
+	req.Setpriv = &SetprivReq{Type: &ptype, Path: &path}
 
 	_, err := ct.s.makeReq(req)
 
 	return err
 }
 
-func (ct *Container)AddMount(src, dst string) error {
+func (ct *Container) AddMount(src, dst string) error {
 	req := getRpcReq()
 	req.Req = ReqType_FS_ADD_MOUNT.Enum()
 	req.CtRid = &ct.Rid
 	flags := int32(0)
 	req.Mnt = &MountReq{
-				Dst : &dst,
-				Src : &src,
-				Flags : &flags,
-			}
+		Dst:   &dst,
+		Src:   &src,
+		Flags: &flags,
+	}
 
 	_, err := ct.s.makeReq(req)
 
 	return err
 }
 
-func (ct *Container)SetOption(opt int32) error {
+func (ct *Container) SetOption(opt int32) error {
 	req := getRpcReq()
 	req.Req = ReqType_CT_SET_OPTION.Enum()
 	req.CtRid = &ct.Rid
-	req.Setopt = &SetoptionReq{ Opt : &opt}
+	req.Setopt = &SetoptionReq{Opt: &opt}
 
 	_, err := ct.s.makeReq(req)
 

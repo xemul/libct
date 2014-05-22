@@ -7,9 +7,9 @@ import "syscall"
 import "os"
 
 func TestCreateCT(t *testing.T) {
-	stdin, err := os.OpenFile("/dev/null", os.O_RDWR, 0);
+	stdin, err := os.OpenFile("/dev/null", os.O_RDWR, 0)
 	r, w, err := os.Pipe()
-	pipes := Pipes {int(stdin.Fd()), int(w.Fd()), int(stdin.Fd())}
+	pipes := Pipes{int(stdin.Fd()), int(w.Fd()), int(stdin.Fd())}
 
 	s, err := OpenSession()
 	if err != nil {
@@ -45,7 +45,7 @@ func TestCreateCT(t *testing.T) {
 
 	// wait
 	err = ct.Wait()
-	t.Log(buf);
+	t.Log(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
