@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -568,6 +569,11 @@ int libct_session_export(libct_session_t s)
 			if (ask < 0)
 				continue;
 
+			if (fcntl(ask, F_SETFD, fcntl(ask, F_GETFD) | FD_CLOEXEC) == -1) {
+				pr_perror("Unable to set FD_CLOEXEC");
+				return -1;
+			}
+
 			ev.events = EPOLLIN;
 			ev.data.fd = ask;
 			if (epoll_ctl(efd, EPOLL_CTL_ADD, ask, &ev) < 0)
@@ -639,7 +645,7 @@ int libct_session_export_prepare(libct_session_t s, char *sk_path)
 	if (s->ops->type != BACKEND_LOCAL || !sk_path)
 		return -1;
 
-	sk = socket(PF_UNIX, SOCK_SEQPACKET, 0);
+	sk = socket(PF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
 	if (sk < 0)
 		return -1;
 
