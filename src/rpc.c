@@ -19,7 +19,7 @@ static unsigned char dbuf[MAX_MSG];
 #define MAX_FDS 3
 static int dfds[MAX_FDS];
 
-int do_send_resp(int sk, RpcRequest *req, int err, RpcResponce *resp)
+int do_send_resp(int sk, RpcRequest *req, int err, RpcResponse *resp)
 {
 	size_t len;
 
@@ -33,7 +33,7 @@ int do_send_resp(int sk, RpcRequest *req, int err, RpcResponce *resp)
 		resp->success = true;
 
 	/* FIXME -- boundaries check */
-	len = rpc_responce__pack(resp, dbuf);
+	len = rpc_response__pack(resp, dbuf);
 	if (send(sk, dbuf, len, 0) != len)
 		return -1;
 	else
@@ -42,7 +42,7 @@ int do_send_resp(int sk, RpcRequest *req, int err, RpcResponce *resp)
 
 int send_resp(int sk, RpcRequest *req, int err)
 {
-	RpcResponce resp = RPC_RESPONCE__INIT;
+	RpcResponse resp = RPC_RESPONSE__INIT;
 	return do_send_resp(sk, req, err, &resp);
 }
 
