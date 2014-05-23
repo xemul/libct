@@ -149,23 +149,14 @@ static int serve_get_state(int sk, ct_server_t *cs, RpcRequest *req)
 	return do_send_resp(sk, req, 0, &resp);
 }
 
-static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req, int *fds, int nr_fds)
+static int extract_arguments(ExecvReq *er, char ***pargv, char ***penv)
 {
-	ExecvReq *er = req->execv;
 	char **argv, **env = NULL;
-	int i, ret = -1;
-
-	if (req->execv)
-		goto out;
-
-	if (req->execv->pipes && nr_fds != 3) {
-		ret = LCTERR_BADARG;
-		goto out;
-	}
+	int i;
 
 	argv = xmalloc((er->n_args + 1) * sizeof(char *));
 	if (!argv)
-		goto out;
+		return -1;
 
 	for (i = 0; i < er->n_args; i++)
 		argv[i] = er->args[i];
@@ -175,13 +166,36 @@ static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req, int *fds, int n
 		env = xmalloc((er->n_env + 1) * sizeof(char *));
 		if (!env) {
 			xfree(argv);
-			goto out;
+			return -1;
 		}
 
 		for (i = 0; i < er->n_env; i++)
 			env[i] = er->env[i];
 		env[i] = NULL;
 	}
+
+	*pargv = argv;
+	*penv = env;
+
+	return 0;
+}
+
+static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req, int *fds, int nr_fds)
+{
+	ExecvReq *er = req->execv;
+	char **argv, **env = NULL;
+	int ret = -1;
+
+	if (!req->execv)
+		goto out;
+
+	if (req->execv->pipes && nr_fds != 3) {
+		ret = LCTERR_BADARG;
+		goto out;
+	}
+
+	if (extract_arguments(er, &argv, &env))
+		goto out;
 
 	ret = libct_container_spawn_execvefds(cs->ct, er->path, argv, env,
 						req->execv->pipes ? fds : NULL);
