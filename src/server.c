@@ -207,18 +207,23 @@ out:
 
 static int serve_enter(int sk, ct_server_t *cs, RpcRequest *req)
 {
+	char **argv, **env = NULL;
 	ExecvReq *er = req->execv;
 	int ret = -1;
 
 	if (!er)
 		return send_resp(sk, req, ret);
 
-	if (er->n_env)
-		ret = libct_container_enter_execve(cs->ct, er->path,
-						   er->args, er->env);
-	else
-		ret = libct_container_enter_execv(cs->ct, er->path,
-						  er->args);
+	if (extract_arguments(er, &argv, &env))
+		goto out;
+
+	ret = libct_container_enter_execve(cs->ct, er->path,
+					   er->args, er->env);
+
+	xfree(argv);
+	xfree(env);
+
+out:
 	return send_resp(sk, req, ret);
 }
 
