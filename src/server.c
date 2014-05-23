@@ -151,43 +151,42 @@ static int serve_get_state(int sk, ct_server_t *cs, RpcRequest *req)
 
 static int serve_spawn(int sk, ct_server_t *cs, RpcRequest *req, int *fds, int nr_fds)
 {
-	int ret = -1;
+	ExecvReq *er = req->execv;
+	char **argv, **env = NULL;
+	int i, ret = -1;
 
-	if (req->execv) {
-		ExecvReq *er = req->execv;
-		char **argv, **env = NULL;
-		int i;
+	if (req->execv)
+		goto out;
 
-		if (req->execv->pipes && nr_fds != 3) {
-			ret = LCTERR_BADARG;
-			goto out;
-		}
-
-		argv = xmalloc((er->n_args + 1) * sizeof(char *));
-		if (!argv)
-			goto out;
-
-		for (i = 0; i < er->n_args; i++)
-			argv[i] = er->args[i];
-		argv[i] = NULL;
-
-		if (er->n_env) {
-			env = xmalloc((er->n_env + 1) * sizeof(char *));
-			if (!env) {
-				xfree(argv);
-				goto out;
-			}
-
-			for (i = 0; i < er->n_env; i++)
-				env[i] = er->env[i];
-			env[i] = NULL;
-		}
-
-		ret = libct_container_spawn_execvefds(cs->ct, er->path, argv, env,
-							req->execv->pipes ? fds : NULL);
-		xfree(argv);
-		xfree(env);
+	if (req->execv->pipes && nr_fds != 3) {
+		ret = LCTERR_BADARG;
+		goto out;
 	}
+
+	argv = xmalloc((er->n_args + 1) * sizeof(char *));
+	if (!argv)
+		goto out;
+
+	for (i = 0; i < er->n_args; i++)
+		argv[i] = er->args[i];
+	argv[i] = NULL;
+
+	if (er->n_env) {
+		env = xmalloc((er->n_env + 1) * sizeof(char *));
+		if (!env) {
+			xfree(argv);
+			goto out;
+		}
+
+		for (i = 0; i < er->n_env; i++)
+			env[i] = er->env[i];
+		env[i] = NULL;
+	}
+
+	ret = libct_container_spawn_execvefds(cs->ct, er->path, argv, env,
+						req->execv->pipes ? fds : NULL);
+	xfree(argv);
+	xfree(env);
 out:
 	return send_resp(sk, req, ret);
 }
