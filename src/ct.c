@@ -326,6 +326,7 @@ static int ct_execv(void *a)
 {
 	struct execv_args *ea = a;
 	int ret, i;
+	sigset_t mask;
 
 	if (ea->fds) {
 		ret  = dup2(ea->fds[0], 0);
@@ -340,6 +341,9 @@ static int ct_execv(void *a)
 		for (i = 0; i < 3; i++)
 			close(ea->fds[i]);
 	}
+
+	sigfillset(&mask);
+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
 	/* This gets control in the container's new root (if any) */
 	if (ea->env)
