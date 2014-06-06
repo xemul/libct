@@ -49,24 +49,24 @@ class Session(object):
 
 	def container_create(self, name):
 		ct = libctcapi.container_create(self._sess, name)
-		if ct:
+		if type(ct) != types.LongType:
 			return Container(ct)
 		else:
-			raise LibctError("Can't create ct")
+			raise LibctError(ct)
 
 	def container_open(self, name):
 		ct = libctcapi.container_open(self._sess, name)
-		if ct:
+		if type(ct) != types.LongType:
 			return Container(ct)
 		else:
-			raise LibctError("Can't open ct")
+			raise LibctError(ct)
 
 def open(url):
 	sess = libctcapi.session_open(url)
-	if sess:
+	if type(sess) != types.LongType:
 		return Session(sess)
 	else:
-		raise LibctError("Can't open")
+		raise LibctError(sess)
 
 class Container(object):
 

@@ -246,8 +246,8 @@ py_libct_session_open(PyObject *self, PyObject *args)
 	session = libct_session_open(url);
 	Py_END_ALLOW_THREADS
 
-	if (!session)
-		Py_RETURN_NONE;
+	if (libct_handle_is_err(session))
+		return PyLong_FromLong(libct_handle_to_err(session));
 
 	return make_object(session, "libct_session_t");
 }
@@ -264,8 +264,8 @@ py_libct_session_open_local(PyObject *self, PyObject *args)
 	session = libct_session_open_local();
 	Py_END_ALLOW_THREADS
 
-	if (!session)
-		Py_RETURN_NONE;
+	if (libct_handle_is_err(session))
+		return PyLong_FromLong(libct_handle_to_err(session));
 
 	return make_object(session, "libct_session_t");
 }
@@ -308,8 +308,8 @@ py_libct_container_create(PyObject *self, PyObject *args)
 	ct = libct_container_create(session, name);
 	Py_END_ALLOW_THREADS
 
-	if (!ct)
-		Py_RETURN_NONE;
+	if (libct_handle_is_err(ct))
+		return PyLong_FromLong(libct_handle_to_err(ct));
 
 	return make_object(ct, "ct_handler_t");
 }
@@ -333,8 +333,8 @@ py_libct_container_open(PyObject *self, PyObject *args)
 	ct = libct_container_open(session, name);
 	Py_END_ALLOW_THREADS
 
-	if (!ct)
-		Py_RETURN_NONE;
+	if (libct_handle_is_err(ct))
+		return PyLong_FromLong(libct_handle_to_err(ct));
 
 	return make_object(ct, "ct_handler_t");
 }
