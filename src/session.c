@@ -19,7 +19,13 @@ static void close_local_session(libct_session_t s)
 
 static ct_handler_t create_local_ct(libct_session_t s, char *name)
 {
-	return ct_create(name);
+	ct_handler_t ct;
+
+	ct = ct_create(name);
+	if (!ct)
+		return libct_err_to_handle(-1);
+	else
+		return ct;
 }
 
 static void update_local_ct_state(libct_session_t s, pid_t pid)
@@ -49,7 +55,7 @@ libct_session_t libct_session_open_local(void)
 	struct local_session *s;
 
 	if (libct_init_local())
-		return NULL;
+		return libct_err_to_handle(-1);
 
 	s = xmalloc(sizeof(*s));
 	if (s) {
@@ -60,12 +66,12 @@ libct_session_t libct_session_open_local(void)
 		return &s->s;
 	}
 
-	return NULL;
+	return libct_err_to_handle(-1);
 }
 
 static inline ct_handler_t new_ct(libct_session_t ses, ct_handler_t cth)
 {
-	if (cth && list_empty(&cth->s_lh))
+	if (!libct_handle_is_err(cth) && list_empty(&cth->s_lh))
 		list_add_tail(&cth->s_lh, &ses->s_cts);
 
 	return cth;
@@ -76,7 +82,7 @@ ct_handler_t libct_container_create(libct_session_t ses, char *name)
 	ct_handler_t cth;
 
 	if (!name)
-		return NULL;
+		return libct_err_to_handle(LCTERR_INVARG);
 
 	cth = ses->ops->create_ct(ses, name);
 	return new_ct(ses, cth);
@@ -87,10 +93,10 @@ ct_handler_t libct_container_open(libct_session_t ses, char *name)
 	ct_handler_t cth;
 
 	if (!name)
-		return NULL;
+		return libct_err_to_handle(LCTERR_INVARG);
 
 	if (!ses->ops->open_ct)
-		return NULL;
+		return libct_err_to_handle(-1);
 
 	/*
 	 * FIXME -- there can exist multiple handlers, need

@@ -11,6 +11,10 @@
 struct libct_session;
 typedef struct libct_session *libct_session_t;
 
+extern void *libct_err_to_handle(long err);
+extern long libct_handle_to_err(void *handle);
+extern int libct_handle_is_err(void *handle);
+
 extern libct_session_t libct_session_open(char *url);
 extern libct_session_t libct_session_open_local(void);
 extern void libct_session_close(libct_session_t s);

@@ -10,6 +10,21 @@
 #include "list.h"
 #include "ct.h"
 
+void *libct_err_to_handle(long err)
+{
+	return (void *)err;
+}
+
+long libct_handle_to_err(void *h)
+{
+	return (long)h;
+}
+
+int libct_handle_is_err(void *h)
+{
+	return ((unsigned long)h) >= (unsigned long)-4096;
+}
+
 void ct_handler_init(ct_handler_t h)
 {
 	h->ops = NULL;
@@ -143,5 +158,5 @@ libct_session_t libct_session_open(char *how)
 	if (!how || !strcmp(how, "local"))
 		return libct_session_open_local();
 
-	return NULL;
+	return libct_err_to_handle(LCTERR_INVARG);
 }
