@@ -40,10 +40,9 @@ as an argument).
 backend operations
 ~~~~~~~~~~~~~~~~~~
 
-Low level operations associated with a session. Currently there are two types
-of backends are supported: _local_ and _unix_. _unix_ backend operates with
-RPC requests and implies there is a daemon in a system which can handle them.
-In turn _local_ backend operates locally, as its name implies.
+Low level operations associated with a session. Currently there is only one
+type of backends is supported: _local_. This backend operates locally over cgroups
+and namespaces interfaces.
 
 
 SESSION MANAGEMENT
@@ -51,25 +50,11 @@ SESSION MANAGEMENT
 
 libct_session_t *libct_session_open*(char *'url')::
 	Opens a session by its uniform resource locator passed in 'url' argument.
-	'url' may be one of strings: "unix:://'sk_path'", "local". Here 'sk_path'
-	should be a valid unix socket path. If 'url' is NULL then it is treated
-	as "local".
+	'url' may be only "local" and this moment. If 'url' is NULL then it is
+	treated as "local".
 
 libct_session_t *libct_session_open_local*(void)::
 	Same as *libct_session_open*("local").
-
-libct_session_t *libct_session_open_pbunix*(char *'sk_path')::
-	Same as *libct_session_open*("unix://'sk_path'").
-
-int *libct_session_export_prepare*(libct_session_t 's', char *'sk_path')::
-	Prepares "local" 's' session containers to operate in "unix" mode. Which
-	means every container in a session become listening for RPC commands.
-	This function only prepares containers to listen commands on 'sk_path'
-	"unix" socket. Returns 0 on success.
-
-int *libct_session_export*(libct_session_t 's')::
-	Initiate handling RPC commands for session 's' previously prepared
-	with help of *libct_session_export_prepare*. Returns 0 on success.
 
 void *libct_session_close*(libct_session_t 's')::
 	Closes the session 's'. If the session is local one then all containers in

@@ -13,8 +13,6 @@
 #include "bug.h"
 #include "ct.h"
 
-#include "protobuf/rpc.pb-c.h"
-
 /*
  * External bind mounts
  */
@@ -160,25 +158,11 @@ static void put_subdir_path(void *priv)
 	xfree(priv);
 }
 
-static void pb_pack_subdir(void *arg, struct _SetprivReq *req)
-{
-	req->path = arg;
-}
-
-static void *pb_unpack_subdir(struct _SetprivReq *req)
-{
-	if (req->path)
-		return xstrdup(req->path);
-	return NULL;
-}
-
 static const struct ct_fs_ops ct_subdir_fs_ops = {
 	.mount		= mount_subdir,
 	.umount		= umount_subdir,
 	.get		= get_subdir_path,
 	.put		= put_subdir_path,
-	.pb_pack	= pb_pack_subdir,
-	.pb_unpack	= pb_unpack_subdir,
 };
 
 /*

@@ -68,7 +68,7 @@ export VERSION_MAJOR VERSION_MINOR VERSION_SUBLEVEL VERSION_EXTRA VERSION_NAME
 include scripts/Makefile.version
 include scripts/Makefile.config
 
-LIBS		:= -lrt -lprotobuf-c
+LIBS		:= -lrt
 
 DEFINES		+= -D_FILE_OFFSET_BITS=64
 DEFINES		+= -D_GNU_SOURCE
@@ -110,37 +110,10 @@ export cflags-y
 EARLY-GEN := $(VERSION_HEADER) config
 
 #
-# Protobuf data, shared across library
-# and executable tool
-src/protobuf/%:
-	$(Q) $(MAKE) $(build)=src/protobuf $@
-src/protobuf:
-	$(Q) $(MAKE) $(build)=src/protobuf all
-
-.PHONY: src/protobuf
-
-#
-# Proxy
-LIBCTD := libctd
-
-LDFLAGS += -L$(shell pwd)
-
-src/libctd/%: src/protobuf
-	$(Q) $(MAKE) $(build)=src/libctd $@
-src/libctd: src/protobuf
-	$(Q) $(MAKE) $(build)=src/libctd all
-
-.PHONY: src/libctd
-
-src/libctd/$(LIBCTD): src/libctd/built-in.o $(LIBCT) src/protobuf/built-in.o
-	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -lct -o $@
-
-#
 # Library itself
-src/%: $(EARLY-GEN) | src/protobuf
+src/%: $(EARLY-GEN)
 	$(Q) $(MAKE) $(build)=src $@
-src: $(EARLY-GEN) | src/protobuf
+src: $(EARLY-GEN)
 	$(Q) $(MAKE) $(build)=src all
 
 .PHONY: src
@@ -149,7 +122,7 @@ $(LIBCT): src/$(LIBCT)
 	$(E) "  LN      " $@
 	$(Q) $(LN) -sf $^ $@
 
-all: $(LIBCT) src/libctd/$(LIBCTD)
+all: $(LIBCT)
 	@true
 
 docs:
@@ -165,11 +138,8 @@ tags:
 
 clean:
 	$(Q) $(MAKE) $(build)=src clean
-	$(Q) $(MAKE) $(build)=src/libctd clean
-	$(Q) $(MAKE) $(build)=src/protobuf clean
 	$(Q) $(MAKE) -s -C Documentation clean
 	$(Q) $(RM) $(LIBCT)
-	$(Q) $(RM) src/libctd/$(LIBCTD)
 	$(Q) $(RM) $(CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
 

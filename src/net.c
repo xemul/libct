@@ -9,8 +9,6 @@
 #include "net.h"
 #include "ct.h"
 
-#include "protobuf/rpc.pb-c.h"
-
 /*
  * Generic Linux networking management
  */
@@ -296,18 +294,6 @@ static void host_nic_stop(struct container *ct, struct ct_net *n)
 	 */
 }
 
-static void host_nic_pack(void *arg, NetaddReq *req)
-{
-	req->nicname = arg;
-}
-
-static void *host_nic_unpack(NetaddReq *req)
-{
-	if (req->nicname)
-		return xstrdup(req->nicname);
-	return NULL;
-}
-
 static int host_nic_match(struct ct_net *n, void *arg)
 {
 	struct ct_net_host_nic *cn = cn2hn(n);
@@ -319,8 +305,6 @@ static const struct ct_net_ops host_nic_ops = {
 	.destroy	= host_nic_destroy,
 	.start		= host_nic_start,
 	.stop		= host_nic_stop,
-	.pb_pack	= host_nic_pack,
-	.pb_unpack	= host_nic_unpack,
 	.match		= host_nic_match,
 };
 
@@ -391,27 +375,6 @@ static void veth_stop(struct container *ct, struct ct_net *n)
 	 */
 }
 
-static void veth_pack(void *arg, NetaddReq *req)
-{
-	struct ct_net_veth_arg *va = arg;
-
-	req->nicname = va->host_name;
-	req->peername = va->ct_name;
-}
-
-static void *veth_unpack(NetaddReq *req)
-{
-	struct ct_net_veth_arg *va;
-
-	va = xmalloc(sizeof(*va));
-	if (va) {
-		va->host_name = req->nicname;
-		va->ct_name = req->peername;
-	}
-
-	return va;
-}
-
 static int veth_match(struct ct_net *n, void *arg)
 {
 	struct ct_net_veth *vn = cn2vn(n);
@@ -426,8 +389,6 @@ static const struct ct_net_ops veth_nic_ops = {
 	.destroy	= veth_destroy,
 	.start		= veth_start,
 	.stop		= veth_stop,
-	.pb_pack	= veth_pack,
-	.pb_unpack	= veth_unpack,
 	.match		= veth_match,
 };
 

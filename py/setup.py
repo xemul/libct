@@ -22,7 +22,7 @@ module1 = Extension('libct.libctcapi',
 		sources=['libct/libctmodule.c'],
 		include_dirs=['../src/include/uapi'],
 		library_dirs=['..'],
-		libraries=['ct', 'protobuf-c'])
+		libraries=['ct'])
 
 setup(name='libct',
 	version='0.1.0',

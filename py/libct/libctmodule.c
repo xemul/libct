@@ -236,25 +236,6 @@ py_libct_session_open_local(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-py_libct_session_open_pbunix(PyObject *self, PyObject *args)
-{
-	char *sk_path;
-	libct_session_t session;
-
-	if (!PyArg_ParseTuple(args, "s:libct_session_open_pbunix", &sk_path))
-		return NULL;
-
-	Py_BEGIN_ALLOW_THREADS
-	session = libct_session_open_pbunix(sk_path);
-	Py_END_ALLOW_THREADS
-
-	if (!session)
-		Py_RETURN_NONE;
-
-	return make_object(session, "libct_session_t");
-}
-
-static PyObject *
 py_libct_session_close(PyObject *self, PyObject *args)
 {
 	libct_session_t session;
@@ -981,7 +962,6 @@ py_libct_net_del(PyObject *self, PyObject *args)
 static PyMethodDef LibctMethods[] = {
 	{"session_open",  py_libct_session_open, METH_VARARGS, "libct_session_open"},
 	{"session_open_local",  py_libct_session_open_local, METH_VARARGS, "libct_session_open_local"},
-	{"session_open_pbunix",  py_libct_session_open_pbunix, METH_VARARGS, "libct_session_open_pbunix"},
 	{"session_close",  py_libct_session_close, METH_VARARGS, "libct_session_close"},
 	{"container_create",  py_libct_container_create, METH_VARARGS, "libct_container_create"},
 	{"container_open",  py_libct_container_open, METH_VARARGS, "libct_container_open"},
