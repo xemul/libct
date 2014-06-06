@@ -141,6 +141,41 @@ static void free_string_list(char **arr)
 	PyMem_Free(arr);
 }
 
+static int * parse_int_list(PyObject *py_list)
+{
+	Py_ssize_t len;
+	size_t arr_size;
+	int *arr;
+	int i = 0;
+	PyObject *item;
+
+	len = PyObject_Length(py_list);
+	arr_size = sizeof(int) * len;
+	arr = PyMem_Malloc(arr_size);
+	if (arr == NULL) {
+		PyErr_SetString(PyExc_MemoryError, "Can't allocate memory");
+		return NULL;
+	}
+
+	memset(arr, 0, arr_size);
+
+	for (i = 0; i < len; i++) {
+		item = PySequence_GetItem(py_list, i);
+		if (PyInt_Check(item)) {
+			arr[i] = PyInt_AsLong(item);
+		} else if (PyLong_Check(item)) {
+			arr[i] = PyLong_AsLong(item);
+		} else {
+			PyErr_SetString(PyExc_MemoryError,
+					"A list of integers is expected.");
+			PyMem_Free(arr);
+			return NULL;
+		}
+	}
+
+	return arr;
+}
+
 static struct ct_net_veth_arg * parse_ct_net_veth(PyObject *obj)
 {
 	struct ct_net_veth_arg *veth;
@@ -472,6 +507,92 @@ py_libct_container_spawn_execve(PyObject *self, PyObject *args)
 
 	free_string_list(argv);
 	free_string_list(env);
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_container_spawn_execvfds(PyObject *self, PyObject *args)
+{
+	PyObject *py_ct;
+	ct_handler_t ct;
+	char *path;
+	PyObject *py_argv, *py_fds;
+	char **argv;
+	int *fds;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OsOO:py_libct_container_spawn_execvfds",
+				&py_ct, &path, &py_argv, &py_fds))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
+	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	argv = parse_string_list(py_argv);
+	if (argv == NULL)
+		return NULL;
+
+	fds = parse_int_list(py_fds);
+	if (fds == NULL) {
+		free_string_list(argv);
+		return NULL;
+	}
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_container_spawn_execvfds(ct, path, argv, fds);
+	Py_END_ALLOW_THREADS
+
+	free_string_list(argv);
+	free(fds);
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_container_spawn_execvefds(PyObject *self, PyObject *args)
+{
+	PyObject *py_ct;
+	ct_handler_t ct;
+	char *path;
+	PyObject *py_argv, *py_fds;
+	char **argv;
+	int *fds;
+	PyObject *py_env;
+	char **env;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OsOO:py_libct_container_spawn_execvefds",
+				&py_ct, &path, &py_argv, &py_env, &py_fds))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
+	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	argv = parse_string_list(py_argv);
+	if (argv == NULL)
+		return NULL;
+
+	env = parse_string_list(py_env);
+	if (env == NULL) {
+		free_string_list(argv);
+		return NULL;
+	}
+
+	fds = parse_int_list(py_fds);
+	if (fds == NULL) {
+		free_string_list(argv);
+		free_string_list(env);
+		return NULL;
+	}
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_container_spawn_execvefds(ct, path, argv, env, fds);
+	Py_END_ALLOW_THREADS
+
+	free_string_list(argv);
+	free_string_list(env);
+	free(fds);
 
 	return PyLong_FromLong((long)ret);
 }
@@ -970,6 +1091,8 @@ static PyMethodDef LibctMethods[] = {
 	{"container_spawn_cb",  py_libct_container_spawn_cb, METH_VARARGS, "libct_container_spawn_cb"},
 	{"container_spawn_execv",  py_libct_container_spawn_execv, METH_VARARGS, "libct_container_spawn_execv"},
 	{"container_spawn_execve",  py_libct_container_spawn_execve, METH_VARARGS, "libct_container_spawn_execve"},
+	{"container_spawn_execvfds",  py_libct_container_spawn_execvfds, METH_VARARGS, "libct_container_spawn_execvfds"},
+	{"container_spawn_execvefds",  py_libct_container_spawn_execvefds, METH_VARARGS, "libct_container_spawn_execvefds"},
 	{"container_enter_cb",  py_libct_container_enter_cb, METH_VARARGS, "libct_container_enter_cb"},
 	{"container_enter_execv",  py_libct_container_enter_execv, METH_VARARGS, "libct_container_enter_execv"},
 	{"container_enter_execve",  py_libct_container_enter_execve, METH_VARARGS, "libct_container_enter_execve"},

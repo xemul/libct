@@ -95,6 +95,18 @@ class Container(object):
 		if ret:
 			raise LibctError(ret)
 
+	def spawn_execvfds(self, path, argv, fds):
+		ret = libctcapi.container_spawn_execvfds(self._ct,
+						path, argv, fds)
+		if ret:
+			raise LibctError(ret)
+
+	def spawn_execvefds(self, path, argv, env, fds):
+		ret = libctcapi.container_spawn_execvefds(self._ct,
+						path, argv, env, fds)
+		if ret:
+			raise LibctError(ret)
+
 	def enter_cb(self, cb, arg):
 		ret = libctcapi.container_enter_cb(self._ct, cb, arg)
 		if ret:
