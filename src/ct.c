@@ -347,9 +347,9 @@ static int ct_execv(void *a)
 
 	/* This gets control in the container's new root (if any) */
 	if (ea->env)
-		execve(ea->path, ea->argv, ea->env);
+		execvpe(ea->path, ea->argv, ea->env);
 	else
-		execv(ea->path, ea->argv);
+		execvp(ea->path, ea->argv);
 err:
 	return -1;
 }
