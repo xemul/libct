@@ -43,6 +43,7 @@ ct_handler_t ct_create(char *name);
 
 #define CT_AUTO_PROC		0x1
 #define CT_KILLABLE		0x2
+#define CT_NOSETSID		0x3
 
 /*
  * The main structure describing a container

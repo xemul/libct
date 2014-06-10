@@ -129,6 +129,10 @@ extern int libct_net_del(ct_handler_t ct, enum ct_net_type ntype, void *arg);
  * help.
  */
 #define LIBCT_OPT_KILLABLE				3
+/*
+ * Don't create a session for an initial process in CT
+ */
+#define LIBCT_OPT_NOSETSID				4
 
 extern int libct_container_set_option(ct_handler_t ct, int opt, ...);
 

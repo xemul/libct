@@ -184,6 +184,9 @@ static int ct_clone(void *arg)
 	close(ca->child_wait_pipe[1]);
 	close(ca->parent_wait_pipe[0]);
 
+	if (!(ct->flags & CT_NOSETSID) && setsid() == -1)
+		goto err;
+
 	if (ct->nsmask & CLONE_NEWNS) {
 		/*
 		 * Remount / as slave, so that it doesn't
@@ -488,6 +491,11 @@ static int local_set_option(ct_handler_t h, int opt, va_list parms)
 		ret = cgroups_create_service();
 		if (!ret)
 			ct->flags |= CT_KILLABLE;
+		break;
+	case LIBCT_OPT_NOSETSID:
+		ret = 0;
+		ct->flags |= CT_NOSETSID;
+		break;
 	}
 
 	return ret;
