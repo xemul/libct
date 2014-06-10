@@ -58,7 +58,7 @@ int libct_container_spawn_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
 {
 	/* This one is optional -- only local ops support */
 	if (!ct->ops->spawn_cb)
-		return LCTERR_OPNOTSUPP;
+		return -LCTERR_OPNOTSUPP;
 
 	return ct->ops->spawn_cb(ct, cb, arg);
 }
@@ -86,7 +86,7 @@ int libct_container_spawn_execvefds(ct_handler_t ct, char *path, char **argv, ch
 int libct_container_enter_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
 {
 	if (!ct->ops->enter_cb)
-		return LCTERR_OPNOTSUPP;
+		return -LCTERR_OPNOTSUPP;
 
 	return ct->ops->enter_cb(ct, cb, arg);
 }
@@ -154,7 +154,7 @@ int libct_container_uname(ct_handler_t ct, char *host, char *domain)
 int libct_container_set_caps(ct_handler_t ct, unsigned long mask, unsigned int apply_to)
 {
 	if (!apply_to || (apply_to & ~CAPS_ALL))
-		return LCTERR_INVARG;
+		return -LCTERR_INVARG;
 
 	return ct->ops->set_caps(ct, mask, apply_to);
 }
@@ -164,5 +164,5 @@ libct_session_t libct_session_open(char *how)
 	if (!how || !strcmp(how, "local"))
 		return libct_session_open_local();
 
-	return libct_err_to_handle(LCTERR_INVARG);
+	return libct_err_to_handle(-LCTERR_INVARG);
 }

@@ -180,21 +180,21 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	if (!(ct->nsmask & CLONE_NEWNET))
-		return LCTERR_NONS;
+		return -LCTERR_NONS;
 
 	if (ntype == CT_NET_NONE)
 		return 0;
 
 	nops = net_get_ops(ntype);
 	if (!nops)
-		return LCTERR_BADTYPE;
+		return -LCTERR_BADTYPE;
 
 	cn = nops->create(arg);
 	if (!cn)
-		return LCTERR_BADARG;
+		return -LCTERR_BADARG;
 
 	cn->ops = nops;
 	list_add_tail(&cn->l, &ct->ct_nets);
@@ -209,14 +209,14 @@ int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	if (ntype == CT_NET_NONE)
 		return 0;
 
 	nops = net_get_ops(ntype);
 	if (!nops)
-		return LCTERR_BADTYPE;
+		return -LCTERR_BADTYPE;
 
 	list_for_each_entry(cn, &ct->ct_nets, l) {
 		if (!cn->ops->match(cn, arg))
@@ -227,7 +227,7 @@ int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
 		return 0;
 	}
 
-	return LCTERR_NOTFOUND;
+	return -LCTERR_NOTFOUND;
 }
 
 int libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)

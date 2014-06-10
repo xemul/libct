@@ -86,7 +86,7 @@ int cgroups_create_service(void)
 	mkdir(LIBCT_CTL_PATH, 0600);
 	if (mount("cgroup", LIBCT_CTL_PATH, "cgroup",
 				MS_MGC_VAL, "none,name=libct") < 0)
-		return LCTERR_CGCREATE;
+		return -LCTERR_CGCREATE;
 
 	cg_descs[CTL_SERVICE].mounted_at = LIBCT_CTL_PATH;
 	return 0;
@@ -102,7 +102,7 @@ static inline char *cgroup_get_path(int type, char *buf, int blen)
 int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 {
 	if (ctype >= CT_NR_CONTROLLERS)
-		return LCTERR_INVARG;
+		return -LCTERR_INVARG;
 
 	return ct->ops->add_controller(ct, ctype);
 }
@@ -136,7 +136,7 @@ int local_add_controller(ct_handler_t h, enum ct_controller ctype)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	return add_controller(ct, ctype);
 }
@@ -196,7 +196,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	struct container *ct = cth2ct(h);
 
 	if (!(ct->cgroups_mask & cbit(ctype)))
-		return LCTERR_NOTFOUND;
+		return -LCTERR_NOTFOUND;
 
 	if (ct->state != CT_RUNNING) {
 		struct cg_config *cfg;
@@ -225,7 +225,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 		return 0;
 	}
 
-	return config_controller(ct, ctype, param, value) ? LCTERR_CGCONFIG : 0;
+	return config_controller(ct, ctype, param, value) ? -LCTERR_CGCONFIG : 0;
 }
 
 static int cgroup_create_one(struct container *ct, struct controller *ctl)
@@ -247,13 +247,13 @@ int cgroups_create(struct container *ct)
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
 		ret = cgroup_create_one(ct, ctl);
 		if (ret)
-			return LCTERR_CGCREATE;
+			return -LCTERR_CGCREATE;
 	}
 
 	list_for_each_entry(cfg, &ct->cg_configs, l) {
 		ret = local_config_controller(&ct->h, cfg->ctype, cfg->param, cfg->value);
 		if (ret)
-			return LCTERR_CGCONFIG;
+			return -LCTERR_CGCONFIG;
 	}
 
 	return 0;
@@ -261,7 +261,7 @@ int cgroups_create(struct container *ct)
 
 static int cgroup_attach_one(struct container *ct, struct controller *ctl, char *pid)
 {
-	return config_controller(ct, ctl->ctype, "tasks", pid) ? LCTERR_CGATTACH : 0;
+	return config_controller(ct, ctl->ctype, "tasks", pid) ? -LCTERR_CGATTACH : 0;
 }
 
 int cgroups_attach(struct container *ct)
@@ -386,7 +386,7 @@ int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 		char *param, char *value)
 {
 	if (!param || !value)
-		return LCTERR_INVARG;
+		return -LCTERR_INVARG;
 
 	return ct->ops->config_controller(ct, ctype, param, value);
 }

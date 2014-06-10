@@ -46,7 +46,7 @@ err:
 	list_for_each_entry_continue_reverse(fm, &ct->fs_mnts, l)
 		umount_one(ct, fm, rdst);
 
-	return LCTERR_CANTMOUNT;
+	return -LCTERR_CANTMOUNT;
 }
 
 void fs_umount_ext(struct container *ct)
@@ -104,7 +104,7 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	fm = fs_mount_alloc(src, dst);
 	if (!fm)
@@ -120,7 +120,7 @@ int local_del_mount(ct_handler_t h, char *dst)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	list_for_each_entry(fm, &ct->fs_mnts, l) {
 		if (strcmp(fm->dst, dst))
@@ -131,7 +131,7 @@ int local_del_mount(ct_handler_t h, char *dst)
 		return 0;
 	}
 
-	return LCTERR_NOTFOUND;
+	return -LCTERR_NOTFOUND;
 }
 
 /*
@@ -188,7 +188,7 @@ int fs_mount(struct container *ct)
 
 		ret = ct->fs_ops->mount(ct->root_path, ct->fs_priv);
 		if (ret < 0)
-			return LCTERR_CANTMOUNT;
+			return -LCTERR_CANTMOUNT;
 	}
 
 	return 0;
@@ -218,7 +218,7 @@ int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	if (type == CT_FS_NONE) {
 		if (ct->fs_ops) {
@@ -229,10 +229,10 @@ int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)
 		return 0;
 	}
 
-	ret = LCTERR_BADTYPE;
+	ret = -LCTERR_BADTYPE;
 	ct->fs_ops = fstype_get_ops(type);
 	if (ct->fs_ops) {
-		ret = LCTERR_BADARG;
+		ret = -LCTERR_BADARG;
 		ct->fs_priv = ct->fs_ops->get(priv);
 		if (ct->fs_priv != NULL)
 			ret = 0;
@@ -246,7 +246,7 @@ int local_fs_set_root(ct_handler_t h, char *root)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	ct->root_path = xstrdup(root);
 	if (!ct->root_path)
@@ -268,10 +268,10 @@ int libct_fs_set_root(ct_handler_t ct, char *root)
 int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst, int flags)
 {
 	if (flags != 0)
-		return LCTERR_INVARG;
+		return -LCTERR_INVARG;
 
 	if (!src || !dst)
-		return LCTERR_INVARG;
+		return -LCTERR_INVARG;
 
 	return ct->ops->fs_add_mount(ct, src, dst, flags);
 }
@@ -279,7 +279,7 @@ int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst, int flags)
 int libct_fs_del_mount(ct_handler_t ct, char *dst)
 {
 	if (!dst)
-		return LCTERR_INVARG;
+		return -LCTERR_INVARG;
 
 	return ct->ops->fs_del_mount(ct, dst);
 }

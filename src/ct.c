@@ -48,11 +48,11 @@ static int local_set_nsmask(ct_handler_t h, unsigned long nsmask)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	/* Are all of these bits supported by kernel? */
 	if (nsmask & ~kernel_ns_mask)
-		return LCTERR_NONS;
+		return -LCTERR_NONS;
 
 	if (!(nsmask & CLONE_NEWNS))
 		net_release(ct);
@@ -195,7 +195,7 @@ static int ct_clone(void *arg)
 		 * Remount / as slave, so that it doesn't
 		 * propagate its changes to our container.
 		 */
-		ret = LCTERR_CANTMOUNT;
+		ret = -LCTERR_CANTMOUNT;
 		if (mount("none", "/", "none", MS_SLAVE|MS_REC, NULL))
 			goto err;
 	}
@@ -258,7 +258,7 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	struct ct_clone_arg ca;
 
 	if (ct->state != CT_STOPPED)
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	ret = fs_mount(ct);
 	if (ret)
@@ -378,7 +378,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	int aux = -1, pid;
 
 	if (ct->state != CT_RUNNING)
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	if (ct->nsmask & CLONE_NEWPID) {
 		if (switch_ns(ct->root_pid, &pid_ns, &aux))
@@ -445,7 +445,7 @@ static int local_ct_kill(ct_handler_t h)
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_RUNNING)
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 	if (ct->nsmask & CLONE_NEWPID)
 		return kill(ct->root_pid, SIGKILL);
 	if (ct->flags & CT_KILLABLE)
@@ -459,7 +459,7 @@ static int local_ct_wait(ct_handler_t h)
 	int ret, status;
 
 	if (ct->state != CT_RUNNING)
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	ret = waitpid(ct->root_pid, &status, 0);
 	if (ret < 0)
@@ -475,7 +475,7 @@ static int local_ct_wait(ct_handler_t h)
 
 static int local_set_option(ct_handler_t h, int opt, va_list parms)
 {
-	int ret = LCTERR_BADTYPE;
+	int ret = -LCTERR_BADTYPE;
 	struct container *ct = cth2ct(h);
 
 	switch (opt) {
@@ -509,9 +509,9 @@ static int local_uname(ct_handler_t h, char *host, char *dom)
 	struct container *ct = cth2ct(h);
 
 	if (!(ct->nsmask & CLONE_NEWUTS))
-		return LCTERR_NONS;
+		return -LCTERR_NONS;
 	if (ct->state != CT_STOPPED)
-		return LCTERR_BADCTSTATE; /* FIXME */
+		return -LCTERR_BADCTSTATE; /* FIXME */
 
 	if (host) {
 		host = xstrdup(host);
@@ -537,7 +537,7 @@ static int local_set_caps(ct_handler_t h, unsigned long mask, unsigned int apply
 	struct container *ct = cth2ct(h);
 
 	if (ct->state != CT_STOPPED)
-		return LCTERR_BADCTSTATE;
+		return -LCTERR_BADCTSTATE;
 
 	if (apply_to & CAPS_BSET) {
 		ct->cap_mask |= CAPS_BSET;

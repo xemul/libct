@@ -82,7 +82,7 @@ ct_handler_t libct_container_create(libct_session_t ses, char *name)
 	ct_handler_t cth;
 
 	if (!name)
-		return libct_err_to_handle(LCTERR_INVARG);
+		return libct_err_to_handle(-LCTERR_INVARG);
 
 	cth = ses->ops->create_ct(ses, name);
 	return new_ct(ses, cth);
@@ -93,7 +93,7 @@ ct_handler_t libct_container_open(libct_session_t ses, char *name)
 	ct_handler_t cth;
 
 	if (!name)
-		return libct_err_to_handle(LCTERR_INVARG);
+		return libct_err_to_handle(-LCTERR_INVARG);
 
 	if (!ses->ops->open_ct)
 		return libct_err_to_handle(-1);
