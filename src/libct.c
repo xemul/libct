@@ -8,21 +8,22 @@
 #include "linux-kernel.h"
 #include "libct.h"
 #include "list.h"
+#include "err.h"
 #include "ct.h"
 
 void *libct_err_to_handle(long err)
 {
-	return (void *)err;
+	return ERR_PTR(err);
 }
 
 long libct_handle_to_err(void *h)
 {
-	return (long)h;
+	return PTR_ERR(h);
 }
 
 int libct_handle_is_err(void *h)
 {
-	return ((unsigned long)h) >= (unsigned long)-4096;
+	return IS_ERR(h);
 }
 
 void ct_handler_init(ct_handler_t h)
