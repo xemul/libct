@@ -26,6 +26,7 @@ struct container_ops {
 	int (*fs_add_mount)(ct_handler_t h, char *src, char *dst, int flags);
 	int (*fs_del_mount)(ct_handler_t h, char *dst);
 	int (*set_option)(ct_handler_t h, int opt, va_list parms);
+	int (*set_console_fd)(ct_handler_t h, int fd);
 	void (*destroy)(ct_handler_t h);
 	void (*detach)(ct_handler_t h);
 	int (*net_add)(ct_handler_t h, enum ct_net_type, void *arg);
@@ -91,6 +92,11 @@ struct container {
 	 */
 
 	struct list_head	ct_nets;	/* list of struct ct_net objects */
+
+	/*
+	 * Session-specific fields
+	 */
+	int			tty_fd;
 
 	void			*private;	/* driver-specific */
 };

@@ -187,6 +187,9 @@ static int ct_clone(void *arg)
 	if (!(ct->flags & CT_NOSETSID) && setsid() == -1)
 		goto err;
 
+	if (ct->tty_fd >= 0 && ioctl(ct->tty_fd, TIOCSCTTY, 0) == -1)
+		goto err;
+
 	if (ct->nsmask & CLONE_NEWNS) {
 		/*
 		 * Remount / as slave, so that it doesn't
@@ -554,6 +557,13 @@ char *local_ct_name(ct_handler_t h)
 	return cth2ct(h)->name;
 }
 
+static int local_set_console_fd(ct_handler_t h, int fd)
+{
+	struct container *ct = cth2ct(h);
+	ct->tty_fd = fd;
+	return 0;
+}
+
 static const struct container_ops local_ct_ops = {
 	.spawn_cb		= local_spawn_cb,
 	.spawn_execve		= local_spawn_execve,
@@ -572,6 +582,7 @@ static const struct container_ops local_ct_ops = {
 	.fs_del_mount		= local_del_mount,
 	.get_state		= local_get_state,
 	.set_option		= local_set_option,
+	.set_console_fd		= local_set_console_fd,
 	.net_add		= local_net_add,
 	.net_del		= local_net_del,
 	.uname			= local_uname,
@@ -588,6 +599,7 @@ ct_handler_t ct_create(char *name)
 		ct->h.ops = &local_ct_ops;
 		ct->state = CT_STOPPED;
 		ct->name = xstrdup(name);
+		ct->tty_fd = -1;
 		INIT_LIST_HEAD(&ct->cgroups);
 		INIT_LIST_HEAD(&ct->cg_configs);
 		INIT_LIST_HEAD(&ct->ct_nets);

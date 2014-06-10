@@ -136,4 +136,6 @@ extern int libct_net_del(ct_handler_t ct, enum ct_net_type ntype, void *arg);
 
 extern int libct_container_set_option(ct_handler_t ct, int opt, ...);
 
+extern int libct_container_set_console_fd(ct_handler_t ct, int tty_fd);
+
 #endif /* __UAPI_LIBCT_H__ */
