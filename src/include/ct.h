@@ -26,6 +26,7 @@ struct container_ops {
 	int (*fs_add_mount)(ct_handler_t h, char *src, char *dst, int flags);
 	int (*fs_del_mount)(ct_handler_t h, char *dst);
 	int (*set_option)(ct_handler_t h, int opt, va_list parms);
+	int (*fs_add_devnode)(ct_handler_t h, char *path, int type, int major, int minor);
 	int (*set_console_fd)(ct_handler_t h, int fd);
 	void (*destroy)(ct_handler_t h);
 	void (*detach)(ct_handler_t h);
@@ -86,6 +87,7 @@ struct container {
 	const struct ct_fs_ops	*fs_ops;
 	void			*fs_priv;
 	struct list_head	fs_mnts;	/* list of struct fs_mount objects */
+	struct list_head	fs_devnodes;	/* list of struct fs_mount objects */
 
 	/*
 	 * Network-specific fields

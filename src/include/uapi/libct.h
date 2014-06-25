@@ -138,4 +138,6 @@ extern int libct_container_set_option(ct_handler_t ct, int opt, ...);
 
 extern int libct_container_set_console_fd(ct_handler_t ct, int tty_fd);
 
+extern int libct_fs_add_devnode(ct_handler_t ct, char *path, int mode, int major, int minor);
+
 #endif /* __UAPI_LIBCT_H__ */

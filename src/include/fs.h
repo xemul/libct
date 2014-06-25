@@ -27,4 +27,9 @@ extern void fs_umount(struct container *ct);
 extern void fs_umount_ext(struct container *ct);
 extern void fs_free(struct container *ct);
 
+extern int local_add_devnode(ct_handler_t h, char *path, int mode, int maj, int minor);
+
+extern int fs_create_devnodes(struct container *ct);
+extern void fs_free_devnodes(struct container *ct);
+
 #endif /* __LIBCT_FS_H__ */

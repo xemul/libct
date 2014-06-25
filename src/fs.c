@@ -210,6 +210,7 @@ void fs_free(struct container *ct)
 		ct->fs_ops->put(ct->fs_priv);
 	xfree(ct->root_path);
 	free_ext(ct);
+	fs_free_devnodes(ct);
 }
 
 int local_fs_set_private(ct_handler_t h, enum ct_fs_type type, void *priv)

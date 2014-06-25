@@ -224,6 +224,10 @@ static int ct_clone(void *arg)
 		ret = set_ct_root(ct);
 		if (ret < 0)
 			goto err_um;
+
+		ret = fs_create_devnodes(ct);
+		if (ret < 0)
+			goto err;
 	}
 
 	ret = uname_set(ct);
@@ -583,6 +587,7 @@ static const struct container_ops local_ct_ops = {
 	.fs_set_private		= local_fs_set_private,
 	.fs_add_mount		= local_add_mount,
 	.fs_del_mount		= local_del_mount,
+	.fs_add_devnode		= local_add_devnode,
 	.get_state		= local_get_state,
 	.set_option		= local_set_option,
 	.set_console_fd		= local_set_console_fd,
@@ -607,6 +612,7 @@ ct_handler_t ct_create(char *name)
 		INIT_LIST_HEAD(&ct->cg_configs);
 		INIT_LIST_HEAD(&ct->ct_nets);
 		INIT_LIST_HEAD(&ct->fs_mnts);
+		INIT_LIST_HEAD(&ct->fs_devnodes);
 
 		return &ct->h;
 	}
