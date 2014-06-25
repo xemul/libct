@@ -1,11 +1,13 @@
 /*
  * Test creation of container using executable
  */
+#define _XOPEN_SOURCE
 #include <libct.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <string.h>
+#include <stdlib.h>
 #include "test.h"
 
 #define PIGGY_FILE	"libct_piggy_file"
@@ -16,8 +18,10 @@ int main(int argc, char **argv)
 	libct_session_t s;
 	ct_handler_t ct;
 	char *piggy_a[4];
-	int fd;
+	int fd, master, slave;
 	char dat[sizeof(PIGGY_DATA)];
+	char *slavename;
+	int fds[3];
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
@@ -27,8 +31,32 @@ int main(int argc, char **argv)
 	piggy_a[2] = PIGGY_DATA;
 	piggy_a[3] = NULL;
 
-	libct_container_spawn_execv(ct, "file_piggy", piggy_a);
-	libct_container_wait(ct);
+	master = open("/dev/ptmx", O_RDWR);
+	if (master < 0)
+		goto err;
+
+	grantpt(master);
+	unlockpt(master);
+
+	slavename = ptsname(master);
+	if (slavename == NULL)
+		goto err;
+	slave = open(slavename, O_RDWR);
+	if (slave < 0)
+		goto err;
+
+	if (libct_container_set_console_fd(ct, slave) < 0)
+		goto err;
+
+	fds[0] = fds[1] = fds[2] = slave;
+	if (libct_container_spawn_execvfds(ct, "./file_piggy", piggy_a, fds))
+		goto err;
+
+	read(master, dat, 3);
+	write(master, "\3", 1); /* Ctrl-C */
+	if (libct_container_wait(ct) < 0)
+		goto err;
+
 	libct_container_destroy(ct);
 	libct_session_close(s);
 
@@ -44,4 +72,6 @@ int main(int argc, char **argv)
 		return fail("Piggy data differs");
 	else
 		return pass("Piggy file is OK");
+err:
+	return fail("Something wrong");
 }

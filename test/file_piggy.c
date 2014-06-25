@@ -2,10 +2,23 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <signal.h>
 
 int main(int argc, char **argv)
 {
 	int fd, len, ret;
+	sigset_t mask;
+	int sig;
+
+	if (getsid(0) != getpid())
+		return 1;
+
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGINT);
+	sigprocmask(SIG_BLOCK, &mask, NULL);
+	write(1, "ok\n", 3);
+
+	sigwait(&mask, &sig);
 
 	/* usage: piggy file_name data_to_put_there */
 	if (argc < 3)
