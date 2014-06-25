@@ -12,6 +12,7 @@ obj-y			+= net.o
 obj-y			+= security.o
 obj-y			+= libnetlink.o
 obj-y			+= async.o
+obj-y			+= util.o
 
 cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
 cflags-so		+= -rdynamic
