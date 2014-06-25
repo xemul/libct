@@ -144,6 +144,9 @@ static int set_ct_root(struct container *ct)
 	 * gives us the ability to umount old tree.
 	 */
 
+	if (mount(ct->root_path, ct->root_path, NULL, MS_BIND | MS_REC, NULL) == -1)
+		return -1;
+
 	if (chdir(ct->root_path))
 		return -1;
 
