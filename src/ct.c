@@ -110,7 +110,7 @@ static int try_mount_proc(struct container *ct)
 		return 0;
 
 	/* Container w/o pidns can work on existing proc */
-	if (!(ct->nsmask & CLONE_NEWPID))
+	if (!(ct->nsmask & CLONE_NEWPID) && !ct->root_path)
 		return 0;
 
 	/* Container with shared FS has no place for new proc */
