@@ -480,7 +480,7 @@ static int local_ct_wait(ct_handler_t h)
 	return 0;
 }
 
-static int local_set_option(ct_handler_t h, int opt, va_list parms)
+static int local_set_option(ct_handler_t h, int opt, void *args)
 {
 	int ret = -LCTERR_BADTYPE;
 	struct container *ct = cth2ct(h);
@@ -492,8 +492,10 @@ static int local_set_option(ct_handler_t h, int opt, va_list parms)
 		break;
 	case LIBCT_OPT_CGROUP_SUBMOUNT:
 		ret = 0;
-		ct->cgroup_sub = xstrdup(xvaopt(parms, char *,
-					DEFAULT_CGROUPS_PATH));
+		if (args)
+			ct->cgroup_sub = xstrdup((char *) args);
+		else
+			ct->cgroup_sub = xstrdup(DEFAULT_CGROUPS_PATH);
 		if (!ct->cgroup_sub)
 			ret = -1;
 		break;

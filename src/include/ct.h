@@ -25,7 +25,7 @@ struct container_ops {
 	int (*fs_set_private)(ct_handler_t h, enum ct_fs_type, void *priv);
 	int (*fs_add_mount)(ct_handler_t h, char *src, char *dst, int flags);
 	int (*fs_del_mount)(ct_handler_t h, char *dst);
-	int (*set_option)(ct_handler_t h, int opt, va_list parms);
+	int (*set_option)(ct_handler_t h, int opt, void *args);
 	int (*fs_add_devnode)(ct_handler_t h, char *path, int type, int major, int minor);
 	int (*set_console_fd)(ct_handler_t h, int fd);
 	void (*destroy)(ct_handler_t h);

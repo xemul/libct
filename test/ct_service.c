@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test-s");
-	if (libct_container_set_option(ct, LIBCT_OPT_KILLABLE))
+	if (libct_container_set_option(ct, LIBCT_OPT_KILLABLE, NULL))
 		return err("can't set killable");
 
 	if (libct_container_spawn_cb(ct, set_ct_alive, &cta))

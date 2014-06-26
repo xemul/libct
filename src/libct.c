@@ -129,16 +129,9 @@ int libct_container_set_nsmask(ct_handler_t ct, unsigned long nsmask)
 	return ct->ops->set_nsmask(ct, nsmask);
 }
 
-int libct_container_set_option(ct_handler_t ct, int opt, ...)
+int libct_container_set_option(ct_handler_t ct, int opt, void *args)
 {
-	int ret;
-	va_list parms;
-
-	va_start(parms, opt);
-	ret = ct->ops->set_option(ct, opt, parms);
-	va_end(parms);
-
-	return ret;
+	return ct->ops->set_option(ct, opt, args);
 }
 
 int libct_container_set_console_fd(ct_handler_t ct, int tty_fd)
