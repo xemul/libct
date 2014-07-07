@@ -150,6 +150,16 @@ static int __net_link_apply(ct_net_t n)
 		rtnl_link_set_addr(link, addr);
 	}
 
+	if (n->master) {
+		int idx;
+
+		idx = rtnl_link_name2i(cache, n->master);
+		if (idx == 0)
+			goto free;
+
+		rtnl_link_set_master(link, idx);
+	}
+
 	rtnl_link_set_flags(link, IFF_UP);
 
 	err = rtnl_link_change(sk, orig, link, 0);
@@ -238,19 +248,30 @@ int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	return -LCTERR_NOTFOUND;
 }
 
-int local_net_dev_set_mac_addr(ct_net_t n, char *addr)
+static int __set_string(char **dest, char *src)
 {
-	char *a;
+	char *t;
 
-	a = xstrdup(addr);
-	if (a == NULL)
+	t = xstrdup(src);
+	if (t == NULL)
 		return -1;
 
-	xfree(n->addr);
-	n->addr = a;
+	xfree(*dest);
+	*dest = t;
 
 	return 0;
 }
+
+int local_net_dev_set_mac_addr(ct_net_t n, char *addr)
+{
+	return __set_string(&n->addr, addr);
+}
+
+int local_net_dev_set_master(ct_net_t n, char *master)
+{
+	return __set_string(&n->master, master);
+}
+
 
 ct_net_t libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
 {
@@ -267,6 +288,10 @@ int libct_net_dev_set_mac_addr(ct_net_t n, char *addr)
 	return n->ops->set_mac_addr(n, addr);
 }
 
+int libct_net_dev_set_master(ct_net_t n, char *master)
+{
+	return n->ops->set_master(n, master);
+}
 /*
  * CT_NET_HOSTNIC management
  */
@@ -370,6 +395,7 @@ static const struct ct_net_ops host_nic_ops = {
 	.stop		= host_nic_stop,
 	.match		= host_nic_match,
 	.set_mac_addr	= local_net_dev_set_mac_addr,
+	.set_master	= local_net_dev_set_master,
 };
 
 /*
@@ -487,6 +513,7 @@ static const struct ct_net_ops veth_nic_ops = {
 	.stop		= veth_stop,
 	.match		= veth_match,
 	.set_mac_addr	= local_net_dev_set_mac_addr,
+	.set_master	= local_net_dev_set_master,
 };
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)

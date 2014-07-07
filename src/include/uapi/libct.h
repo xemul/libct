@@ -114,6 +114,7 @@ typedef struct ct_net *ct_net_t;
 extern ct_net_t libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg);
 extern int libct_net_del(ct_handler_t ct, enum ct_net_type ntype, void *arg);
 extern int libct_net_dev_set_mac_addr(ct_net_t n, char *addr);
+extern int libct_net_dev_set_master(ct_net_t n, char *master);
 
 /*
  * Options
