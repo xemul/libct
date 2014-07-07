@@ -20,8 +20,6 @@ struct ct_net_ops {
 	void (*stop)(struct container *ct, struct ct_net *n);
 	void (*destroy)(struct ct_net *n);
 	int (*match)(struct ct_net *n, void *arg);
-	void (*pb_pack)(void *arg, struct _NetaddReq *req);
-	void *(*pb_unpack)(struct _NetaddReq *req);
 	int (*set_mac_addr)(struct ct_net *n, char *addr);
 };
 

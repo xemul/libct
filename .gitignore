@@ -13,6 +13,3 @@ TAGS
 patches
 src/include/version.h
 src/include/config.h
-src/libctd/libctd
-src/protobuf/*.pb-c.c
-src/protobuf/*.pb-c.h
