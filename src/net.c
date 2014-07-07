@@ -9,6 +9,7 @@
 
 #include "uapi/libct.h"
 
+#include "namespaces.h"
 #include "xmalloc.h"
 #include "list.h"
 #include "err.h"
@@ -46,6 +47,20 @@ static void net_sock_close(struct nl_sock *sk)
 	nl_socket_free(sk);
 
 	return;
+}
+
+static struct nl_cache *net_get_link_cache(struct nl_sock *sk)
+{
+	struct nl_cache *cache;
+	int err;
+
+	err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &cache);
+	if (err) {
+		pr_err("Unable to alloc link cache: %s", nl_geterror(err));
+		return NULL;
+	}
+
+	return cache;
 }
 
 /*
@@ -99,6 +114,61 @@ void net_stop(struct container *ct)
 
 	list_for_each_entry(cn, &ct->ct_nets, l)
 		cn->ops->stop(ct, cn);
+}
+
+static int __net_link_apply(ct_net_t n)
+{
+	struct rtnl_link *link = NULL, *orig = NULL;
+	struct nl_cache *cache = NULL;
+	struct nl_sock *sk;
+	int err = -1;
+
+	sk = net_sock_open();
+	if (sk == NULL)
+		return -1;
+
+	cache = net_get_link_cache(sk);
+	if (sk == NULL)
+		goto free;
+
+	orig = rtnl_link_get_by_name(cache, n->name);
+	if (orig == NULL)
+		goto free;
+
+	link = rtnl_link_alloc();
+	if (link == NULL)
+		goto free;
+
+	rtnl_link_set_name(link, n->name);
+
+	rtnl_link_set_flags(link, IFF_UP);
+
+	err = rtnl_link_change(sk, orig, link, 0);
+	if (err) {
+		pr_err("Unable to change link %s: %s", n->name, nl_geterror(err));
+		goto free;
+	}
+free:
+	rtnl_link_put(link);
+	rtnl_link_put(orig);
+	nl_cache_put(cache);
+	net_sock_close(sk);
+	return err;
+}
+
+static int net_link_apply(ct_net_t n, int pid)
+{
+	int rst, ret;
+
+	if (pid > 0 && switch_ns(pid, &net_ns, &rst))
+		return -1;
+
+	ret = __net_link_apply(n);
+
+	if (pid > 0)
+		restore_ns(rst, &net_ns);
+
+	return ret;
 }
 
 ct_net_t local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
@@ -232,13 +302,15 @@ static int host_nic_start(struct container *ct, struct ct_net *n)
 		goto free;
 
 	rtnl_link_set_name(orig, name);
-	rtnl_link_set_name(link, name);
+	rtnl_link_set_name(link, n->name);
 
 	if ((err = rtnl_link_change(sk, orig, link, 0)) < 0) {
                 pr_err("Unable to change link: %s", nl_geterror(err));
                 goto free;
         }
 
+	if (net_link_apply(n, ct->root_pid))
+		return -1;
 free:
 	rtnl_link_put(link);
 	rtnl_link_put(orig);
@@ -326,7 +398,7 @@ static int veth_start(struct container *ct, struct ct_net *n)
 	struct ct_net_veth *vn = cn2vn(n);
 	struct rtnl_link *link = NULL, *peer;
 	struct nl_sock *sk;
-	int err = -1;
+	int err, ret = -1;
 
 	sk = net_sock_open();
 	if (sk == NULL)
@@ -349,10 +421,16 @@ static int veth_start(struct container *ct, struct ct_net *n)
                 goto err;
         }
 
+	if (net_link_apply(n, ct->root_pid))
+		goto err;
+	if (net_link_apply(&vn->peer, -1))
+		goto err; /* FIXME rollback */
+
+	ret = 0;
 err:
 	rtnl_link_put(link);
 	net_sock_close(sk);
-	return err;
+	return ret;
 }
 
 static void veth_stop(struct container *ct, struct ct_net *n)
