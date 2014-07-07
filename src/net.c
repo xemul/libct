@@ -544,3 +544,10 @@ const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)
 
 	return NULL;
 }
+
+ct_net_t libct_net_dev_get_peer(ct_net_t n)
+{
+	struct ct_net_veth *vn = cn2vn(n);
+
+        return &vn->peer;
+}
