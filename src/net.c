@@ -13,6 +13,7 @@
 #include "namespaces.h"
 #include "xmalloc.h"
 #include "list.h"
+#include "util.h"
 #include "err.h"
 #include "net.h"
 #include "ct.h"
@@ -306,28 +307,14 @@ int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	return -LCTERR_NOTFOUND;
 }
 
-static int __set_string(char **dest, char *src)
-{
-	char *t;
-
-	t = xstrdup(src);
-	if (t == NULL)
-		return -1;
-
-	xfree(*dest);
-	*dest = t;
-
-	return 0;
-}
-
 int local_net_dev_set_mac_addr(ct_net_t n, char *addr)
 {
-	return __set_string(&n->addr, addr);
+	return set_string(&n->addr, addr);
 }
 
 int local_net_dev_set_master(ct_net_t n, char *master)
 {
-	return __set_string(&n->master, master);
+	return set_string(&n->master, master);
 }
 
 int local_net_dev_add_ip_addr(ct_net_t n, char *addr)

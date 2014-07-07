@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "xmalloc.h"
 #include "util.h"
 #include "log.h"
 
@@ -63,3 +64,18 @@ int bind_mount(char *src, char *dst)
 
 	return mount(src, dst, NULL, MS_BIND, NULL);
 }
+
+int set_string(char **dest, char *src)
+{
+	char *t;
+
+	t = xstrdup(src);
+	if (t == NULL)
+		return -1;
+
+	xfree(*dest);
+	*dest = t;
+
+	return 0;
+}
+

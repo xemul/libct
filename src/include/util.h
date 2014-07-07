@@ -12,5 +12,6 @@
 
 
 extern int bind_mount(char *src, char *dst);
+extern int set_string(char **dest, char *src);
 
 #endif /* __LIBCT_UTIL_H__ */
