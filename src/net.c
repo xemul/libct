@@ -210,11 +210,10 @@ ct_net_t local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	if (!nops)
 		return ERR_PTR(-LCTERR_BADTYPE);
 
-	cn = nops->create(arg);
+	cn = nops->create(arg, nops);
 	if (!cn)
 		return ERR_PTR(-LCTERR_BADARG);
 
-	cn->ops = nops;
 	list_add_tail(&cn->l, &ct->ct_nets);
 	return cn;
 }
@@ -292,6 +291,17 @@ int libct_net_dev_set_master(ct_net_t n, char *master)
 {
 	return n->ops->set_master(n, master);
 }
+
+static void ct_net_init(ct_net_t n, const struct ct_net_ops *ops)
+{
+	n->name = NULL;
+	n->ops = ops;
+}
+
+static void ct_net_clean(ct_net_t n)
+{
+	xfree(n->name);
+}
 /*
  * CT_NET_HOSTNIC management
  */
@@ -306,7 +316,7 @@ static inline struct ct_net_host_nic *cn2hn(struct ct_net *n)
 	return container_of(n, struct ct_net_host_nic, n);
 }
 
-static struct ct_net *host_nic_create(void *arg)
+static struct ct_net *host_nic_create(void *arg, const struct ct_net_ops *ops)
 {
 	struct ct_net_host_nic *cn;
 
@@ -323,6 +333,8 @@ static struct ct_net *host_nic_create(void *arg)
 		return NULL;
 	}
 
+	ct_net_init(&cn->n, ops);
+
 	return &cn->n;
 }
 
@@ -330,7 +342,7 @@ static void host_nic_destroy(struct ct_net *n)
 {
 	struct ct_net_host_nic *cn = cn2hn(n);
 
-	xfree(cn->name);
+	ct_net_clean(&cn->n);
 	xfree(cn);
 }
 
@@ -414,12 +426,12 @@ static struct ct_net_veth *cn2vn(struct ct_net *n)
 
 static void veth_free(struct ct_net_veth *vn)
 {
-	xfree(vn->n.name);
-	xfree(vn->peer.name);
+	ct_net_clean(&vn->n);
+	ct_net_clean(&vn->peer);
 	xfree(vn);
 }
 
-static struct ct_net *veth_create(void *arg)
+static struct ct_net *veth_create(void *arg, const struct ct_net_ops *ops)
 {
 	struct ct_net_veth_arg *va = arg;
 	struct ct_net_veth *vn;
@@ -430,6 +442,9 @@ static struct ct_net *veth_create(void *arg)
 	vn = xzalloc(sizeof(*vn));
 	if (!vn)
 		return NULL;
+
+	ct_net_init(&vn->n, ops);
+	ct_net_init(&vn->peer, ops);
 
 	vn->peer.name = xstrdup(va->host_name);
 	vn->n.name = xstrdup(va->ct_name);

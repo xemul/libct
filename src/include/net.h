@@ -15,7 +15,7 @@ extern int net_start(struct container *ct);
 extern void net_stop(struct container *ct);
 
 struct ct_net_ops {
-	struct ct_net *(*create)(void *arg);
+	struct ct_net *(*create)(void *arg, struct ct_net_ops const *ops);
 	int (*start)(struct container *ct, struct ct_net *n);
 	void (*stop)(struct container *ct, struct ct_net *n);
 	void (*destroy)(struct ct_net *n);
