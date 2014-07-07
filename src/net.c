@@ -11,6 +11,7 @@
 
 #include "xmalloc.h"
 #include "list.h"
+#include "err.h"
 #include "net.h"
 #include "ct.h"
 
@@ -100,7 +101,7 @@ void net_stop(struct container *ct)
 		cn->ops->stop(ct, cn);
 }
 
-int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
+ct_net_t local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 {
 	struct container *ct = cth2ct(h);
 	const struct ct_net_ops *nops;
@@ -108,25 +109,25 @@ int local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	if (ct->state != CT_STOPPED)
 		/* FIXME -- implement */
-		return -LCTERR_BADCTSTATE;
+		return ERR_PTR(-LCTERR_BADCTSTATE);
 
 	if (!(ct->nsmask & CLONE_NEWNET))
-		return -LCTERR_NONS;
+		return ERR_PTR(-LCTERR_NONS);
 
 	if (ntype == CT_NET_NONE)
 		return 0;
 
 	nops = net_get_ops(ntype);
 	if (!nops)
-		return -LCTERR_BADTYPE;
+		return ERR_PTR(-LCTERR_BADTYPE);
 
 	cn = nops->create(arg);
 	if (!cn)
-		return -LCTERR_BADARG;
+		return ERR_PTR(-LCTERR_BADARG);
 
 	cn->ops = nops;
 	list_add_tail(&cn->l, &ct->ct_nets);
-	return 0;
+	return cn;
 }
 
 int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
@@ -158,7 +159,7 @@ int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	return -LCTERR_NOTFOUND;
 }
 
-int libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
+ct_net_t libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
 {
 	return ct->ops->net_add(ct, ntype, arg);
 }
@@ -186,16 +187,20 @@ static struct ct_net *host_nic_create(void *arg)
 {
 	struct ct_net_host_nic *cn;
 
-	if (arg) {
-		cn = xmalloc(sizeof(*cn));
-		if (cn) {
-			cn->name = xstrdup(arg);
-			if (cn->name)
-				return &cn->n;
-		}
+	if (!arg)
+		return NULL;
+
+	cn = xzalloc(sizeof(*cn));
+	if (cn == NULL)
+		return NULL;
+
+	cn->name = xstrdup(arg);
+	if (cn->name == NULL) {
 		xfree(cn);
+		return NULL;
 	}
-	return NULL;
+
+	return &cn->n;
 }
 
 static void host_nic_destroy(struct ct_net *n)
@@ -272,7 +277,7 @@ static const struct ct_net_ops host_nic_ops = {
 
 struct ct_net_veth {
 	struct ct_net n;
-	struct ct_net_veth_arg v;
+	struct ct_net peer;
 };
 
 static struct ct_net_veth *cn2vn(struct ct_net *n)
@@ -282,8 +287,8 @@ static struct ct_net_veth *cn2vn(struct ct_net *n)
 
 static void veth_free(struct ct_net_veth *vn)
 {
-	xfree(vn->v.host_name);
-	xfree(vn->v.ct_name);
+	xfree(vn->n.name);
+	xfree(vn->peer.name);
 	xfree(vn);
 }
 
@@ -295,13 +300,15 @@ static struct ct_net *veth_create(void *arg)
 	if (!arg || !va->host_name || !va->ct_name)
 		return NULL;
 
-	vn = xmalloc(sizeof(*vn));
+	vn = xzalloc(sizeof(*vn));
 	if (!vn)
 		return NULL;
 
-	vn->v.host_name = xstrdup(va->host_name);
-	vn->v.ct_name = xstrdup(va->ct_name);
-	if (!vn->v.host_name || !vn->v.ct_name) {
+	vn->peer.name = xstrdup(va->host_name);
+	vn->n.name = xstrdup(va->ct_name);
+	if (!vn->peer.name || !vn->n.name) {
+		xfree(vn->peer.name);
+		xfree(vn->n.name);
 		veth_free(vn);
 		return NULL;
 	}
@@ -329,11 +336,11 @@ static int veth_start(struct container *ct, struct ct_net *n)
 	if (link == NULL)
 		goto err;
 
-	rtnl_link_set_name(link, vn->v.ct_name);
+	rtnl_link_set_name(link, n->name);
 	rtnl_link_set_ns_pid(link, ct->root_pid);
 
 	peer = rtnl_link_veth_get_peer(link);
-	rtnl_link_set_name(peer, vn->v.host_name);
+	rtnl_link_set_name(peer, vn->peer.name);
 	rtnl_link_put(peer);
 
 	err = rtnl_link_add(sk, link, NLM_F_CREATE);
@@ -363,7 +370,7 @@ static int veth_match(struct ct_net *n, void *arg)
 	struct ct_net_veth_arg *va = arg;
 
 	/* Matching hostname should be enough */
-	return !strcmp(vn->v.host_name, va->host_name);
+	return !strcmp(vn->peer.name, va->host_name);
 }
 
 static const struct ct_net_ops veth_nic_ops = {

@@ -8,7 +8,7 @@
 struct _NetaddReq;
 struct container;
 
-extern int local_net_add(ct_handler_t h, enum ct_net_type, void *arg);
+extern ct_net_t local_net_add(ct_handler_t h, enum ct_net_type, void *arg);
 extern int local_net_del(ct_handler_t h, enum ct_net_type, void *arg);
 extern void net_release(struct container *ct);
 extern int net_start(struct container *ct);
@@ -25,6 +25,8 @@ struct ct_net_ops {
 };
 
 struct ct_net {
+	char *name;
+
 	struct list_head	l;
 	const struct ct_net_ops	*ops;
 };

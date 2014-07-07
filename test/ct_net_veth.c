@@ -37,6 +37,7 @@ int main(int argc, char **argv)
 	libct_session_t s;
 	ct_handler_t ct;
 	struct ct_net_veth_arg va;
+	ct_net_t nd;
 
 	ca.mark = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
@@ -54,7 +55,8 @@ int main(int argc, char **argv)
 	ct = libct_container_create(s, "test");
 	libct_container_set_nsmask(ct, CLONE_NEWNET);
 
-	if (libct_net_add(ct, CT_NET_VETH, &va))
+	nd = libct_net_add(ct, CT_NET_VETH, &va);
+	if (libct_handle_is_err(nd))
 		return err("Can't add hostnic");
 
 	if (libct_container_spawn_cb(ct, check_ct_net, &ca))

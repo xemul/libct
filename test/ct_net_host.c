@@ -25,6 +25,7 @@ int main(int argc, char **argv)
 	int *ct_status;
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_net_t nd;
 
 	ct_status = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
@@ -39,7 +40,8 @@ int main(int argc, char **argv)
 	ct = libct_container_create(s, "test");
 	libct_container_set_nsmask(ct, CLONE_NEWNET);
 
-	if (libct_net_add(ct, CT_NET_HOSTNIC, "dm0")) {
+	nd = libct_net_add(ct, CT_NET_HOSTNIC, "dm0");
+	if (libct_handle_is_err(nd)) {
 		system("ip link del dm0");
 		return err("Can't add hostnic");
 	}

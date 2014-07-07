@@ -30,7 +30,7 @@ struct container_ops {
 	int (*set_console_fd)(ct_handler_t h, int fd);
 	void (*destroy)(ct_handler_t h);
 	void (*detach)(ct_handler_t h);
-	int (*net_add)(ct_handler_t h, enum ct_net_type, void *arg);
+	ct_net_t (*net_add)(ct_handler_t h, enum ct_net_type, void *arg);
 	int (*net_del)(ct_handler_t h, enum ct_net_type, void *arg);
 	int (*uname)(ct_handler_t h, char *host, char *domain);
 	int (*set_caps)(ct_handler_t h, unsigned long mask, unsigned int apply_to);
