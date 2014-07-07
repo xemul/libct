@@ -1,9 +1,14 @@
 #include <stdio.h>
 #include <sched.h>
 
+#include <netinet/ether.h>
+
+#include <netlink/netlink.h>
+#include <netlink/route/link.h>
+#include <netlink/route/link/veth.h>
+
 #include "uapi/libct.h"
 
-#include "libnetlink.h"
 #include "xmalloc.h"
 #include "list.h"
 #include "net.h"
@@ -13,46 +18,33 @@
  * Generic Linux networking management
  */
 
-/*
- * Move network device @name into task's @pid net namespace
- */
-
-static int net_nic_move(char *name, int pid)
+static struct nl_sock *net_sock_open()
 {
-	struct nlmsghdr *h;
-	struct ifinfomsg *ifi;
-	int nlfd, err;
+	struct nl_sock *sk;
+	int err;
 
-	/*
-	 * FIXME -- one nlconn per container/session
-	 */
+	sk = nl_socket_alloc();
+	if (sk == NULL)
+		return NULL;
 
-	err = nlfd = netlink_open(NETLINK_ROUTE);
-	if (nlfd < 0)
-		goto err_o;
+	if ((err = nl_connect(sk, NETLINK_ROUTE)) < 0) {
+		nl_socket_free(sk);
+		pr_perror("Unable to connect socket: %s", nl_geterror(err));
+		return NULL;
+	}
 
-	err = -1;
-	h = nlmsg_alloc(sizeof(struct ifinfomsg));
-	if (!h)
-		goto err_a;
+	return sk;
+}
 
-	h->nlmsg_type = RTM_NEWLINK;
-	h->nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK;
-	ifi = (struct ifinfomsg *)(h + 1);
-	ifi->ifi_family = AF_UNSPEC;
-	ifi->ifi_index = 0;
-	if (nla_put_u32(h, IFLA_NET_NS_PID, pid))
-		goto err;
-	if (nla_put_string(h, IFLA_IFNAME, name))
-		goto err;
+static void net_sock_close(struct nl_sock *sk)
+{
+	if (sk == NULL)
+		return;
 
-	err = netlink_talk(nlfd, h, h);
-err:
-	nlmsg_free(h);
-err_a:
-	netlink_close(nlfd);
-err_o:
-	return err;
+	nl_close(sk);
+	nl_socket_free(sk);
+
+	return;
 }
 
 /*
@@ -68,70 +60,6 @@ enum {
 #define VETH_INFO_MAX   (__VETH_INFO_MAX - 1)
 };
 #endif
-
-static int veth_pair_create(struct ct_net_veth_arg *va, int ct_pid)
-{
-	struct nlmsghdr *h;
-	struct ifinfomsg *ifi;
-	struct rtattr *linfo, *data, *peer;
-	int nlfd, err;
-
-	/*
-	 * FIXME -- one nlconn per container/session
-	 */
-
-	err = nlfd = netlink_open(NETLINK_ROUTE);
-	if (nlfd < 0)
-		goto err_o;
-
-	err = -1;
-	h = nlmsg_alloc(sizeof(struct ifinfomsg));
-	if (!h)
-		goto err_a;
-
-	h->nlmsg_type = RTM_NEWLINK;
-	h->nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
-	ifi = (struct ifinfomsg *)(h + 1);
-	ifi->ifi_family = AF_UNSPEC;
-	ifi->ifi_index = 0;
-	if (nla_put_string(h, IFLA_IFNAME, va->host_name))
-		goto err;
-
-	linfo = nla_put_nested(h, IFLA_LINKINFO);
-	if (!linfo)
-		goto err;
-
-	if (nla_put_string(h, IFLA_INFO_KIND, "veth"))
-		goto err;
-
-	data = nla_put_nested(h, IFLA_INFO_DATA);
-	if (!data)
-		goto err;
-
-	peer = nla_put_nested(h, VETH_INFO_PEER);
-	if (!peer)
-		goto err;
-
-	h->nlmsg_len += sizeof(struct ifinfomsg);
-
-	if (nla_put_string(h, IFLA_IFNAME, va->ct_name))
-		goto err;
-
-	if (nla_put_u32(h, IFLA_NET_NS_PID, ct_pid))
-		goto err;
-
-	nla_commit_nested(h, peer);
-	nla_commit_nested(h, data);
-	nla_commit_nested(h, linfo);
-
-	err = netlink_talk(nlfd, h, h);
-err:
-	nlmsg_free(h);
-err_a:
-	netlink_close(nlfd);
-err_o:
-	return err;
-}
 
 /*
  * Library API implementation
@@ -280,7 +208,37 @@ static void host_nic_destroy(struct ct_net *n)
 
 static int host_nic_start(struct container *ct, struct ct_net *n)
 {
-	return net_nic_move(cn2hn(n)->name, ct->root_pid);
+	struct rtnl_link *orig = NULL, *link = NULL;
+	char *name = cn2hn(n)->name;
+	struct nl_sock *sk;
+	int err = -1;
+
+	sk = net_sock_open();
+	if (sk == NULL)
+		return -1;
+
+	link = rtnl_link_alloc();
+	if (link == NULL)
+		goto free;
+	rtnl_link_set_ns_pid(link, ct->root_pid);
+
+	orig = rtnl_link_alloc();
+	if (orig == NULL)
+		goto free;
+
+	rtnl_link_set_name(orig, name);
+	rtnl_link_set_name(link, name);
+
+	if ((err = rtnl_link_change(sk, orig, link, 0)) < 0) {
+                pr_err("Unable to change link: %s", nl_geterror(err));
+                goto free;
+        }
+
+free:
+	rtnl_link_put(link);
+	rtnl_link_put(orig);
+	net_sock_close(sk);
+	return err;
 }
 
 static void host_nic_stop(struct container *ct, struct ct_net *n)
@@ -359,11 +317,35 @@ static void veth_destroy(struct ct_net *n)
 static int veth_start(struct container *ct, struct ct_net *n)
 {
 	struct ct_net_veth *vn = cn2vn(n);
+	struct rtnl_link *link = NULL, *peer;
+	struct nl_sock *sk;
+	int err = -1;
 
-	if (veth_pair_create(&vn->v, ct->root_pid))
+	sk = net_sock_open();
+	if (sk == NULL)
 		return -1;
 
-	return 0;
+	link = rtnl_link_veth_alloc();
+	if (link == NULL)
+		goto err;
+
+	rtnl_link_set_name(link, vn->v.ct_name);
+	rtnl_link_set_ns_pid(link, ct->root_pid);
+
+	peer = rtnl_link_veth_get_peer(link);
+	rtnl_link_set_name(peer, vn->v.host_name);
+	rtnl_link_put(peer);
+
+	err = rtnl_link_add(sk, link, NLM_F_CREATE);
+	if (err < 0) {
+                pr_err("Unable to add link: %s\n", nl_geterror(err));
+                goto err;
+        }
+
+err:
+	rtnl_link_put(link);
+	net_sock_close(sk);
+	return err;
 }
 
 static void veth_stop(struct container *ct, struct ct_net *n)

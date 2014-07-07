@@ -101,6 +101,7 @@ LIBCT		:= libct.so
 
 .PHONY: all clean tags docs
 
+cflags-y += -I.shipped/libnl/include/
 cflags-y += -iquote src/include
 cflags-y += -iquote src/arch/$(ARCH)/include
 export cflags-y
