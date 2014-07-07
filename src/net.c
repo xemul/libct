@@ -7,11 +7,14 @@
 #include <netlink/route/link.h>
 #include <netlink/route/link/veth.h>
 #include <netlink/route/addr.h>
+#include <netlink/route/route.h>
+#include <netlink/route/nexthop.h>
 
 #include "uapi/libct.h"
 
 #include "namespaces.h"
 #include "xmalloc.h"
+#include "util.h"
 #include "list.h"
 #include "util.h"
 #include "err.h"
@@ -22,7 +25,7 @@
  * Generic Linux networking management
  */
 
-static struct nl_sock *net_sock_open()
+struct nl_sock *net_sock_open()
 {
 	struct nl_sock *sk;
 	int err;
@@ -40,7 +43,7 @@ static struct nl_sock *net_sock_open()
 	return sk;
 }
 
-static void net_sock_close(struct nl_sock *sk)
+void net_sock_close(struct nl_sock *sk)
 {
 	if (sk == NULL)
 		return;
@@ -51,7 +54,7 @@ static void net_sock_close(struct nl_sock *sk)
 	return;
 }
 
-static struct nl_cache *net_get_link_cache(struct nl_sock *sk)
+struct nl_cache *net_get_link_cache(struct nl_sock *sk)
 {
 	struct nl_cache *cache;
 	int err;
@@ -91,6 +94,8 @@ void net_release(struct container *ct)
 		list_del(&cn->l);
 		cn->ops->destroy(cn);
 	}
+
+	net_route_release(ct);
 }
 
 int net_start(struct container *ct)
@@ -101,6 +106,9 @@ int net_start(struct container *ct)
 		if (cn->ops->start(ct, cn))
 			goto err;
 	}
+
+	if (net_route_setup(ct))
+		goto err;
 
 	return 0;
 

@@ -111,12 +111,27 @@ struct ct_net_veth_arg {
 
 struct ct_net;
 typedef struct ct_net *ct_net_t;
+
 extern ct_net_t libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg);
 extern int libct_net_del(ct_handler_t ct, enum ct_net_type ntype, void *arg);
 extern int libct_net_dev_set_mac_addr(ct_net_t n, char *addr);
 extern int libct_net_dev_set_master(ct_net_t n, char *master);
 extern ct_net_t libct_net_dev_get_peer(ct_net_t n);
 extern int libct_net_dev_add_ip_addr(ct_net_t n, char *addr);
+
+struct ct_net_route;
+typedef struct ct_net_route *ct_net_route_t;
+
+extern ct_net_route_t libct_net_route_add(ct_handler_t ct);
+extern int libct_net_route_set_src(ct_net_route_t r, char *addr);
+extern int libct_net_route_set_dst(ct_net_route_t r, char *addr);
+extern int libct_net_route_set_dev(ct_net_route_t r, char *dev);
+
+struct ct_net_route_nh;
+typedef struct ct_net_route_nh *ct_net_route_nh_t;
+
+extern ct_net_route_nh_t libct_net_route_add_nh(ct_net_route_t r);
+extern int libct_net_route_nh_set_gw(ct_net_route_nh_t nh, char *addr);
 
 /*
  * Options

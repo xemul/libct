@@ -32,6 +32,7 @@ struct container_ops {
 	void (*detach)(ct_handler_t h);
 	ct_net_t (*net_add)(ct_handler_t h, enum ct_net_type, void *arg);
 	int (*net_del)(ct_handler_t h, enum ct_net_type, void *arg);
+	ct_net_route_t (*net_route_add)(ct_handler_t h);
 	int (*uname)(ct_handler_t h, char *host, char *domain);
 	int (*set_caps)(ct_handler_t h, unsigned long mask, unsigned int apply_to);
 };
@@ -94,6 +95,7 @@ struct container {
 	 */
 
 	struct list_head	ct_nets;	/* list of struct ct_net objects */
+	struct list_head	ct_net_routes;	/* list of struct ct_net objects */
 
 	/*
 	 * Session-specific fields

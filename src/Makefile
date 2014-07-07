@@ -13,6 +13,7 @@ obj-y			+= security.o
 obj-y			+= async.o
 obj-y			+= util.o
 obj-y			+= devnodes.o
+obj-y			+= route.o
 
 cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
 cflags-so		+= -rdynamic

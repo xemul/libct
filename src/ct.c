@@ -595,6 +595,7 @@ static const struct container_ops local_ct_ops = {
 	.set_console_fd		= local_set_console_fd,
 	.net_add		= local_net_add,
 	.net_del		= local_net_del,
+	.net_route_add		= local_net_route_add,
 	.uname			= local_uname,
 	.set_caps		= local_set_caps,
 };
@@ -613,6 +614,7 @@ ct_handler_t ct_create(char *name)
 		INIT_LIST_HEAD(&ct->cgroups);
 		INIT_LIST_HEAD(&ct->cg_configs);
 		INIT_LIST_HEAD(&ct->ct_nets);
+		INIT_LIST_HEAD(&ct->ct_net_routes);
 		INIT_LIST_HEAD(&ct->fs_mnts);
 		INIT_LIST_HEAD(&ct->fs_devnodes);
 
