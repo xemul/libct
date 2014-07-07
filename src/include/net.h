@@ -22,12 +22,21 @@ struct ct_net_ops {
 	int (*match)(struct ct_net *n, void *arg);
 	int (*set_mac_addr)(struct ct_net *n, char *addr);
 	int (*set_master)(struct ct_net *n, char *master);
+	int (*add_ip_addr)(ct_net_t n, char *addr);
+};
+
+struct ct_net_ip_addr {
+	char *addr;
+	struct list_head l;
 };
 
 struct ct_net {
+	int ifidx;
 	char *name;
 	char *addr;
 	char *master;
+
+	struct list_head ip_addrs;
 
 	struct list_head	l;
 	const struct ct_net_ops	*ops;

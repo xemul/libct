@@ -6,6 +6,7 @@
 #include <netlink/netlink.h>
 #include <netlink/route/link.h>
 #include <netlink/route/link/veth.h>
+#include <netlink/route/addr.h>
 
 #include "uapi/libct.h"
 
@@ -116,6 +117,52 @@ void net_stop(struct container *ct)
 		cn->ops->stop(ct, cn);
 }
 
+static int __net_add_ip_addr(struct nl_sock *sk, ct_net_t n, char *saddr)
+{
+	struct rtnl_addr *addr;
+	struct nl_addr *l;
+	int err, ret = -1;
+
+	err = nl_addr_parse(saddr, AF_UNSPEC, &l);
+	if (err) {
+		pr_err("Unable to parse address: %s\n", nl_geterror(err));
+		return -1;
+	}
+
+	addr = rtnl_addr_alloc();
+	if (addr == NULL)
+		goto err;
+
+	rtnl_addr_set_local(addr, l);
+	rtnl_addr_set_ifindex(addr, n->ifidx);
+	err = rtnl_addr_add(sk, addr, 0);
+	if (err) {
+		pr_err("Unable to add %s: %s\n", saddr, nl_geterror(err));
+		goto err;
+	}
+
+	ret = 0;
+err:
+	nl_addr_put(l);
+	rtnl_addr_put(addr);
+	return ret;
+}
+
+static int net_add_ip_addrs(struct nl_sock *sk, ct_net_t n)
+{
+	struct ct_net_ip_addr *addr;
+
+	list_for_each_entry(addr, &n->ip_addrs, l) {
+		if (__net_add_ip_addr(sk, n, addr->addr))
+			goto err;
+	}
+
+	return 0;
+err:
+	// FIXME rollback
+	return -1;
+}
+
 static int __net_link_apply(ct_net_t n)
 {
 	struct rtnl_link *link = NULL, *orig = NULL;
@@ -167,6 +214,18 @@ static int __net_link_apply(ct_net_t n)
 		pr_err("Unable to change link %s: %s", n->name, nl_geterror(err));
 		goto free;
 	}
+
+	err = -1;
+	if (nl_cache_refill(sk, cache))
+		goto free;
+
+	n->ifidx = rtnl_link_name2i(cache, n->name);
+	if ( n->ifidx == 0)
+		goto free;
+
+	if (net_add_ip_addrs(sk, n))
+		goto free;
+	err = 0;
 free:
 	rtnl_link_put(link);
 	rtnl_link_put(orig);
@@ -271,6 +330,24 @@ int local_net_dev_set_master(ct_net_t n, char *master)
 	return __set_string(&n->master, master);
 }
 
+int local_net_dev_add_ip_addr(ct_net_t n, char *addr)
+{
+	struct ct_net_ip_addr *a;
+
+	a = xzalloc(sizeof(*a));
+	if (a == NULL)
+		return -1;
+
+	a->addr = xstrdup(addr);
+	if (a->addr == NULL) {
+		xfree(a);
+		return -1;
+	}
+
+	list_add(&a->l, &n->ip_addrs);
+
+	return 0;
+}
 
 ct_net_t libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
 {
@@ -292,15 +369,28 @@ int libct_net_dev_set_master(ct_net_t n, char *master)
 	return n->ops->set_master(n, master);
 }
 
+int libct_net_dev_add_ip_addr(ct_net_t n, char *addr)
+{
+	return n->ops->add_ip_addr(n, addr);
+}
+
 static void ct_net_init(ct_net_t n, const struct ct_net_ops *ops)
 {
+	INIT_LIST_HEAD(&n->ip_addrs);
 	n->name = NULL;
 	n->ops = ops;
 }
 
 static void ct_net_clean(ct_net_t n)
 {
+	struct ct_net_ip_addr *addr, *t;
+
 	xfree(n->name);
+
+	list_for_each_entry_safe(addr, t, &n->ip_addrs, l) {
+		xfree(addr->addr);
+		xfree(addr);
+	}
 }
 /*
  * CT_NET_HOSTNIC management
@@ -408,6 +498,7 @@ static const struct ct_net_ops host_nic_ops = {
 	.match		= host_nic_match,
 	.set_mac_addr	= local_net_dev_set_mac_addr,
 	.set_master	= local_net_dev_set_master,
+	.add_ip_addr	= local_net_dev_add_ip_addr,
 };
 
 /*
@@ -529,6 +620,7 @@ static const struct ct_net_ops veth_nic_ops = {
 	.match		= veth_match,
 	.set_mac_addr	= local_net_dev_set_mac_addr,
 	.set_master	= local_net_dev_set_master,
+	.add_ip_addr	= local_net_dev_add_ip_addr,
 };
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)
