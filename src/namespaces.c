@@ -10,7 +10,7 @@ struct ns_desc pid_ns = {
 	.cflag = CLONE_NEWPID,
 };
 
-static struct ns_desc net_ns = {
+struct ns_desc net_ns = {
 	.name = "net",
 	.cflag = CLONE_NEWNET,
 };
