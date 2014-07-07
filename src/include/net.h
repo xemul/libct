@@ -22,10 +22,12 @@ struct ct_net_ops {
 	int (*match)(struct ct_net *n, void *arg);
 	void (*pb_pack)(void *arg, struct _NetaddReq *req);
 	void *(*pb_unpack)(struct _NetaddReq *req);
+	int (*set_mac_addr)(struct ct_net *n, char *addr);
 };
 
 struct ct_net {
 	char *name;
+	char *addr;
 
 	struct list_head	l;
 	const struct ct_net_ops	*ops;

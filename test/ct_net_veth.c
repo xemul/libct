@@ -59,6 +59,9 @@ int main(int argc, char **argv)
 	if (libct_handle_is_err(nd))
 		return err("Can't add hostnic");
 
+	if (libct_net_dev_set_mac_addr(nd, "00:11:22:33:44:55"))
+		return err("Can't set mac");
+
 	if (libct_container_spawn_cb(ct, check_ct_net, &ca))
 		return err("Can't spawn CT");
 

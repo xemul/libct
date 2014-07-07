@@ -141,6 +141,15 @@ static int __net_link_apply(ct_net_t n)
 
 	rtnl_link_set_name(link, n->name);
 
+	if (n->addr) {
+		struct nl_addr* addr;
+
+		addr = nl_addr_build(AF_LLC, ether_aton(n->addr), ETH_ALEN);
+		if (addr == NULL)
+			goto free;
+		rtnl_link_set_addr(link, addr);
+	}
+
 	rtnl_link_set_flags(link, IFF_UP);
 
 	err = rtnl_link_change(sk, orig, link, 0);
@@ -229,6 +238,20 @@ int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	return -LCTERR_NOTFOUND;
 }
 
+int local_net_dev_set_mac_addr(ct_net_t n, char *addr)
+{
+	char *a;
+
+	a = xstrdup(addr);
+	if (a == NULL)
+		return -1;
+
+	xfree(n->addr);
+	n->addr = a;
+
+	return 0;
+}
+
 ct_net_t libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
 {
 	return ct->ops->net_add(ct, ntype, arg);
@@ -237,6 +260,11 @@ ct_net_t libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
 int libct_net_del(ct_handler_t ct, enum ct_net_type ntype, void *arg)
 {
 	return ct->ops->net_del(ct, ntype, arg);
+}
+
+int libct_net_dev_set_mac_addr(ct_net_t n, char *addr)
+{
+	return n->ops->set_mac_addr(n, addr);
 }
 
 /*
@@ -341,6 +369,7 @@ static const struct ct_net_ops host_nic_ops = {
 	.start		= host_nic_start,
 	.stop		= host_nic_stop,
 	.match		= host_nic_match,
+	.set_mac_addr	= local_net_dev_set_mac_addr,
 };
 
 /*
@@ -457,6 +486,7 @@ static const struct ct_net_ops veth_nic_ops = {
 	.start		= veth_start,
 	.stop		= veth_stop,
 	.match		= veth_match,
+	.set_mac_addr	= local_net_dev_set_mac_addr,
 };
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)
