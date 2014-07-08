@@ -420,6 +420,13 @@ static struct ct_net *host_nic_create(void *arg, const struct ct_net_ops *ops)
 
 	ct_net_init(&cn->n, ops);
 
+	cn->n.name = xstrdup(arg);
+	if (cn->n.name == NULL) {
+		ct_net_clean(&cn->n);
+		xfree(cn);
+		return NULL;
+	}
+
 	return &cn->n;
 }
 
