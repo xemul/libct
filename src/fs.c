@@ -20,6 +20,8 @@
 struct fs_mount {
 	char *src;
 	char *dst;
+	int  flags;
+
 	struct list_head l;
 };
 
@@ -36,7 +38,7 @@ int fs_mount_ext(struct container *ct)
 
 	list_for_each_entry(fm, &ct->fs_mnts, l) {
 		snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
-		if (bind_mount(fm->src, rdst))
+		if (bind_mount(fm->src, rdst, fm->flags))
 			goto err;
 	}
 
@@ -77,24 +79,28 @@ static void free_ext(struct container *ct)
 	}
 }
 
-static struct fs_mount *fs_mount_alloc(char *src, char *dst)
+static struct fs_mount *fs_mount_alloc(char *src, char *dst, int flags)
 {
 	struct fs_mount *fm = xmalloc(sizeof(*fm));
 
 	BUG_ON(!src || !dst);
 
-	if (fm) {
-		INIT_LIST_HEAD(&fm->l);
-		fm->src = xstrdup(src);
-		fm->dst = xstrdup(dst);
+	if (!fm)
+		return NULL;
 
-		if (!fm->dst || !fm->src) {
-			fs_mount_free(fm);
-			fm = NULL;
-		}
-	}
+	INIT_LIST_HEAD(&fm->l);
+	fm->src = xstrdup(src);
+	fm->dst = xstrdup(dst);
+
+	if (!fm->dst || !fm->src)
+		goto err;
+
+	fm->flags = flags;
 
 	return fm;
+err:
+	fs_mount_free(fm);
+	return NULL;
 }
 
 int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
@@ -106,7 +112,7 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 		/* FIXME -- implement */
 		return -LCTERR_BADCTSTATE;
 
-	fm = fs_mount_alloc(src, dst);
+	fm = fs_mount_alloc(src, dst, flags);
 	if (!fm)
 		return -1;
 	list_add_tail(&fm->l, &ct->fs_mnts);
@@ -140,7 +146,7 @@ int local_del_mount(ct_handler_t h, char *dst)
 
 static int mount_subdir(char *root, void *priv)
 {
-	return bind_mount(priv, root);
+	return bind_mount(priv, root, 0);
 }
 
 static void umount_subdir(char *root, void *priv)
@@ -268,7 +274,7 @@ int libct_fs_set_root(ct_handler_t ct, char *root)
 
 int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst, int flags)
 {
-	if (flags != 0)
+	if (flags & ~(CT_FS_PRIVATE | CT_FS_RDONLY))
 		return -LCTERR_INVARG;
 
 	if (!src || !dst)

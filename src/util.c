@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "uapi/libct.h"
 #include "xmalloc.h"
 #include "util.h"
 #include "log.h"
@@ -49,9 +50,9 @@ static int create_dest(char *path, mode_t mode, bool isdir)
 	return 0;
 }
 
-int bind_mount(char *src, char *dst)
+int bind_mount(char *src, char *dst, int flags)
 {
-
+	unsigned long mountflags = MS_BIND;
 	struct stat st;
 
 	if (stat(src, &st)) {
@@ -62,7 +63,23 @@ int bind_mount(char *src, char *dst)
 	if (create_dest(dst, 0755, S_ISDIR(st.st_mode)))
 		return -1;
 
-	return mount(src, dst, NULL, MS_BIND, NULL);
+	if (flags & CT_FS_RDONLY)
+		mountflags |= MS_RDONLY;
+
+	if (mount(src, dst, NULL, mountflags, NULL) == -1) {
+		pr_perror("Unable to mount %s -> %s\n", src, dst);
+		return -1;
+	}
+
+	if (flags & CT_FS_PRIVATE) {
+		if (mount(NULL, dst, NULL, MS_PRIVATE, NULL) == -1) {
+			pr_perror("Unable to mark %s as private", dst);
+			umount(dst);
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 int set_string(char **dest, char *src)
