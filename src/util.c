@@ -50,23 +50,32 @@ static int create_dest(char *path, mode_t mode, bool isdir)
 	return 0;
 }
 
-int do_mount(char *src, char *dst, int flags)
+int do_mount(char *src, char *dst, int flags, char *fstype, char *data)
 {
-	unsigned long mountflags = MS_BIND;
+	unsigned long mountflags = 0;
 	struct stat st;
+	bool isdir = true;
 
-	if (stat(src, &st)) {
-		pr_perror("Unable to stat %s", src);
-		return -1;
+	if (flags & CT_FS_BIND) {
+		if (fstype || data)
+			return -1;
+
+		mountflags |= MS_BIND;
+
+		if (stat(src, &st)) {
+			pr_perror("Unable to stat %s", src);
+			return -1;
+		}
+		isdir = S_ISDIR(st.st_mode);
 	}
 
-	if (create_dest(dst, 0755, S_ISDIR(st.st_mode)))
+	if (create_dest(dst, 0755, isdir))
 		return -1;
 
 	if (flags & CT_FS_RDONLY)
 		mountflags |= MS_RDONLY;
 
-	if (mount(src, dst, NULL, mountflags, NULL) == -1) {
+	if (mount(src, dst, fstype, mountflags, data) == -1) {
 		pr_perror("Unable to mount %s -> %s\n", src, dst);
 		return -1;
 	}

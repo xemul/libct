@@ -20,6 +20,8 @@
 struct fs_mount {
 	char *src;
 	char *dst;
+	char *fstype;
+	char *data;
 	int  flags;
 
 	struct list_head l;
@@ -38,7 +40,7 @@ int fs_mount_ext(struct container *ct)
 
 	list_for_each_entry(fm, &ct->fs_mnts, l) {
 		snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
-		if (do_mount(fm->src, rdst, fm->flags))
+		if (do_mount(fm->src, rdst, fm->flags, fm->fstype, fm->data))
 			goto err;
 	}
 
@@ -65,6 +67,8 @@ static void fs_mount_free(struct fs_mount *fm)
 	if (fm) {
 		xfree(fm->src);
 		xfree(fm->dst);
+		xfree(fm->fstype);
+		xfree(fm->data);
 		xfree(fm);
 	}
 }
@@ -79,9 +83,10 @@ static void free_ext(struct container *ct)
 	}
 }
 
-static struct fs_mount *fs_mount_alloc(char *src, char *dst, int flags)
+static struct fs_mount *fs_mount_alloc(char *src, char *dst, int flags,
+						char *fstype, char *data)
 {
-	struct fs_mount *fm = xmalloc(sizeof(*fm));
+	struct fs_mount *fm = xzalloc(sizeof(*fm));
 
 	BUG_ON(!src || !dst);
 
@@ -95,12 +100,40 @@ static struct fs_mount *fs_mount_alloc(char *src, char *dst, int flags)
 	if (!fm->dst || !fm->src)
 		goto err;
 
+	if (fstype) {
+		fm->fstype = xstrdup(fstype);
+		if (!fm->fstype)
+			goto err;
+	}
+
+	if (data) {
+		fm->data = xstrdup(data);
+		if (!fm->data)
+			goto err;
+	}
+
 	fm->flags = flags;
 
 	return fm;
 err:
 	fs_mount_free(fm);
 	return NULL;
+}
+
+int local_add_mount(ct_handler_t h, char *src, char *dst, int flags, char *fstype, char *data)
+{
+	struct container *ct = cth2ct(h);
+	struct fs_mount *fm;
+
+	if (ct->state != CT_STOPPED)
+		/* FIXME -- implement */
+		return -LCTERR_BADCTSTATE;
+
+	fm = fs_mount_alloc(src, dst, flags, fstype, data);
+	if (!fm)
+		return -1;
+	list_add_tail(&fm->l, &ct->fs_mnts);
+	return 0;
 }
 
 int local_add_bind_mount(ct_handler_t h, char *src, char *dst, int flags)
@@ -112,7 +145,7 @@ int local_add_bind_mount(ct_handler_t h, char *src, char *dst, int flags)
 		/* FIXME -- implement */
 		return -LCTERR_BADCTSTATE;
 
-	fm = fs_mount_alloc(src, dst, flags);
+	fm = fs_mount_alloc(src, dst, flags | CT_FS_BIND, NULL, NULL);
 	if (!fm)
 		return -1;
 	list_add_tail(&fm->l, &ct->fs_mnts);
@@ -146,7 +179,7 @@ int local_del_bind_mount(ct_handler_t h, char *dst)
 
 static int mount_subdir(char *root, void *priv)
 {
-	return do_mount(priv, root, 0);
+	return do_mount(priv, root, CT_FS_BIND, NULL, NULL);
 }
 
 static void umount_subdir(char *root, void *priv)
@@ -270,6 +303,18 @@ int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *priv)
 int libct_fs_set_root(ct_handler_t ct, char *root)
 {
 	return ct->ops->fs_set_root(ct, root);
+}
+
+int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst,
+				int flags, char *fstype, char *data)
+{
+	if (flags & ~(CT_FS_PRIVATE | CT_FS_RDONLY))
+		return -LCTERR_INVARG;
+
+	if (!src || !dst)
+		return -LCTERR_INVARG;
+
+	return ct->ops->fs_add_mount(ct, src, dst, flags, fstype, data);
 }
 
 int libct_fs_add_bind_mount(ct_handler_t ct, char *src, char *dst, int flags)

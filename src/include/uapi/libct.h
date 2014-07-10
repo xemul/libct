@@ -93,9 +93,12 @@ extern int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *arg
 
 #define CT_FS_RDONLY	0x1
 #define CT_FS_PRIVATE	0x2
+#define CT_FS_BIND	0x4
 
 extern int libct_fs_add_bind_mount(ct_handler_t ct, char *source, char *destination, int flags);
 extern int libct_fs_del_bind_mount(ct_handler_t ct, char *destination);
+extern int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst,
+					int flags, char *fstype, char *data);
 
 /*
  * Networking configuration
