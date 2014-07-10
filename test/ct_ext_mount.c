@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 	printf("Set root\n");
 	libct_fs_set_root(ct, FS_ROOT);
 	printf("Set bind\n");
-	libct_fs_add_mount(ct, FS_EXT, FS_DIR, 0);
+	libct_fs_add_bind_mount(ct, FS_EXT, FS_DIR, 0);
 	printf("Spawn\n");
 	libct_container_spawn_cb(ct, check_fs_data, fs_data);
 	printf("Done\n");

@@ -103,7 +103,7 @@ err:
 	return NULL;
 }
 
-int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
+int local_add_bind_mount(ct_handler_t h, char *src, char *dst, int flags)
 {
 	struct container *ct = cth2ct(h);
 	struct fs_mount *fm;
@@ -119,7 +119,7 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags)
 	return 0;
 }
 
-int local_del_mount(ct_handler_t h, char *dst)
+int local_del_bind_mount(ct_handler_t h, char *dst)
 {
 	struct container *ct = cth2ct(h);
 	struct fs_mount *fm;
@@ -272,7 +272,7 @@ int libct_fs_set_root(ct_handler_t ct, char *root)
 	return ct->ops->fs_set_root(ct, root);
 }
 
-int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst, int flags)
+int libct_fs_add_bind_mount(ct_handler_t ct, char *src, char *dst, int flags)
 {
 	if (flags & ~(CT_FS_PRIVATE | CT_FS_RDONLY))
 		return -LCTERR_INVARG;
@@ -280,13 +280,13 @@ int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst, int flags)
 	if (!src || !dst)
 		return -LCTERR_INVARG;
 
-	return ct->ops->fs_add_mount(ct, src, dst, flags);
+	return ct->ops->fs_add_bind_mount(ct, src, dst, flags);
 }
 
-int libct_fs_del_mount(ct_handler_t ct, char *dst)
+int libct_fs_del_bind_mount(ct_handler_t ct, char *dst)
 {
 	if (!dst)
 		return -LCTERR_INVARG;
 
-	return ct->ops->fs_del_mount(ct, dst);
+	return ct->ops->fs_del_bind_mount(ct, dst);
 }
