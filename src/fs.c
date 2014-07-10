@@ -38,7 +38,7 @@ int fs_mount_ext(struct container *ct)
 
 	list_for_each_entry(fm, &ct->fs_mnts, l) {
 		snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
-		if (bind_mount(fm->src, rdst, fm->flags))
+		if (do_mount(fm->src, rdst, fm->flags))
 			goto err;
 	}
 
@@ -146,7 +146,7 @@ int local_del_bind_mount(ct_handler_t h, char *dst)
 
 static int mount_subdir(char *root, void *priv)
 {
-	return bind_mount(priv, root, 0);
+	return do_mount(priv, root, 0);
 }
 
 static void umount_subdir(char *root, void *priv)

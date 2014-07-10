@@ -50,7 +50,7 @@ static int create_dest(char *path, mode_t mode, bool isdir)
 	return 0;
 }
 
-int bind_mount(char *src, char *dst, int flags)
+int do_mount(char *src, char *dst, int flags)
 {
 	unsigned long mountflags = MS_BIND;
 	struct stat st;
