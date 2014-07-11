@@ -437,6 +437,7 @@ static void host_nic_destroy(struct ct_net *n)
 	struct ct_net_host_nic *cn = cn2hn(n);
 
 	ct_net_clean(&cn->n);
+	xfree(cn->name);
 	xfree(cn);
 }
 
