@@ -381,6 +381,8 @@ static void ct_net_clean(ct_net_t n)
 	struct ct_net_ip_addr *addr, *t;
 
 	xfree(n->name);
+	xfree(n->addr);
+	xfree(n->master);
 
 	list_for_each_entry_safe(addr, t, &n->ip_addrs, l) {
 		xfree(addr->addr);
