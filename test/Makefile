@@ -8,7 +8,11 @@ PIGS  = file_piggy
 
 CC = gcc
 CFLAGS = -I../src/include/uapi/ -g
-LDFLAGS = -Wl,--no-as-needed -lct -L../src/ -L../.shipped/libnl/lib/.libs/ -lnl-route-3 -lnl-3
+LIBNLDIR = ../.shipped/libnl/lib/.libs
+LDFLAGS = -Wl,--no-as-needed \
+	-lct -L../src/ -Wl,-rpath,'$$ORIGIN/../src' \
+	-lnl-route-3 -lnl-3 -L$(LIBNLDIR) -Wl,-rpath,'$$ORIGIN/$(LIBNLDIR)'
+
 OUTS = $(TESTS:%=%.out)
 
 all: $(PIGS) $(TESTS)
