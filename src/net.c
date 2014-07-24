@@ -465,9 +465,9 @@ static int host_nic_start(struct container *ct, struct ct_net *n)
 	rtnl_link_set_name(link, n->name);
 
 	if ((err = rtnl_link_change(sk, orig, link, 0)) < 0) {
-                pr_err("Unable to change link: %s", nl_geterror(err));
-                goto free;
-        }
+		pr_err("Unable to change link: %s", nl_geterror(err));
+		goto free;
+	}
 
 	if (net_link_apply(n, ct->root_pid))
 		return -1;
@@ -583,9 +583,9 @@ static int veth_start(struct container *ct, struct ct_net *n)
 
 	err = rtnl_link_add(sk, link, NLM_F_CREATE);
 	if (err < 0) {
-                pr_err("Unable to add link: %s\n", nl_geterror(err));
-                goto err;
-        }
+		pr_err("Unable to add link: %s\n", nl_geterror(err));
+		goto err;
+	}
 
 	if (net_link_apply(n, ct->root_pid))
 		goto err;
@@ -646,5 +646,5 @@ ct_net_t libct_net_dev_get_peer(ct_net_t n)
 {
 	struct ct_net_veth *vn = cn2vn(n);
 
-        return &vn->peer;
+	return &vn->peer;
 }
