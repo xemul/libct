@@ -7,10 +7,9 @@ frontend programs to rule a container during its whole lifetime.
 The library operates on two entities:
 
 * session -- everyone willing to work with container must first open a
-session. There are currently two types of sessions -- local, when all
-containers are created as child tasks of the caller, and unix, where
-the API requests are forwarded to libctd daemon, which in turn calls
-respective functions withing its local session
+session. Currently there is only one type of session -- local, when all
+containers are created as child tasks of the caller using namespaces,
+cgroups etc.;
 
 * container -- a container. By default container is "empty", when started
 it is merely a fork()-ed process. Container can be equipped with various
