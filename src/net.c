@@ -36,7 +36,7 @@ struct nl_sock *net_sock_open()
 
 	if ((err = nl_connect(sk, NETLINK_ROUTE)) < 0) {
 		nl_socket_free(sk);
-		pr_perror("Unable to connect socket: %s", nl_geterror(err));
+		pr_err("Unable to connect socket: %s", nl_geterror(err));
 		return NULL;
 	}
 
