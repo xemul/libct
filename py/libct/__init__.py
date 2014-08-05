@@ -175,11 +175,18 @@ class Container(object):
 			raise LibctError(ret)
 
 	def net_add(self, ntype, arg):
-		ret = libctcapi.net_add(self._ct, ntype, arg)
-		if ret:
-			raise LibctError(ret)
+		net = libctcapi.net_add(self._ct, ntype, arg)
+		if type(net) != types.LongType:
+			return Net(net)
+		else:
+			raise LibctError(net)
 
 	def net_del(self, ntype, arg):
 		ret = libctcapi.net_del(self._ct, ntype, arg)
 		if ret:
 			raise LibctError(ret)
+
+class Net(object):
+
+	def __init__(self, net):
+		self._net = net

@@ -35,6 +35,11 @@ typedef struct {
 	ct_handler_t ct;
 } ct_handler_Object;
 
+typedef struct {
+	PyObject_HEAD
+	ct_net_t net;
+} net_handler_Object;
+
 #define CHECK_ARG_TYPE(__obj, __name, __n)					\
 	do {									\
 		if (!is_object_valid(__obj, __name)) {				\
@@ -1028,7 +1033,7 @@ py_libct_net_add(PyObject *self, PyObject *args)
 	enum ct_net_type ntype;
 	PyObject *py_arg;
 	void *arg;
-	int ret;
+	ct_net_t net;
 
 	if (!PyArg_ParseTuple(args, "OiO:py_libct_net_add",
 				&py_ct, &ntype, &py_arg))
@@ -1042,12 +1047,15 @@ py_libct_net_add(PyObject *self, PyObject *args)
 		return NULL;
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_net_add(ct, ntype, arg);
+	net = libct_net_add(ct, ntype, arg);
 	Py_END_ALLOW_THREADS
+
+	if (libct_handle_is_err(net))
+		return PyLong_FromLong(libct_handle_to_err(net));
 
 	free_ct_net_arg(arg, ntype);
 
-	return PyLong_FromLong((long)ret);
+	return make_object(net, "net_handler_t");
 }
 
 static PyObject *
