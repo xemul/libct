@@ -112,11 +112,11 @@ class Container(object):
 		if ret:
 			raise LibctError(ret)
 
-	def enter_execv(self, path, argv):
-		return libctcapi.container_enter_execv(self._ct, path, argv)
+	def enter_execv(self, path, argv, fds=None):
+		return libctcapi.container_enter_execvfds(self._ct, path, argv, fds)
 
-	def enter_execve(self, path, argv, env):
-		return libctcapi.container_enter_execve(self._ct, path, argv, env)
+	def enter_execve(self, path, argv, env, fds=None):
+		return libctcapi.container_enter_execvefds(self._ct, path, argv, env, fds)
 
 	def kill(self):
 		ret = libctcapi.container_kill(self._ct)

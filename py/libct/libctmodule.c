@@ -705,6 +705,99 @@ py_libct_container_enter_execve(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+py_libct_container_enter_execvfds(PyObject *self, PyObject *args)
+{
+	PyObject *py_ct;
+	ct_handler_t ct;
+	char *path;
+	PyObject *py_argv, *py_fds;
+	char **argv;
+	int *fds;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OsOO:py_libct_container_enter_execvfds",
+				&py_ct, &path, &py_argv, &py_fds))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
+	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	argv = parse_string_list(py_argv);
+	if (argv == NULL)
+		return NULL;
+
+	if (py_fds == Py_None) {
+		fds = NULL;
+	} else {
+		fds = parse_int_list(py_fds);
+		if (fds == NULL) {
+			free_string_list(argv);
+			return NULL;
+		}
+	}
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_container_enter_execvfds(ct, path, argv, fds);
+	Py_END_ALLOW_THREADS
+
+	free_string_list(argv);
+	free(fds);
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_container_enter_execvefds(PyObject *self, PyObject *args)
+{
+	PyObject *py_ct;
+	ct_handler_t ct;
+	char *path;
+	PyObject *py_argv;
+	char **argv;
+	PyObject *py_env;
+	char **env;
+	PyObject *py_fds;
+	int *fds;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OsOOO:py_libct_container_enter_execveds",
+				&py_ct, &path, &py_argv, &py_env, &py_fds))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
+	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	argv = parse_string_list(py_argv);
+	if (argv == NULL)
+		return NULL;
+
+	env = parse_string_list(py_env);
+	if (env == NULL) {
+		free_string_list(argv);
+		return NULL;
+	}
+
+	if (py_fds == Py_None) {
+		fds = NULL;
+	} else {
+		fds = parse_int_list(py_fds);
+		if (fds == NULL) {
+			free_string_list(argv);
+			return NULL;
+		}
+	}
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_container_enter_execvefds(ct, path, argv, env, fds);
+	Py_END_ALLOW_THREADS
+
+	free_string_list(argv);
+	free_string_list(env);
+	free(fds);
+
+	return PyLong_FromLong((long)ret);
+}
+static PyObject *
 py_libct_container_kill(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
@@ -1104,6 +1197,8 @@ static PyMethodDef LibctMethods[] = {
 	{"container_enter_cb",  py_libct_container_enter_cb, METH_VARARGS, "libct_container_enter_cb"},
 	{"container_enter_execv",  py_libct_container_enter_execv, METH_VARARGS, "libct_container_enter_execv"},
 	{"container_enter_execve",  py_libct_container_enter_execve, METH_VARARGS, "libct_container_enter_execve"},
+	{"container_enter_execvfds",  py_libct_container_enter_execvfds, METH_VARARGS, "libct_container_enter_execvfds"},
+	{"container_enter_execvefds",  py_libct_container_enter_execvefds, METH_VARARGS, "libct_container_enter_execvefds"},
 	{"container_kill",  py_libct_container_kill, METH_VARARGS, "libct_container_kill"},
 	{"container_wait",  py_libct_container_wait, METH_VARARGS, "libct_container_wait"},
 	{"container_destroy",  py_libct_container_destroy, METH_VARARGS, "libct_container_destroy"},
