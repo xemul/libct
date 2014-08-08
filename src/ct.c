@@ -436,13 +436,14 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	return pid;
 }
 
-static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **env)
+static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea = {};
 
 	ea.path	= path;
 	ea.argv	= argv;
 	ea.env	= env;
+	ea.fds = fds;
 
 	return local_enter_cb(h, ct_execv, &ea);
 }

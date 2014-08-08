@@ -91,6 +91,16 @@ int libct_container_enter_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
 	return ct->ops->enter_cb(ct, cb, arg);
 }
 
+int libct_container_enter_execvfds(ct_handler_t ct, char *path, char **argv, int *fds)
+{
+	return libct_container_enter_execvefds(ct, path, argv, NULL, fds);
+}
+
+int libct_container_enter_execvefds(ct_handler_t ct, char *path, char **argv, char **env, int *fds)
+{
+	return ct->ops->enter_execve(ct, path, argv, env, fds);
+}
+
 int libct_container_enter_execv(ct_handler_t ct, char *path, char **argv)
 {
 	return libct_container_enter_execve(ct, path, argv, NULL);
@@ -98,7 +108,7 @@ int libct_container_enter_execv(ct_handler_t ct, char *path, char **argv)
 
 int libct_container_enter_execve(ct_handler_t ct, char *path, char **argv, char **env)
 {
-	return ct->ops->enter_execve(ct, path, argv, env);
+	return ct->ops->enter_execve(ct, path, argv, env, NULL);
 }
 
 

@@ -43,6 +43,8 @@ extern int libct_container_spawn_execvefds(ct_handler_t ct, char *path, char **a
 extern int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv);
 extern int libct_container_spawn_execve(ct_handler_t ct, char *path, char **argv, char **env);
 extern int libct_container_enter_cb(ct_handler_t ct, int (*ct_fn)(void *), void *arg);
+extern int libct_container_enter_execvfds(ct_handler_t ct, char *path, char **argv, int *fds);
+extern int libct_container_enter_execvefds(ct_handler_t ct, char *path, char **argv, char **env, int *fds);
 extern int libct_container_enter_execv(ct_handler_t ct, char *path, char **argv);
 extern int libct_container_enter_execve(ct_handler_t ct, char *path, char **argv, char **env);
 extern int libct_container_kill(ct_handler_t ct);
