@@ -142,6 +142,7 @@ typedef struct ct_net_route_nh *ct_net_route_nh_t;
 
 extern ct_net_route_nh_t libct_net_route_add_nh(ct_net_route_t r);
 extern int libct_net_route_nh_set_gw(ct_net_route_nh_t nh, char *addr);
+extern int libct_net_route_nh_set_dev(ct_net_route_nh_t nh, char *dev);
 
 /*
  * Options
