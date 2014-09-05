@@ -216,6 +216,9 @@ static int __net_link_apply(ct_net_t n)
 		rtnl_link_set_master(link, idx);
 	}
 
+	if (n->mtu)
+		rtnl_link_set_mtu(link, n->mtu);
+
 	rtnl_link_set_flags(link, IFF_UP);
 
 	err = rtnl_link_change(sk, orig, link, 0);
@@ -344,6 +347,13 @@ int local_net_dev_add_ip_addr(ct_net_t n, char *addr)
 	return 0;
 }
 
+int local_net_dev_set_mtu(ct_net_t n, int mtu)
+{
+	n->mtu = mtu;
+
+	return 0;
+}
+
 ct_net_t libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
 {
 	return ct->ops->net_add(ct, ntype, arg);
@@ -367,6 +377,11 @@ int libct_net_dev_set_master(ct_net_t n, char *master)
 int libct_net_dev_add_ip_addr(ct_net_t n, char *addr)
 {
 	return n->ops->add_ip_addr(n, addr);
+}
+
+int libct_net_dev_set_mtu(ct_net_t n, int mtu)
+{
+	return n->ops->set_mtu(n, mtu);
 }
 
 static void ct_net_init(ct_net_t n, const struct ct_net_ops *ops)
@@ -504,6 +519,7 @@ static const struct ct_net_ops host_nic_ops = {
 	.set_mac_addr	= local_net_dev_set_mac_addr,
 	.set_master	= local_net_dev_set_master,
 	.add_ip_addr	= local_net_dev_add_ip_addr,
+	.set_mtu	= local_net_dev_set_mtu,
 };
 
 /*
@@ -626,6 +642,7 @@ static const struct ct_net_ops veth_nic_ops = {
 	.set_mac_addr	= local_net_dev_set_mac_addr,
 	.set_master	= local_net_dev_set_master,
 	.add_ip_addr	= local_net_dev_add_ip_addr,
+	.set_mtu	= local_net_dev_set_mtu,
 };
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)

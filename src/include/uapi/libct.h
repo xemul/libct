@@ -127,6 +127,7 @@ extern int libct_net_dev_set_mac_addr(ct_net_t n, char *addr);
 extern int libct_net_dev_set_master(ct_net_t n, char *master);
 extern ct_net_t libct_net_dev_get_peer(ct_net_t n);
 extern int libct_net_dev_add_ip_addr(ct_net_t n, char *addr);
+extern int libct_net_dev_set_mtu(ct_net_t n, int mtu);
 
 struct ct_net_route;
 typedef struct ct_net_route *ct_net_route_t;

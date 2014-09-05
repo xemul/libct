@@ -44,6 +44,7 @@ struct ct_net_ops {
 	int (*set_mac_addr)(struct ct_net *n, char *addr);
 	int (*set_master)(struct ct_net *n, char *master);
 	int (*add_ip_addr)(ct_net_t n, char *addr);
+	int (*set_mtu)(ct_net_t n, int mtu);
 };
 
 struct ct_net_ip_addr {
@@ -53,6 +54,7 @@ struct ct_net_ip_addr {
 
 struct ct_net {
 	int ifidx;
+	int mtu;
 	char *name;
 	char *addr;
 	char *master;
