@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <sched.h>
+#include <unistd.h>
+#include <time.h>
 
 #include <netinet/ether.h>
 
@@ -172,7 +174,7 @@ err:
 	return -1;
 }
 
-static int __net_link_apply(ct_net_t n)
+static int __net_link_apply(char *name, ct_net_t n)
 {
 	struct rtnl_link *link = NULL, *orig = NULL;
 	struct nl_cache *cache = NULL;
@@ -187,7 +189,7 @@ static int __net_link_apply(ct_net_t n)
 	if (sk == NULL)
 		goto free;
 
-	orig = rtnl_link_get_by_name(cache, n->name);
+	orig = rtnl_link_get_by_name(cache, name);
 	if (orig == NULL)
 		goto free;
 
@@ -246,14 +248,14 @@ free:
 	return err;
 }
 
-static int net_link_apply(ct_net_t n, int pid)
+static int net_link_apply(char *name, ct_net_t n, int pid)
 {
 	int rst, ret;
 
 	if (pid > 0 && switch_ns(pid, &net_ns, &rst))
 		return -1;
 
-	ret = __net_link_apply(n);
+	ret = __net_link_apply(name, n);
 
 	if (pid > 0)
 		restore_ns(rst, &net_ns);
@@ -484,7 +486,7 @@ static int host_nic_start(struct container *ct, struct ct_net *n)
 		goto free;
 	}
 
-	if (net_link_apply(n, ct->root_pid))
+	if (net_link_apply(n->name, n, ct->root_pid))
 		return -1;
 free:
 	rtnl_link_put(link);
@@ -581,6 +583,9 @@ static int veth_start(struct container *ct, struct ct_net *n)
 	struct rtnl_link *link = NULL, *peer;
 	struct nl_sock *sk;
 	int err, ret = -1;
+	char name[IFNAMSIZ];
+
+	snprintf(name, sizeof(name), "libct-%x", getpid());
 
 	sk = net_sock_open();
 	if (sk == NULL)
@@ -590,7 +595,7 @@ static int veth_start(struct container *ct, struct ct_net *n)
 	if (link == NULL)
 		goto err;
 
-	rtnl_link_set_name(link, n->name);
+	rtnl_link_set_name(link, name);
 	rtnl_link_set_ns_pid(link, ct->root_pid);
 
 	peer = rtnl_link_veth_get_peer(link);
@@ -603,9 +608,9 @@ static int veth_start(struct container *ct, struct ct_net *n)
 		goto err;
 	}
 
-	if (net_link_apply(n, ct->root_pid))
+	if (net_link_apply(name, n, ct->root_pid))
 		goto err;
-	if (net_link_apply(&vn->peer, -1))
+	if (net_link_apply(vn->peer.name, &vn->peer, -1))
 		goto err; /* FIXME rollback */
 
 	ret = 0;
