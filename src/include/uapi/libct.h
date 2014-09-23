@@ -93,9 +93,13 @@ enum ct_fs_type {
 
 extern int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *arg);
 
-#define CT_FS_RDONLY	0x1
-#define CT_FS_PRIVATE	0x2
-#define CT_FS_BIND	0x4
+#define CT_FS_RDONLY		0x1
+#define CT_FS_PRIVATE		0x2
+#define CT_FS_BIND		0x4
+#define CT_FS_NOEXEC		0x8
+#define CT_FS_NOSUID		0x10
+#define CT_FS_NODEV		0x20
+#define CT_FS_STRICTATIME	0x40
 
 extern int libct_fs_add_bind_mount(ct_handler_t ct, char *source, char *destination, int flags);
 extern int libct_fs_del_bind_mount(ct_handler_t ct, char *destination);

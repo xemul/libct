@@ -164,8 +164,12 @@ func (ct *Container) SetRoot(root string) error {
 }
 
 const (
-	CT_FS_RDONLY  = C.CT_FS_RDONLY
-	CT_FS_PRIVATE = C.CT_FS_PRIVATE
+	CT_FS_RDONLY      = C.CT_FS_RDONLY
+	CT_FS_PRIVATE     = C.CT_FS_PRIVATE
+	CT_FS_NOEXEC      = C.CT_FS_NOEXEC
+	CT_FS_NOSUID      = C.CT_FS_NOSUID
+	CT_FS_NODEV       = C.CT_FS_NODEV
+	CT_FS_STRICTATIME = C.CT_FS_STRICTATIME
 )
 
 func (ct *Container) AddBindMount(src string, dst string, flags int) error {

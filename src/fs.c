@@ -308,7 +308,8 @@ int libct_fs_set_root(ct_handler_t ct, char *root)
 int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst,
 				int flags, char *fstype, char *data)
 {
-	if (flags & ~(CT_FS_PRIVATE | CT_FS_RDONLY))
+	if (flags & ~(CT_FS_PRIVATE | CT_FS_RDONLY | CT_FS_NOEXEC |
+			CT_FS_NOSUID | CT_FS_NODEV | CT_FS_STRICTATIME))
 		return -LCTERR_INVARG;
 
 	if (!src || !dst)
