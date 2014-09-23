@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/xemul/libct.svg)](https://travis-ci.org/xemul/libct)
+
 LIBCT
 =====
 
