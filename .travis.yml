@@ -1,0 +1,20 @@
+language: c
+
+compiler: gcc
+
+before_install:
+    - sudo apt-get update -qq
+
+install:
+    - sudo apt-get install make gcc autoconf autoconf-doc libtool bison flex
+
+script:
+    - git submodule update --init --recursive
+    - ( cd .shipped/libnl && ./autogen.sh && ./configure && make -j2 && sudo make install && cd ../../ )
+    - make -j2
+    - (cd test && make -j2 )
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always
