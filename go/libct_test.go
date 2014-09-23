@@ -18,7 +18,7 @@ func TestSpawnExecv(t *testing.T) {
 
 	ct.SetNsMask(syscall.CLONE_NEWNS | syscall.CLONE_NEWPID)
 
-	err = ct.SpawnExecve("sleep",
+	_, err = ct.SpawnExecve("sleep",
 		[]string{"sleep", "1"},
 		[]string{"PATH=/bin:/usr/bin"}, nil)
 	if err != nil {

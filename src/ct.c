@@ -308,7 +308,7 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	}
 
 	ct->state = CT_RUNNING;
-	return 0;
+	return pid;
 
 err_ch:
 	net_stop(ct);

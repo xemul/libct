@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 		system("ip link del dm0");
 		return err("Can't add hostnic");
 	}
-	if (libct_container_spawn_cb(ct, check_ct_net, ct_status)) {
+	if (libct_container_spawn_cb(ct, check_ct_net, ct_status) < 0) {
 		system("ip link del dm0");
 		return err("Can't spawn CT");
 	}

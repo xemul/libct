@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 		goto err;
 
 	fds[0] = fds[1] = fds[2] = slave;
-	if (libct_container_spawn_execvfds(ct, "./file_piggy", piggy_a, fds))
+	if (libct_container_spawn_execvfds(ct, "./file_piggy", piggy_a, fds) < 0)
 		goto err;
 
 	read(master, dat, 3);

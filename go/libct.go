@@ -94,7 +94,7 @@ func (ct *Container) SetConsoleFd(f *os.File) error {
 	return nil
 }
 
-func (ct *Container) SpawnExecve(path string, argv []string, env []string, fds *[3]uintptr) error {
+func (ct *Container) SpawnExecve(path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
 	var cfdsp *C.int
 
 	cargv := make([]*C.char, len(argv)+1)
@@ -115,12 +115,12 @@ func (ct *Container) SpawnExecve(path string, argv []string, env []string, fds *
 		cfdsp = &cfds[0]
 	}
 
-	ret := C.libct_container_spawn_execvefds(ct.ct, C.CString(path), &cargv[0], &cenv[0], cfdsp)
-	if ret != 0 {
-		return LibctError{int(ret)}
+	ret := int(C.libct_container_spawn_execvefds(ct.ct, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+	if ret < 0 {
+		return -1, LibctError{int(ret)}
 	}
 
-	return nil
+	return ret, nil
 }
 
 func (ct *Container) Wait() error {
