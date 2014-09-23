@@ -8,6 +8,7 @@ import "C"
 import "fmt"
 import "os"
 import "unsafe"
+import "syscall"
 
 const (
 	LIBCT_OPT_AUTO_PROC_MOUNT = C.LIBCT_OPT_AUTO_PROC_MOUNT
@@ -200,8 +201,15 @@ func (ct *Container) SetOption(opt int32) error {
 
 func (ct *Container) SetCaps(mask uint64, apply_to int) error {
 	ret := C.libct_container_set_caps(ct.ct, C.ulong(mask), C.uint(apply_to))
-
 	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (ct *Container) SetParentDeathSignal(sig syscall.Signal) error {
+	if ret := C.libct_container_set_pdeathsig(ct.ct, C.int(sig)); ret != 0 {
 		return LibctError{int(ret)}
 	}
 

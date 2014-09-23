@@ -80,6 +80,8 @@ extern int libct_container_uname(ct_handler_t ct, char *host, char *domain);
 #define CAPS_ALL	(CAPS_BSET | CAPS_ALLCAPS)
 extern int libct_container_set_caps(ct_handler_t ct, unsigned long mask, unsigned int apply_to);
 
+extern int libct_container_set_pdeathsig(ct_handler_t ct, int sig);
+
 /*
  * FS configuration
  */

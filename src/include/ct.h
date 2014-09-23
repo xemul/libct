@@ -36,6 +36,7 @@ struct container_ops {
 	ct_net_route_t (*net_route_add)(ct_handler_t h);
 	int (*uname)(ct_handler_t h, char *host, char *domain);
 	int (*set_caps)(ct_handler_t h, unsigned long mask, unsigned int apply_to);
+	int (*set_pdeathsig)(ct_handler_t h, int sig);
 };
 
 struct ct_handler {
@@ -80,6 +81,7 @@ struct container {
 
 	unsigned long		cap_bset;
 	unsigned long		cap_caps;
+	int			pdeathsig;
 
 	/*
 	 * FS-specific fields

@@ -8,6 +8,7 @@
 
 #include <sys/wait.h>
 #include <sys/mount.h>
+#include <sys/prctl.h>
 
 #include "uapi/libct.h"
 #include "asm/page.h"
@@ -186,6 +187,9 @@ static int ct_clone(void *arg)
 
 	close(ca->child_wait_pipe[1]);
 	close(ca->parent_wait_pipe[0]);
+
+	if (prctl(PR_SET_PDEATHSIG, ct->pdeathsig))
+		goto err;
 
 	if (!(ct->flags & CT_NOSETSID) && setsid() == -1)
 		goto err;
@@ -562,6 +566,15 @@ static int local_set_caps(ct_handler_t h, unsigned long mask, unsigned int apply
 	return 0;
 }
 
+static int local_set_pdeathsig(ct_handler_t h, int sig)
+{
+	struct container *ct = cth2ct(h);
+
+	ct->pdeathsig = sig;
+
+	return 0;
+}
+
 char *local_ct_name(ct_handler_t h)
 {
 	return cth2ct(h)->name;
@@ -600,6 +613,7 @@ static const struct container_ops local_ct_ops = {
 	.net_route_add		= local_net_route_add,
 	.uname			= local_uname,
 	.set_caps		= local_set_caps,
+	.set_pdeathsig		= local_set_pdeathsig,
 };
 
 ct_handler_t ct_create(char *name)
