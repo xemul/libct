@@ -63,3 +63,19 @@ int linux_get_cgroup_mounts(void)
 	fclose(f);
 	return ret;
 }
+
+int linux_get_last_capability(void)
+{
+	FILE *f;
+	static int last_cap = -1;
+
+	if (last_cap > 0)
+		return last_cap;
+
+	f = fopen("/proc/sys/kernel/cap_last_cap", "r");
+	if (fscanf(f, "%d", &last_cap) != 1)
+		return -1;
+
+	return last_cap;
+}
+

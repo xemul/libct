@@ -8,15 +8,20 @@
 
 #include "uapi/libct.h"
 
+#include "linux-kernel.h"
 #include "security.h"
 #include "list.h"
 #include "ct.h"
 
 static int apply_bset(unsigned long mask)
 {
-	int i;
+	int i, last_cap;
 
-	for (i = 0; ; i++) {
+	last_cap = linux_get_last_capability();
+	if (last_cap < 0)
+		return -1;
+
+	for (i = 0; i <= last_cap; i++) {
 		if (mask & (1ULL << i))
 			continue;
 
