@@ -35,6 +35,8 @@ int linux_get_ns_mask(void)
 				kernel_ns_mask |= CLONE_NEWPID;
 			else if (!strcmp(de->d_name, "uts"))
 				kernel_ns_mask |= CLONE_NEWUTS;
+			else if (!strcmp(de->d_name, "user"))
+				kernel_ns_mask |= CLONE_NEWUSER;
 		}
 	}
 

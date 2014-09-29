@@ -1,6 +1,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <unistd.h>
+#include <grp.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -9,6 +10,9 @@
 #include <sys/wait.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "uapi/libct.h"
 #include "asm/page.h"
@@ -199,6 +203,15 @@ static int ct_clone(void *arg)
 	close(ca->child_wait_pipe[1]);
 	close(ca->parent_wait_pipe[0]);
 
+	ret = spawn_wait(ca->child_wait_pipe);
+	if (ret)
+		goto err_um;
+
+	if (ct->nsmask & CLONE_NEWUSER) {
+		if (setuid(0) || setgid(0) || setgroups(0, NULL))
+			goto err;
+	}
+
 	if (prctl(PR_SET_PDEATHSIG, ct->pdeathsig))
 		goto err;
 
@@ -257,10 +270,6 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
-	ret = spawn_wait(ca->child_wait_pipe);
-	if (ret)
-		goto err_um;
-
 	spawn_wake(ca->parent_wait_pipe, 0);
 
 	return ca->cb(ca->arg);
@@ -271,6 +280,41 @@ err_um:
 err:
 	spawn_wake(ca->parent_wait_pipe, ret);
 	exit(ret);
+}
+
+static int write_id_mappings(pid_t pid, struct list_head *list, char *id_map)
+{
+	int size = 0, off = 0, exit_code, fd = -1;
+	struct _uid_gid_map *map;
+	char *buf = NULL, *_buf;
+	char fname[PATH_MAX];
+
+	list_for_each_entry(map, list, node) {
+		if (size - off < 34) {
+			size += PAGE_SIZE;
+			_buf = xrealloc(buf, size);
+			if (_buf == NULL)
+				goto err;
+			buf = _buf;
+		}
+		off += snprintf(buf + off, size - off, "%u %u %u\n",
+				map->first, map->lower_first, map->count);
+
+	}
+
+	snprintf(fname, sizeof(fname), "/proc/%d/%s", pid, id_map);
+	fd = open(fname, O_WRONLY);
+	if (fd < 0)
+		goto err;
+	if (write(fd, buf, off) != off)
+		goto err;
+
+	exit_code = 0;
+err:
+	xfree(buf);
+	if (fd > 0)
+		close(fd);
+	return exit_code;
 }
 
 static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
@@ -311,6 +355,14 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	close(ca.child_wait_pipe[0]);
 	close(ca.parent_wait_pipe[1]);
 	ct->root_pid = pid;
+
+	if (ct->nsmask & CLONE_NEWUSER) {
+		if (write_id_mappings(pid, &ct->uid_map, "uid_map"))
+			goto err_net;
+
+		if (write_id_mappings(pid, &ct->gid_map, "gid_map"))
+			goto err_net;
+	}
 
 	if (net_start(ct))
 		goto err_net;
