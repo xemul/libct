@@ -174,3 +174,15 @@ libct_session_t libct_session_open(char *how)
 
 	return libct_err_to_handle(-LCTERR_INVARG);
 }
+
+int libct_userns_add_uid_map(ct_handler_t ct, unsigned int first,
+			unsigned int lower_first, unsigned int count)
+{
+	return ct->ops->add_uid_map(ct, first, lower_first, count);
+}
+
+int libct_userns_add_gid_map(ct_handler_t ct, unsigned int first,
+			unsigned int lower_first, unsigned int count)
+{
+	return ct->ops->add_gid_map(ct, first, lower_first, count);
+}

@@ -37,6 +37,10 @@ struct container_ops {
 	int (*uname)(ct_handler_t h, char *host, char *domain);
 	int (*set_caps)(ct_handler_t h, unsigned long mask, unsigned int apply_to);
 	int (*set_pdeathsig)(ct_handler_t h, int sig);
+	int (*add_uid_map)(ct_handler_t ct, unsigned int first,
+			unsigned int lower_first, unsigned int count);
+	int (*add_gid_map)(ct_handler_t ct, unsigned int first,
+			unsigned int lower_first, unsigned int count);
 };
 
 struct ct_handler {
@@ -106,6 +110,16 @@ struct container {
 	int			tty_fd;
 
 	void			*private;	/* driver-specific */
+
+	struct list_head	uid_map;
+	struct list_head	gid_map;
+};
+
+struct _uid_gid_map {
+	struct list_head	node;
+	unsigned int first;
+	unsigned int lower_first;
+	unsigned int count;
 };
 
 static inline struct container *cth2ct(struct ct_handler *h)

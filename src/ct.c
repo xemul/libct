@@ -30,6 +30,16 @@ static enum ct_state local_get_state(ct_handler_t h)
 	return cth2ct(h)->state;
 }
 
+static void local_ct_uid_gid_free(struct container *ct)
+{
+	struct _uid_gid_map *map, *t;
+
+	list_for_each_entry_safe(map, t, &ct->uid_map, node)
+		xfree(map);
+	list_for_each_entry_safe(map, t, &ct->gid_map, node)
+		xfree(map);
+}
+
 static void local_ct_destroy(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
@@ -41,6 +51,7 @@ static void local_ct_destroy(ct_handler_t h)
 	xfree(ct->hostname);
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
+	local_ct_uid_gid_free(ct);
 	xfree(ct);
 }
 
@@ -587,6 +598,40 @@ static int local_set_console_fd(ct_handler_t h, int fd)
 	return 0;
 }
 
+static int local_add_map(struct list_head *list, unsigned int first,
+			unsigned int lower_first, unsigned int count)
+{
+	struct _uid_gid_map *_map;
+
+	_map = xmalloc(sizeof(struct _uid_gid_map));
+	if (_map == NULL)
+		return -1;
+
+	_map->first		= first;
+	_map->lower_first	= lower_first;
+	_map->count		= count;
+
+	list_add(&_map->node, list);
+
+	return 0;
+}
+
+static int local_add_uid_map(ct_handler_t h, unsigned int first,
+			unsigned int lower_first, unsigned int count)
+{
+	struct container *ct = cth2ct(h);
+
+	return local_add_map(&ct->uid_map, first, lower_first, count);
+}
+
+static int local_add_gid_map(ct_handler_t h, unsigned int first,
+			unsigned int lower_first, unsigned int count)
+{
+	struct container *ct = cth2ct(h);
+
+	return local_add_map(&ct->gid_map, first, lower_first, count);
+}
+
 static const struct container_ops local_ct_ops = {
 	.spawn_cb		= local_spawn_cb,
 	.spawn_execve		= local_spawn_execve,
@@ -614,6 +659,8 @@ static const struct container_ops local_ct_ops = {
 	.uname			= local_uname,
 	.set_caps		= local_set_caps,
 	.set_pdeathsig		= local_set_pdeathsig,
+	.add_uid_map		= local_add_uid_map,
+	.add_gid_map		= local_add_gid_map,
 };
 
 ct_handler_t ct_create(char *name)
@@ -633,10 +680,11 @@ ct_handler_t ct_create(char *name)
 		INIT_LIST_HEAD(&ct->ct_net_routes);
 		INIT_LIST_HEAD(&ct->fs_mnts);
 		INIT_LIST_HEAD(&ct->fs_devnodes);
+		INIT_LIST_HEAD(&ct->uid_map);
+		INIT_LIST_HEAD(&ct->gid_map);
 
 		return &ct->h;
 	}
 
 	return NULL;
 }
-

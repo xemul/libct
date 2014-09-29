@@ -150,6 +150,11 @@ extern ct_net_route_nh_t libct_net_route_add_nh(ct_net_route_t r);
 extern int libct_net_route_nh_set_gw(ct_net_route_nh_t nh, char *addr);
 extern int libct_net_route_nh_set_dev(ct_net_route_nh_t nh, char *dev);
 
+extern int libct_userns_add_uid_map(ct_handler_t ct, unsigned int first,
+				unsigned lower_first, unsigned int count);
+extern int libct_userns_add_gid_map(ct_handler_t ct, unsigned int first,
+				unsigned lower_first, unsigned int count);
+
 /*
  * Options
  */
