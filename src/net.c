@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <sched.h>
+#include <unistd.h>
+#include <time.h>
 
 #include <netinet/ether.h>
 
@@ -172,7 +174,7 @@ err:
 	return -1;
 }
 
-static int __net_link_apply(ct_net_t n)
+static int __net_link_apply(char *name, ct_net_t n)
 {
 	struct rtnl_link *link = NULL, *orig = NULL;
 	struct nl_cache *cache = NULL;
@@ -187,7 +189,7 @@ static int __net_link_apply(ct_net_t n)
 	if (sk == NULL)
 		goto free;
 
-	orig = rtnl_link_get_by_name(cache, n->name);
+	orig = rtnl_link_get_by_name(cache, name);
 	if (orig == NULL)
 		goto free;
 
@@ -216,6 +218,9 @@ static int __net_link_apply(ct_net_t n)
 		rtnl_link_set_master(link, idx);
 	}
 
+	if (n->mtu)
+		rtnl_link_set_mtu(link, n->mtu);
+
 	rtnl_link_set_flags(link, IFF_UP);
 
 	err = rtnl_link_change(sk, orig, link, 0);
@@ -243,14 +248,14 @@ free:
 	return err;
 }
 
-static int net_link_apply(ct_net_t n, int pid)
+static int net_link_apply(char *name, ct_net_t n, int pid)
 {
 	int rst, ret;
 
 	if (pid > 0 && switch_ns(pid, &net_ns, &rst))
 		return -1;
 
-	ret = __net_link_apply(n);
+	ret = __net_link_apply(name, n);
 
 	if (pid > 0)
 		restore_ns(rst, &net_ns);
@@ -344,6 +349,13 @@ int local_net_dev_add_ip_addr(ct_net_t n, char *addr)
 	return 0;
 }
 
+int local_net_dev_set_mtu(ct_net_t n, int mtu)
+{
+	n->mtu = mtu;
+
+	return 0;
+}
+
 ct_net_t libct_net_add(ct_handler_t ct, enum ct_net_type ntype, void *arg)
 {
 	return ct->ops->net_add(ct, ntype, arg);
@@ -367,6 +379,11 @@ int libct_net_dev_set_master(ct_net_t n, char *master)
 int libct_net_dev_add_ip_addr(ct_net_t n, char *addr)
 {
 	return n->ops->add_ip_addr(n, addr);
+}
+
+int libct_net_dev_set_mtu(ct_net_t n, int mtu)
+{
+	return n->ops->set_mtu(n, mtu);
 }
 
 static void ct_net_init(ct_net_t n, const struct ct_net_ops *ops)
@@ -469,7 +486,7 @@ static int host_nic_start(struct container *ct, struct ct_net *n)
 		goto free;
 	}
 
-	if (net_link_apply(n, ct->root_pid))
+	if (net_link_apply(n->name, n, ct->root_pid))
 		return -1;
 free:
 	rtnl_link_put(link);
@@ -504,6 +521,7 @@ static const struct ct_net_ops host_nic_ops = {
 	.set_mac_addr	= local_net_dev_set_mac_addr,
 	.set_master	= local_net_dev_set_master,
 	.add_ip_addr	= local_net_dev_add_ip_addr,
+	.set_mtu	= local_net_dev_set_mtu,
 };
 
 /*
@@ -565,6 +583,9 @@ static int veth_start(struct container *ct, struct ct_net *n)
 	struct rtnl_link *link = NULL, *peer;
 	struct nl_sock *sk;
 	int err, ret = -1;
+	char name[IFNAMSIZ];
+
+	snprintf(name, sizeof(name), "libct-%x", getpid());
 
 	sk = net_sock_open();
 	if (sk == NULL)
@@ -574,7 +595,7 @@ static int veth_start(struct container *ct, struct ct_net *n)
 	if (link == NULL)
 		goto err;
 
-	rtnl_link_set_name(link, n->name);
+	rtnl_link_set_name(link, name);
 	rtnl_link_set_ns_pid(link, ct->root_pid);
 
 	peer = rtnl_link_veth_get_peer(link);
@@ -587,9 +608,9 @@ static int veth_start(struct container *ct, struct ct_net *n)
 		goto err;
 	}
 
-	if (net_link_apply(n, ct->root_pid))
+	if (net_link_apply(name, n, ct->root_pid))
 		goto err;
-	if (net_link_apply(&vn->peer, -1))
+	if (net_link_apply(vn->peer.name, &vn->peer, -1))
 		goto err; /* FIXME rollback */
 
 	ret = 0;
@@ -626,6 +647,7 @@ static const struct ct_net_ops veth_nic_ops = {
 	.set_mac_addr	= local_net_dev_set_mac_addr,
 	.set_master	= local_net_dev_set_master,
 	.add_ip_addr	= local_net_dev_add_ip_addr,
+	.set_mtu	= local_net_dev_set_mtu,
 };
 
 const struct ct_net_ops *net_get_ops(enum ct_net_type ntype)

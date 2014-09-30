@@ -238,3 +238,8 @@ int libct_net_route_nh_set_gw(ct_net_route_nh_t nh, char *addr)
 {
 	return set_string(&nh->gateway, addr);
 }
+
+int libct_net_route_nh_set_dev(ct_net_route_nh_t nh, char *dev)
+{
+	return set_string(&nh->dev, dev);
+}
