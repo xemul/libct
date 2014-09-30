@@ -211,6 +211,17 @@ cleanup-y += $(obj)/$(lib-so).so
 endif
 
 ##
+## A rule for building library.
+ifneq ($(lib-a),)
+$(obj)/$(lib-a).a: $(all-objs) $(libs-e)
+	$(E) "  LINK    " $@
+	$(Q) ar -cru -o $@ $^
+
+_all += $(obj)/$(lib-so).so
+cleanup-y += $(obj)/$(lib-so).so
+endif
+
+##
 ##
 ## Include deps if requested
 ifneq ($(incdeps),)

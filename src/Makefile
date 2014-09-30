@@ -1,4 +1,5 @@
 lib-so			+= libct
+lib-a			+= libct
 
 obj-y			+= libct.o
 obj-y			+= session.o

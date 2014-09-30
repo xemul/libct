@@ -1,7 +1,7 @@
 package libct
 
 // #cgo CFLAGS: -DCONFIG_X86_64 -DARCH="x86" -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
-// #cgo LDFLAGS: -lct -L../src/ -L../.shipped/libnl/lib/.libs/ -lnl-route-3 -lnl-3
+// #cgo LDFLAGS: -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -lm
 // #include "../src/include/uapi/libct.h"
 // #include "../src/include/uapi/libct-errors.h"
 import "C"

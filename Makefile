@@ -97,7 +97,7 @@ include scripts/Makefile.rules
 build := -r -R --no-print-directory -f scripts/Makefile.build makefile=Makefile obj
 run := -r -R --no-print-directory
 
-LIBCT		:= libct.so
+LIBCT		:= libct
 
 .PHONY: all clean tags docs
 
@@ -119,11 +119,15 @@ src: $(EARLY-GEN)
 
 .PHONY: src
 
-$(LIBCT): src/$(LIBCT)
+$(LIBCT).so: src/$(LIBCT).so
 	$(E) "  LN      " $@
 	$(Q) $(LN) -sf $^ $@
 
-all: $(LIBCT)
+$(LIBCT).a: src/$(LIBCT).a
+	$(E) "  LN      " $@
+	$(Q) $(LN) -sf $^ $@
+
+all: $(LIBCT).so $(LIBCT).a
 	@true
 
 docs:
