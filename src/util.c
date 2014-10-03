@@ -74,6 +74,14 @@ int do_mount(char *src, char *dst, int flags, char *fstype, char *data)
 
 	if (flags & CT_FS_RDONLY)
 		mountflags |= MS_RDONLY;
+	if (flags & CT_FS_NOEXEC)
+		mountflags |= MS_NOEXEC;
+	if (flags & CT_FS_NOSUID)
+		mountflags |= MS_NOSUID;
+	if (flags & CT_FS_NODEV)
+		mountflags |= MS_NODEV;
+	if (flags & CT_FS_STRICTATIME)
+		mountflags |= MS_STRICTATIME;
 
 	if (mount(src, dst, fstype, mountflags, data) == -1) {
 		pr_perror("Unable to mount %s -> %s\n", src, dst);

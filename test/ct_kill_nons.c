@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 	if (libct_container_set_option(ct, LIBCT_OPT_KILLABLE, NULL))
 		return err("can't set killable");
 
-	if (libct_container_spawn_cb(ct, loop_in_ct, &cta))
+	if (libct_container_spawn_cb(ct, loop_in_ct, &cta) < 0)
 		return err("can't start CT");
 
 	close(p[1]);
