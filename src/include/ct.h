@@ -48,6 +48,7 @@ struct ct_handler {
 };
 
 ct_handler_t ct_create(char *name);
+ct_handler_t vz_ct_create(char *name);
 
 #define CT_AUTO_PROC		0x1
 #define CT_KILLABLE		0x2
@@ -117,6 +118,10 @@ static inline struct container *cth2ct(struct ct_handler *h)
 }
 
 extern char *local_ct_name(ct_handler_t h);
+extern int local_add_uid_map(ct_handler_t h, unsigned int first,
+			unsigned int lower_first, unsigned int count);
+extern int local_add_gid_map(ct_handler_t h, unsigned int first,
+			unsigned int lower_first, unsigned int count);
 
 static inline bool fs_private(struct container *ct)
 {
@@ -124,5 +129,12 @@ static inline bool fs_private(struct container *ct)
 }
 
 extern void ct_handler_init(ct_handler_t h);
+
+struct execv_args {
+	char *path;
+	char **argv;
+	char **env;
+	int *fds;
+};
 
 #endif /* __LIBCT_CT_H__ */

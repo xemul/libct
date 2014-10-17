@@ -57,7 +57,9 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 			goto err_rst;
 	}
 
+#ifndef VZ
 	ret = setns(nsfd, nd->cflag);
+#endif
 	if (ret < 0)
 		goto err_set;
 
@@ -75,6 +77,8 @@ err_ns:
 
 void restore_ns(int rst, struct ns_desc *nd)
 {
+#ifndef VZ
 	setns(rst, nd->cflag);
+#endif
 	close(rst);
 }
