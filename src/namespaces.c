@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "namespaces.h"
+#include "vzsyscalls.h"
 
 struct ns_desc pid_ns = {
 	.name = "pid",
@@ -39,6 +40,16 @@ struct ns_desc *namespaces[] = {
 	NULL
 };
 
+int setns(int fd, int nstype) __attribute__((weak));
+
+static int libct_setns(int fd, int nstype)
+{
+	if (setns)
+		return setns(fd, nstype);
+
+	return syscall(__NR_setns, fd, nstype);
+}
+
 int switch_ns(int pid, struct ns_desc *nd, int *rst)
 {
 	char buf[32];
@@ -57,7 +68,7 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 			goto err_rst;
 	}
 
-	ret = setns(nsfd, nd->cflag);
+	ret = libct_setns(nsfd, nd->cflag);
 	if (ret < 0)
 		goto err_set;
 
@@ -75,6 +86,6 @@ err_ns:
 
 void restore_ns(int rst, struct ns_desc *nd)
 {
-	setns(rst, nd->cflag);
+	libct_setns(rst, nd->cflag);
 	close(rst);
 }
