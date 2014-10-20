@@ -5,7 +5,7 @@ LOCAL_TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter \
 	ct_cgroup_sub ct_service ct_kill_nons ct_pid_enter \
 	ct_userns ct_caps
 
-VZ_TESTS =
+VZ_TESTS = vz_create_exec
 
 TESTS = $(LOCAL_TESTS) $(VZ_TESTS)
 
@@ -13,6 +13,9 @@ PIGS  = file_piggy
 
 CC = gcc
 CFLAGS = -I../src/include/uapi/ -g -Wall -Werror
+ifneq ("$(wildcard /proc/vz)","")
+	CFLAGS += -DVZ
+endif
 LIBNLDIR = ../.shipped/libnl/lib/.libs
 LDFLAGS = -Wl,--no-as-needed \
 	-lct -L../src/ -Wl,-rpath,'$$ORIGIN/../src' \
@@ -21,6 +24,7 @@ LDFLAGS = -Wl,--no-as-needed \
 LOCAL_OUTS = $(LOCAL_TESTS:%=%.out)
 VZ_OUTS = $(VZ_TESTS:%=%.out)
 OUTS = $(TESTS:%=%.out)
+OBJS = $(TESTS:%=%.o)
 
 local: $(PIGS) $(LOCAL_TESTS)
 
@@ -34,6 +38,7 @@ cleanouts:
 clean: cleanouts
 	rm -f $(TESTS)
 	rm -f $(PIGS)
+	rm -f $(OBJS)
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) $^ -o $@
