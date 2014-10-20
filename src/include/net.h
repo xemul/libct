@@ -67,8 +67,5 @@ struct ct_net {
 
 extern const struct ct_net_ops *net_get_ops(enum ct_net_type);
 
-extern struct nl_sock *net_sock_open();
-extern void net_sock_close(struct nl_sock *sk);
-extern struct nl_cache *net_get_link_cache(struct nl_sock *sk);
 
 #endif /* __LIBCT_NET_H__ */
