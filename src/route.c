@@ -12,6 +12,7 @@
 #include "err.h"
 #include "net.h"
 #include "ct.h"
+#include "net_util.h"
 
 void net_route_nh_free(ct_net_route_nh_t nh)
 {
