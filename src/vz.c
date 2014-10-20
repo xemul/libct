@@ -32,6 +32,7 @@
 #include "cgroups.h"
 #include "net.h"
 #include "util.h"
+#include "vz_net.h"
 
 #define MAX_SHTD_TM 			120
 #define VZCTLDEV			"/dev/vzctl"
@@ -154,6 +155,7 @@ static void vz_ct_destroy(ct_handler_t h)
 	struct container *ct = cth2ct(h);
 
 	fs_free(ct);
+	net_release(ct);
 
 	xfree(ct->name);
 	xfree(ct->hostname);
@@ -736,6 +738,12 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		goto err_net;
 	}
 
+	ret = net_start(ct);
+	if (ret) {
+		pr_err("Unable to start network");
+		goto err_net;
+	}
+
 	proc_wake(child_wait, 0);
 
 	/* Wait while network would be configured inside container */
@@ -749,6 +757,7 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 	return ct->root_pid;
 
 err_wait:
+	net_stop(ct);
 err_net:
 	proc_wake_close(child_wait, -1);
 err_fork:
