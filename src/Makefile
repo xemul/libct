@@ -16,7 +16,9 @@ obj-y			+= util.o
 obj-y			+= devnodes.o
 obj-y			+= route.o
 obj-y			+= process.o
+obj-y			+= net_util.o
 obj-y			+= vz/vz.o
+obj-y			+= vz/vz_net.o
 obj-y			+= vz/readelf.o
 
 cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
