@@ -48,6 +48,14 @@ typedef enum {
 	M_KILL_FORCE,
 } stop_mode_e;
 
+struct info_pipes {
+	int *in;
+	int *out;
+	int *err;
+	int *child_wait;
+	int *parent_wait;
+};
+
 static int __vzctlfd = -1;
 
 void vzctl_close(void)
@@ -113,6 +121,32 @@ static int set_personality32(void)
 		return set_personality(PER_LINUX32);
 #endif
 	return 0;
+}
+
+static inline int proc_wait(int *pipe)
+{
+	int ret = -1;
+	read(pipe[0], &ret, sizeof(ret));
+	return ret;
+}
+
+static inline int proc_wait_close(int *pipe)
+{
+	int ret = -1;
+	read(pipe[0], &ret, sizeof(ret));
+	close(pipe[0]);
+	return ret;
+}
+
+static inline void proc_wake(int *pipe, int ret)
+{
+	write(pipe[1], &ret, sizeof(ret));
+}
+
+static inline void proc_wake_close(int *pipe, int ret)
+{
+	write(pipe[1], &ret, sizeof(ret));
+	close(pipe[1]);
 }
 
 static void vz_ct_destroy(ct_handler_t h)
@@ -221,6 +255,99 @@ static int vzctl2_set_iolimit(unsigned veid, int limit)
 		pr_perror("Unable to set iolimit");
 		return -1;
 	}
+	return 0;
+}
+
+static int mk_reboot_script(void)
+{
+	char buf[STR_SIZE];
+	char *rc;
+	int fd, n;
+
+#define REBOOT_MARK     "/reboot"
+#define DEB_STARTPAR    "/sbin/startpar"
+#define RC1             "/etc/rc.d/rc6.d"
+#define RC2             "/etc/rc6.d"
+#define VZREBOOT        "/etc/init.d/vzreboot"
+#define UPDATE_RC_D     "/usr/sbin/update-rc.d"
+#define REBOOT_SCRIPT "#!/bin/bash\n" \
+"# chkconfig: 6 00 99\n"                \
+"### BEGIN INIT INFO\n"                 \
+"# Provides: vzreboot\n"                \
+"# Required-Start:\n"                   \
+"# Required-Stop:\n"                    \
+"# Default-Start: 6\n"                  \
+"# Default-Stop:\n"                     \
+"# Description: Creates @PRODUCT_NAME_LONG@ reboot mark\n" \
+"### END INIT INFO\n"                   \
+">" REBOOT_MARK "\n"
+
+	/* remove reboot flag */
+	unlink(REBOOT_MARK);
+
+	if ((fd = open(VZREBOOT, O_CREAT|O_WRONLY|O_TRUNC, 0755)) < 0)
+		return 1;
+	n = write(fd, REBOOT_SCRIPT, sizeof(REBOOT_SCRIPT) -1);
+	close(fd);
+
+	if (stat_file(DEB_STARTPAR) && stat_file(UPDATE_RC_D)) {
+		snprintf(buf, sizeof(buf), UPDATE_RC_D " vzreboot stop 10 6 .");
+		n = system(buf);
+	} else {
+		if (stat_file(RC1))
+			rc = RC1;
+		else if (stat_file(RC2))
+			rc = RC2;
+		else
+			return 1;
+		sprintf(buf, "%s/S00vzreboot", rc);
+		unlink(buf);
+		n = symlink(VZREBOOT, buf);
+	}
+
+	return 0;
+}
+
+int pre_setup_env(ct_handler_t h, struct info_pipes *pipes)
+{
+	struct container *ct = NULL;
+	int fd;
+	int ret = 0;
+	if (!h)
+		return -1;
+	ct = cth2ct(h);
+
+	/* Clear supplementary group IDs */
+	setgroups(0, NULL);
+
+	if ((ret = set_personality32()))
+		return ret;
+
+	/* Create /fastboot to skip run fsck */
+	fd = creat("/fastboot", 0644);
+	if (fd != -1)
+		close(fd);
+
+	if (ct->flags & CT_AUTO_PROC)
+		mount("proc", "/proc", "proc", 0, 0);
+	if (stat_file("/sys"))
+		mount("sysfs", "/sys", "sysfs", 0, 0);
+
+	mk_reboot_script();
+
+	if (ct->flags & CT_AUTO_PROC)
+		configure_sysctl("/proc/sys/net/ipv6/conf/all/forwarding", "0");
+
+	proc_wake(pipes->parent_wait, 0);
+	ret = proc_wait(pipes->child_wait);
+	if (ret)
+		return -1;
+
+	proc_wake_close(pipes->parent_wait, 0);
+	ret = proc_wait_close(pipes->child_wait);
+	if (ret)
+		return -1;
+
 	return 0;
 }
 
@@ -364,10 +491,273 @@ static int vzctl_env_create_ioctl(unsigned veid, int flags)
 	return errcode;
 }
 
+int env_create_data_ioctl(struct vzctl_env_create_data *data)
+{
+	int errcode;
+	int retry = 0;
+
+	do {
+		if (retry)
+			usleep(50000);
+		errcode = ioctl(get_vzctlfd(), VZCTL_ENV_CREATE_DATA, data);
+	} while (errcode < 0 && errno == EBUSY && retry++ < ENVRETRY);
+#ifdef  __x86_64__
+	/* Set personality PER_LINUX32 for i386 based VEs */
+	if (errcode >= 0)
+		set_personality32();
+#endif
+	return errcode;
+}
+
+static int exec_init(struct info_pipes *pipes, struct execv_args *ea)
+{
+	int fd = -1;
+	if (ea == NULL)
+		return -LCTERR_BADARG;
+
+	pr_info("executing command %s", ea->path);
+
+	if (ea->fds) {
+		dup2(ea->fds[0], STDIN_FILENO);
+		dup2(ea->fds[1], STDOUT_FILENO);
+		dup2(ea->fds[2], STDERR_FILENO);
+	} else {
+		if ((fd = open("/dev/null", O_RDWR)) == -1) {
+			pr_perror("Unable to open /dev/null");
+			return -1;
+		}
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
+	}
+
+	execve(ea->path, ea->argv, ea->env);
+	return -1;
+}
+
+static int env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_args *ea)
+{
+	int ret, eno;
+	struct container *ct = cth2ct(h);
+	struct vzctl_env_create_data env_create_data;
+	struct env_create_param3 create_param;
+	unsigned int veid;
+
+	if (parse_uint(ct->name, &veid) < 0) {
+		pr_err("Unable to parse container's ID");
+		return -1;
+	}
+	memset(&create_param, 0, sizeof(struct env_create_param3));
+
+	env_create_data.veid = veid;
+	env_create_data.class_id = 0;
+	env_create_data.flags = VE_CREATE | VE_EXCLUSIVE;
+	env_create_data.data = &create_param;
+	env_create_data.datalen = sizeof(struct env_create_param3);
+
+try:
+	ret = env_create_data_ioctl(&env_create_data);
+	if (ret < 0) {
+		eno = errno;
+		switch(eno) {
+		case EINVAL:
+			ret = -1;
+			/* Run-time kernel did not understand the
+			 * latest create_param -- so retry with
+			 * the old env_create_param structs.
+			 */
+			switch (env_create_data.datalen) {
+			case sizeof(struct env_create_param3):
+				env_create_data.datalen =
+					sizeof(struct env_create_param2);
+				goto try;
+			case sizeof(struct env_create_param2):
+				env_create_data.datalen =
+					sizeof(struct env_create_param);
+				goto try;
+			}
+			break;
+		case EACCES:
+			pr_err("License is not loaded");
+			break;
+		case ENOTTY:
+			pr_err("Some vz modules are not present ");
+			break;
+		default:
+			pr_perror("VZCTL_ENV_CREATE_DATA");
+			break;
+		}
+		if (write(pipes->parent_wait[1], &eno, sizeof(eno)) == -1)
+			pr_perror("Unable to write to status_p");
+		ret = -1;
+		return ret;
+	}
+
+	if ((ret = pre_setup_env(h, pipes)))
+		return ret;
+
+	return exec_init(pipes, ea);
+}
+
+static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_args *ea)
+{
+	int ret, pid, n;
+	struct container *ct = cth2ct(h);
+	unsigned int veid;
+
+	if (parse_uint(ct->name, &veid) < 0) {
+		pr_err("Unable to parse container's ID");
+		return -1;
+	}
+
+	if (!ct->root_path) {
+		pr_err("Root path is not set");
+		return -1;
+	}
+	if ((ret = vzctl_chroot(ct->root_path)))
+		goto err;
+	if ((ret = syscall(__NR_setluid, veid)))
+		goto err;
+
+	/* Create another process for proper resource accounting */
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Can not fork");
+		ret = -1;
+		goto err;
+	} else if (pid == 0) {
+		ret = env_create(h, pipes, ea);
+
+		n = write(pipes->parent_wait[1], &ret, sizeof(ret));
+		_exit(ret);
+	}
+	if (write(pipes->parent_wait[1], &pid, sizeof(pid)) == -1) {
+		pr_perror("Unable to write to parent_wait pipe");
+		goto err;
+	}
+
+	if (env_wait(pid, 0, NULL)) {
+		pr_perror("Execution failed");
+		goto err;
+	}
+	return 0;
+
+err:
+	if (write(pipes->parent_wait[1], &ret, sizeof(ret)) == -1)
+		pr_perror("Failed write() pipes->parent_wait[1] vz_env_create");
+	return ret;
+}
+
 static int vz_spawn_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
 {
 	pr_err("Spawn with callback is not supported");
 	return -1;
+}
+
+static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
+{
+	int ret = -1;
+	int child_wait[2];
+	int parent_wait[2];
+	struct container *ct = cth2ct(h);
+	struct execv_args ea = {
+		.path = path,
+		.argv = argv,
+		.env = env,
+		.fds = fds
+	};
+	struct info_pipes pipes = {
+		.child_wait = child_wait,
+		.parent_wait = parent_wait,
+	};
+	struct sigaction act;
+	int pid = -1;
+	int root_pid = -1;
+
+	if (ct->state != CT_STOPPED) {
+		ret = -LCTERR_BADCTSTATE;
+		goto err;
+	}
+
+	ret = pipe(child_wait);
+	if (ret == -1) {
+		pr_perror("Cannot create child wait pipe");
+		goto err;
+	}
+	ret = pipe(parent_wait);
+	if (ret == -1) {
+		pr_perror("Cannot create parent wait pipe");
+		goto err_pipe;
+	}
+
+	ret = fs_mount(ct);
+	if (ret) {
+		pr_err("Unable to mount fs");
+		goto err_pipe;
+	}
+
+	sigemptyset(&act.sa_mask);
+	act.sa_handler = SIG_IGN;
+	act.sa_flags = SA_NOCLDSTOP;
+	sigaction(SIGPIPE, &act, NULL);
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Cannot fork");
+		ret = -1;
+		goto err_fork;
+	} else if (pid == 0) {
+		sigaction(SIGCHLD, &act, NULL);
+
+		fcntl(parent_wait[1], F_SETFD, FD_CLOEXEC);
+		close(parent_wait[0]);
+		fcntl(child_wait[0], F_SETFD, FD_CLOEXEC);
+		close(child_wait[1]);
+
+		ret = vz_env_create(h, &pipes, &ea);
+
+		_exit(ret);
+	}
+	close(parent_wait[1]);
+	parent_wait[1] = -1;
+	close(child_wait[0]);
+	child_wait[0] = -1;
+
+	if (read(parent_wait[0], &root_pid, sizeof(root_pid)) == -1) {
+		pr_perror("Unable to read parent_wait pipe");
+		ret = -1;
+		goto err_wait;
+	}
+	ct->root_pid = root_pid;
+
+	if (proc_wait(parent_wait) == -1) {
+		ret = -1;
+		goto err_net;
+	}
+
+	proc_wake(child_wait, 0);
+
+	/* Wait while network would be configured inside container */
+	if (proc_wait_close(parent_wait)) {
+		ret = -1;
+		goto err_wait;
+	}
+	proc_wake_close(child_wait, 0);
+
+	ct->state = CT_RUNNING;
+	return ct->root_pid;
+
+err_wait:
+err_net:
+	proc_wake_close(child_wait, -1);
+err_fork:
+	fs_umount(ct);
+	close(parent_wait[0]);
+	close(parent_wait[1]);
+err_pipe:
+	close(child_wait[0]);
+	close(child_wait[1]);
+err:
+	return ret;
 }
 
 static int vz_set_option(ct_handler_t h, int opt, void *args)
@@ -667,7 +1057,7 @@ static int vz_config_controller(ct_handler_t h, enum ct_controller ctype,
 
 static const struct container_ops vz_ct_ops = {
 	.spawn_cb		= vz_spawn_cb,
-	.spawn_execve		= NULL,
+	.spawn_execve		= vz_spawn_execve,
 	.enter_cb		= NULL,
 	.enter_execve		= NULL,
 	.kill			= vz_ct_kill,
