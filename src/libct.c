@@ -6,6 +6,7 @@
 #include "uapi/libct.h"
 
 #include "linux-kernel.h"
+#include "process.h"
 #include "libct.h"
 #include "list.h"
 #include "err.h"
@@ -185,4 +186,14 @@ int libct_userns_add_gid_map(ct_handler_t ct, unsigned int first,
 			unsigned int lower_first, unsigned int count)
 {
 	return ct->ops->add_gid_map(ct, first, lower_first, count);
+}
+
+ct_process_desc_t libct_process_desc_copy(ct_process_desc_t p)
+{
+	return p->ops->copy(p);
+}
+
+void libct_process_desc_destroy(ct_process_desc_t p)
+{
+	return p->ops->destroy(p);
 }

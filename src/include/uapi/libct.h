@@ -26,6 +26,9 @@ extern void libct_session_close(libct_session_t s);
 struct ct_handler;
 typedef struct ct_handler *ct_handler_t;
 
+struct ct_process_desc;
+typedef struct ct_process_desc *ct_process_desc_t;
+
 enum ct_state {
 	CT_ERROR = -1,
 	CT_STOPPED,
@@ -182,5 +185,9 @@ extern int libct_container_set_option(ct_handler_t ct, int opt, void *args);
 extern int libct_container_set_console_fd(ct_handler_t ct, int tty_fd);
 
 extern int libct_fs_add_devnode(ct_handler_t ct, char *path, int mode, int major, int minor);
+
+extern ct_process_desc_t libct_process_desc_create(libct_session_t ses);
+extern ct_process_desc_t libct_process_desc_copy(ct_process_desc_t p);
+extern void libct_process_desc_destroy(ct_process_desc_t p);
 
 #endif /* __UAPI_LIBCT_H__ */

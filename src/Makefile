@@ -15,6 +15,7 @@ obj-y			+= async.o
 obj-y			+= util.o
 obj-y			+= devnodes.o
 obj-y			+= route.o
+obj-y			+= process.o
 
 cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
 cflags-so		+= -rdynamic
