@@ -8,6 +8,9 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "test.h"
 
 #define FS_ROOT	"libct_test_root"
@@ -62,7 +65,7 @@ int main(int argc, char **argv)
 
 	pipe(p);
 
-	mkdir(FS_ROOT);
+	mkdir(FS_ROOT, 0600);
 	fd = open(FS_ROOT "/" FS_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	if (fd < 0)
 		return err("Can't create file");

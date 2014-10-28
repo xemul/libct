@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sched.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include "test.h"
 
 #define VETH_HOST_NAME	"hveth0"

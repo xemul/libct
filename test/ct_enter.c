@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include <unistd.h>
+
 #include "test.h"
 
 struct ct_arg {

@@ -7,7 +7,7 @@ TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter \
 PIGS  = file_piggy
 
 CC = gcc
-CFLAGS = -I../src/include/uapi/ -g
+CFLAGS = -I../src/include/uapi/ -g -Wall -Werror
 LIBNLDIR = ../.shipped/libnl/lib/.libs
 LDFLAGS = -Wl,--no-as-needed \
 	-lct -L../src/ -Wl,-rpath,'$$ORIGIN/../src' \

@@ -9,6 +9,8 @@
 #include <fcntl.h>
 #include <sys/vfs.h>
 #include <linux/magic.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "test.h"
 
@@ -51,12 +53,12 @@ int main(int argc, char **argv)
 	ct_handler_t ct;
 	int fs_err = 0;
 
-	mkdir(FS_EXT);
+	mkdir(FS_EXT, 0600);
 	if (creat(FS_EXT "/" FS_FILE, 0600) < 0)
 		return err("Can't create file");
 
-	mkdir(FS_ROOT);
-	mkdir(FS_ROOT "/" FS_DIR);
+	mkdir(FS_ROOT, 0600);
+	mkdir(FS_ROOT "/" FS_DIR, 0600);
 	unlink(FS_ROOT "/" FS_DIR "/" FS_FILE);
 
 	fs_data = mmap(NULL, 4096, PROT_READ | PROT_WRITE,

@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <sched.h>
+#include <stdlib.h>
+
 #include "test.h"
 
 #ifndef CLONE_NEWNS

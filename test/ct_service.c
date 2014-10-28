@@ -6,6 +6,9 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+
 #include "test.h"
 
 struct ct_arg {
@@ -50,7 +53,7 @@ static int check_service_cg(int pid)
 int main(int argc, char **argv)
 {
 	struct ct_arg cta;
-	int pid, p[2], p2[2];
+	int p[2], p2[2];
 	libct_session_t s;
 	ct_handler_t ct;
 	int cg_ok = 0;

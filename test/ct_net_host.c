@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sched.h>
+#include <stdlib.h>
+
 #include "test.h"
 
 static int check_ct_net(void *a)

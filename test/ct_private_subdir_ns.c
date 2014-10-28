@@ -7,6 +7,9 @@
 #include <sys/mman.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "test.h"
 
 #ifndef CLONE_NEWNS
@@ -38,8 +41,8 @@ int main(int argc, char **argv)
 	ct_handler_t ct;
 	int fs_err = 0;
 
-	mkdir(FS_ROOT);
-	mkdir(FS_PRIVATE);
+	mkdir(FS_ROOT, 0600);
+	mkdir(FS_PRIVATE, 0600);
 	if (creat(FS_PRIVATE "/" FS_FILE, 0600) < 0)
 		return err("Can't create file");
 	unlink(FS_ROOT "/" FS_FILE);
