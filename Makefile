@@ -143,6 +143,7 @@ tags:
 
 clean:
 	$(Q) $(MAKE) $(build)=src clean
+	$(Q) $(MAKE) $(build)=test clean
 	$(Q) $(MAKE) -s -C Documentation clean
 	$(Q) $(RM) $(LIBCT)
 	$(Q) $(RM) $(CONFIG)
