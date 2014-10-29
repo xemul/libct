@@ -200,6 +200,7 @@ static int ct_clone(void *arg)
 	int ret = -1;
 	struct ct_clone_arg *ca = arg;
 	struct container *ct = ca->ct;
+	struct process_desc *p = ca->p;
 
 	close(ca->child_wait_pipe[1]);
 	close(ca->parent_wait_pipe[0]);
@@ -213,7 +214,7 @@ static int ct_clone(void *arg)
 			goto err;
 	}
 
-	if (prctl(PR_SET_PDEATHSIG, ct->pdeathsig))
+	if (prctl(PR_SET_PDEATHSIG, p->pdeathsig))
 		goto err;
 
 	if (!(ct->flags & CT_NOSETSID) && setsid() == -1)
@@ -267,7 +268,7 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
-	ret = apply_caps(ct);
+	ret = apply_creds(p);
 	if (ret < 0)
 		goto err_um;
 
@@ -321,6 +322,7 @@ err:
 static int local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
+	struct process_desc *p = prh2pr(ph);
 	int ret = -1, pid, aux;
 	struct ct_clone_arg ca;
 
@@ -349,6 +351,7 @@ static int local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 	ca.cb = cb;
 	ca.arg = arg;
 	ca.ct = ct;
+	ca.p = p;
 	pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD, &ca);
 	if (pid < 0)
 		goto err_clone;
@@ -450,6 +453,7 @@ static int local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path,
 static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
+	struct process_desc *p = prh2pr(ph);
 	int aux = -1, pid;
 
 	if (ct->state != CT_RUNNING)
@@ -491,7 +495,7 @@ static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 				exit(-1);
 		}
 
-		if (apply_caps(ct))
+		if (apply_creds(p))
 			exit(-1);
 
 		aux = cb(arg);

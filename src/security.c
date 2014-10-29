@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <grp.h>
 
 #include <sys/prctl.h>
 
@@ -59,17 +60,23 @@ static int apply_all_caps(unsigned long mask)
 	return capset(&header, data);
 }
 
-int apply_caps(struct container *ct)
+int apply_creds(struct process_desc *p)
 {
-	if (!ct->cap_mask)
+	if (setgroups(p->ngroups, p->groups))
+		return -1;
+
+	if (setgid(p->gid) || setuid(p->uid))
+		return -1;
+
+	if (!p->cap_mask)
 		return 0;
 
-	if (ct->cap_mask & CAPS_BSET)
-		if (apply_bset(ct->cap_bset) < 0)
+	if (p->cap_mask & CAPS_BSET)
+		if (apply_bset(p->cap_bset) < 0)
 			return -1;
 
-	if (ct->cap_mask & CAPS_ALLCAPS)
-		if (apply_all_caps(ct->cap_caps) < 0)
+	if (p->cap_mask & CAPS_ALLCAPS)
+		if (apply_all_caps(p->cap_caps) < 0)
 			return -1;
 
 	return 0;
