@@ -55,61 +55,61 @@ enum ct_state libct_container_state(ct_handler_t h)
 	return h->ops->get_state(h);
 }
 
-int libct_container_spawn_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
+int libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*cb)(void *), void *arg)
 {
 	/* This one is optional -- only local ops support */
 	if (!ct->ops->spawn_cb)
 		return -LCTERR_OPNOTSUPP;
 
-	return ct->ops->spawn_cb(ct, cb, arg);
+	return ct->ops->spawn_cb(ct, pr, cb, arg);
 }
 
-int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv)
+int libct_container_spawn_execv(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv)
 {
-	return libct_container_spawn_execve(ct, path, argv, NULL);
+	return libct_container_spawn_execve(ct, pr, path, argv, NULL);
 }
 
-int libct_container_spawn_execve(ct_handler_t ct, char *path, char **argv, char **env)
+int libct_container_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env)
 {
-	return ct->ops->spawn_execve(ct, path, argv, env, NULL);
+	return ct->ops->spawn_execve(ct, pr, path, argv, env, NULL);
 }
 
-int libct_container_spawn_execvfds(ct_handler_t ct, char *path, char **argv, int *fds)
+int libct_container_spawn_execvfds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, int *fds)
 {
-	return libct_container_spawn_execvefds(ct, path, argv, NULL, fds);
+	return libct_container_spawn_execvefds(ct, pr, path, argv, NULL, fds);
 }
 
-int libct_container_spawn_execvefds(ct_handler_t ct, char *path, char **argv, char **env, int *fds)
+int libct_container_spawn_execvefds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
 {
-	return ct->ops->spawn_execve(ct, path, argv, env, fds);
+	return ct->ops->spawn_execve(ct, pr, path, argv, env, fds);
 }
 
-int libct_container_enter_cb(ct_handler_t ct, int (*cb)(void *), void *arg)
+int libct_container_enter_cb(ct_handler_t ct, ct_process_desc_t p, int (*cb)(void *), void *arg)
 {
 	if (!ct->ops->enter_cb)
 		return -LCTERR_OPNOTSUPP;
 
-	return ct->ops->enter_cb(ct, cb, arg);
+	return ct->ops->enter_cb(ct, p, cb, arg);
 }
 
-int libct_container_enter_execvfds(ct_handler_t ct, char *path, char **argv, int *fds)
+int libct_container_enter_execvfds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, int *fds)
 {
-	return libct_container_enter_execvefds(ct, path, argv, NULL, fds);
+	return libct_container_enter_execvefds(ct, p, path, argv, NULL, fds);
 }
 
-int libct_container_enter_execvefds(ct_handler_t ct, char *path, char **argv, char **env, int *fds)
+int libct_container_enter_execvefds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
 {
-	return ct->ops->enter_execve(ct, path, argv, env, fds);
+	return ct->ops->enter_execve(ct, p, path, argv, env, fds);
 }
 
-int libct_container_enter_execv(ct_handler_t ct, char *path, char **argv)
+int libct_container_enter_execv(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv)
 {
-	return libct_container_enter_execve(ct, path, argv, NULL);
+	return libct_container_enter_execve(ct, p, path, argv, NULL);
 }
 
-int libct_container_enter_execve(ct_handler_t ct, char *path, char **argv, char **env)
+int libct_container_enter_execve(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env)
 {
-	return ct->ops->enter_execve(ct, path, argv, env, NULL);
+	return ct->ops->enter_execve(ct, p, path, argv, env, NULL);
 }
 
 
@@ -186,6 +186,34 @@ int libct_userns_add_gid_map(ct_handler_t ct, unsigned int first,
 			unsigned int lower_first, unsigned int count)
 {
 	return ct->ops->add_gid_map(ct, first, lower_first, count);
+}
+
+int libct_process_desc_set_caps(ct_process_desc_t p, unsigned long mask, unsigned int apply_to)
+{
+	if (!apply_to || (apply_to & ~CAPS_ALL))
+		return -LCTERR_INVARG;
+
+	return p->ops->set_caps(p, mask, apply_to);
+}
+
+int libct_process_desc_set_pdeathsig(ct_process_desc_t p, int sig)
+{
+	return p->ops->set_pdeathsig(p, sig);
+}
+
+int libct_process_desc_setuid(ct_process_desc_t p, unsigned int uid)
+{
+	return p->ops->setuid(p, uid);
+}
+
+int libct_process_desc_setgid(ct_process_desc_t p, unsigned int gid)
+{
+	return p->ops->setgid(p, gid);
+}
+
+int libct_process_desc_setgroups(ct_process_desc_t p, unsigned int size, unsigned int groups[])
+{
+	return p->ops->setgroups(p, size, groups);
 }
 
 ct_process_desc_t libct_process_desc_copy(ct_process_desc_t p)

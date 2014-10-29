@@ -89,6 +89,7 @@ struct ct_clone_arg {
 	int (*cb)(void *);
 	void *arg;
 	struct container *ct;
+	struct process_desc *p;
 	int child_wait_pipe[2];
 	int parent_wait_pipe[2];
 };
@@ -317,7 +318,7 @@ err:
 	return exit_code;
 }
 
-static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
+static int local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
 	int ret = -1, pid, aux;
@@ -434,7 +435,7 @@ err:
 	return -1;
 }
 
-static int local_spawn_execve(ct_handler_t ct, char *path, char **argv, char **env, int *fds)
+static int local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea;
 
@@ -443,10 +444,10 @@ static int local_spawn_execve(ct_handler_t ct, char *path, char **argv, char **e
 	ea.env = env;
 	ea.fds = fds;
 
-	return local_spawn_cb(ct, ct_execv, &ea);
+	return local_spawn_cb(ct, pr, ct_execv, &ea);
 }
 
-static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
+static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
 	int aux = -1, pid;
@@ -503,7 +504,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	return pid;
 }
 
-static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **env, int *fds)
+static int local_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea = {};
 
@@ -512,7 +513,7 @@ static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **en
 	ea.env	= env;
 	ea.fds = fds;
 
-	return local_enter_cb(h, ct_execv, &ea);
+	return local_enter_cb(h, p, ct_execv, &ea);
 }
 
 static int local_ct_kill(ct_handler_t h)

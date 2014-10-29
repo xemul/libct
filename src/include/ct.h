@@ -9,12 +9,13 @@
 
 #include "fs.h"
 #include "net.h"
+#include "process.h"
 
 struct container_ops {
-	int (*spawn_cb)(ct_handler_t h, int (*cb)(void *), void *arg);
-	int (*spawn_execve)(ct_handler_t, char *path, char **argv, char **env, int *fds);
-	int (*enter_cb)(ct_handler_t h, int (*cb)(void *), void *arg);
-	int (*enter_execve)(ct_handler_t h, char *path, char **argv, char **env, int *fds);
+	int (*spawn_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
+	int (*spawn_execve)(ct_handler_t, ct_process_desc_t p, char *path, char **argv, char **env, int *fds);
+	int (*enter_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
+	int (*enter_execve)(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds);
 	int (*kill)(ct_handler_t h);
 	int (*wait)(ct_handler_t h);
 	enum ct_state (*get_state)(ct_handler_t h);
