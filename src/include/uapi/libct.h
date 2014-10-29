@@ -78,10 +78,6 @@ extern int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 
 extern int libct_container_uname(ct_handler_t ct, char *host, char *domain);
 
-extern int libct_container_set_caps(ct_handler_t ct, unsigned long mask, unsigned int apply_to);
-
-extern int libct_container_set_pdeathsig(ct_handler_t ct, int sig);
-
 /*
  * FS configuration
  */

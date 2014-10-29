@@ -36,8 +36,6 @@ struct container_ops {
 	int (*net_del)(ct_handler_t h, enum ct_net_type, void *arg);
 	ct_net_route_t (*net_route_add)(ct_handler_t h);
 	int (*uname)(ct_handler_t h, char *host, char *domain);
-	int (*set_caps)(ct_handler_t h, unsigned long mask, unsigned int apply_to);
-	int (*set_pdeathsig)(ct_handler_t h, int sig);
 	int (*add_uid_map)(ct_handler_t ct, unsigned int first,
 			unsigned int lower_first, unsigned int count);
 	int (*add_gid_map)(ct_handler_t ct, unsigned int first,
@@ -77,16 +75,6 @@ struct container {
 	char			*cgroup_sub;
 	char			*hostname;
 	char			*domainname;
-
-	/*
-	 * Security 
-	 */
-
-	unsigned int		cap_mask;
-
-	unsigned long		cap_bset;
-	unsigned long		cap_caps;
-	int			pdeathsig;
 
 	/*
 	 * FS-specific fields

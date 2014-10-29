@@ -155,19 +155,6 @@ int libct_container_uname(ct_handler_t ct, char *host, char *domain)
 	return ct->ops->uname(ct, host, domain);
 }
 
-int libct_container_set_caps(ct_handler_t ct, unsigned long mask, unsigned int apply_to)
-{
-	if (!apply_to || (apply_to & ~CAPS_ALL))
-		return -LCTERR_INVARG;
-
-	return ct->ops->set_caps(ct, mask, apply_to);
-}
-
-int libct_container_set_pdeathsig(ct_handler_t ct, int sig)
-{
-	return ct->ops->set_pdeathsig(ct, sig);
-}
-
 libct_session_t libct_session_open(char *how)
 {
 	if (!how || !strcmp(how, "local"))

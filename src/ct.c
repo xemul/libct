@@ -614,35 +614,6 @@ static int local_uname(ct_handler_t h, char *host, char *dom)
 	return 0;
 }
 
-static int local_set_caps(ct_handler_t h, unsigned long mask, unsigned int apply_to)
-{
-	struct container *ct = cth2ct(h);
-
-	if (ct->state != CT_STOPPED)
-		return -LCTERR_BADCTSTATE;
-
-	if (apply_to & CAPS_BSET) {
-		ct->cap_mask |= CAPS_BSET;
-		ct->cap_bset = mask;
-	}
-
-	if (apply_to & CAPS_ALLCAPS) {
-		ct->cap_mask |= CAPS_ALLCAPS;
-		ct->cap_caps = mask;
-	}
-
-	return 0;
-}
-
-static int local_set_pdeathsig(ct_handler_t h, int sig)
-{
-	struct container *ct = cth2ct(h);
-
-	ct->pdeathsig = sig;
-
-	return 0;
-}
-
 char *local_ct_name(ct_handler_t h)
 {
 	return cth2ct(h)->name;
@@ -714,8 +685,6 @@ static const struct container_ops local_ct_ops = {
 	.net_del		= local_net_del,
 	.net_route_add		= local_net_route_add,
 	.uname			= local_uname,
-	.set_caps		= local_set_caps,
-	.set_pdeathsig		= local_set_pdeathsig,
 	.add_uid_map		= local_add_uid_map,
 	.add_gid_map		= local_add_gid_map,
 };
