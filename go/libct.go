@@ -25,6 +25,10 @@ type Container struct {
 	ct C.ct_handler_t
 }
 
+type ProcessDesc struct {
+	p C.ct_process_desc_t
+}
+
 type NetDev struct {
 	dev C.ct_net_t
 }
@@ -65,6 +69,15 @@ func (s *Session) ContainerCreate(name string) (*Container, error) {
 	return &Container{ct}, nil
 }
 
+func (s *Session) ProcessCreateDesc() (*ProcessDesc, error) {
+	p := C.libct_process_desc_create(s.s)
+	if p == nil {
+		return nil, LibctError{-1}
+	}
+
+	return &ProcessDesc{p}, nil
+}
+
 func (ct *Container) SetNsMask(nsmask uint64) error {
 	ret := C.libct_container_set_nsmask(ct.ct, C.ulong(nsmask))
 
@@ -95,7 +108,7 @@ func (ct *Container) SetConsoleFd(f *os.File) error {
 	return nil
 }
 
-func (ct *Container) SpawnExecve(path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
+func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
 	var cfdsp *C.int
 
 	cargv := make([]*C.char, len(argv)+1)
@@ -116,7 +129,7 @@ func (ct *Container) SpawnExecve(path string, argv []string, env []string, fds *
 		cfdsp = &cfds[0]
 	}
 
-	ret := int(C.libct_container_spawn_execvefds(ct.ct, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+	ret := int(C.libct_container_spawn_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
 	if ret < 0 {
 		return -1, LibctError{int(ret)}
 	}
@@ -199,8 +212,8 @@ func (ct *Container) SetOption(opt int32) error {
 	return nil
 }
 
-func (ct *Container) SetCaps(mask uint64, apply_to int) error {
-	ret := C.libct_container_set_caps(ct.ct, C.ulong(mask), C.uint(apply_to))
+func (p *ProcessDesc) SetCaps(mask uint64, apply_to int) error {
+	ret := C.libct_process_desc_set_caps(p.p, C.ulong(mask), C.uint(apply_to))
 	if ret != 0 {
 		return LibctError{int(ret)}
 	}
@@ -208,8 +221,8 @@ func (ct *Container) SetCaps(mask uint64, apply_to int) error {
 	return nil
 }
 
-func (ct *Container) SetParentDeathSignal(sig syscall.Signal) error {
-	if ret := C.libct_container_set_pdeathsig(ct.ct, C.int(sig)); ret != 0 {
+func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
+	if ret := C.libct_process_desc_set_pdeathsig(p.p, C.int(sig)); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
