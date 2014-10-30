@@ -29,7 +29,6 @@ struct libct_session {
 
 struct local_session {
 	struct libct_session s;
-	int server_sk;
 };
 
 static inline struct local_session *s2ls(libct_session_t s)

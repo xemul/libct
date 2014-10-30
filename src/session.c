@@ -12,9 +12,6 @@
 static void close_local_session(libct_session_t s)
 {
 	struct local_session *l = s2ls(s);
-	if (l->server_sk >= 0) {
-		close(l->server_sk);
-	}
 	xfree(l);
 }
 
@@ -77,7 +74,6 @@ libct_session_t libct_session_open_local(void)
 		INIT_LIST_HEAD(&s->s.s_cts);
 		INIT_LIST_HEAD(&s->s.async_list);
 		s->s.ops = &local_session_ops;
-		s->server_sk = -1;
 		return &s->s;
 	}
 
