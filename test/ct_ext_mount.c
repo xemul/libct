@@ -51,6 +51,7 @@ int main(int argc, char **argv)
 	char *fs_data;
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_process_desc_t p;
 	int fs_err = 0;
 
 	mkdir(FS_EXT, 0600);
@@ -67,13 +68,14 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
+	p = libct_process_desc_create(s);
 	printf("Set root\n");
 	libct_fs_set_root(ct, FS_ROOT);
 	printf("Set bind\n");
 	libct_fs_add_bind_mount(ct, FS_EXT, FS_DIR, 0);
 	libct_fs_add_mount(ct, "test_devpts", FS_PTS, 0, "devpts", "newinstance");
 	printf("Spawn\n");
-	libct_container_spawn_cb(ct, check_fs_data, fs_data);
+	libct_container_spawn_cb(ct, p, check_fs_data, fs_data);
 	printf("Done\n");
 	libct_container_wait(ct);
 	libct_container_destroy(ct);

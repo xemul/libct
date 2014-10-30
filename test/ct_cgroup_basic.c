@@ -25,6 +25,7 @@ int main(int argc, char **argv)
 	int *ct_state;
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_process_desc_t p;
 
 	ct_state = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
@@ -33,8 +34,9 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test-fr");
+	p = libct_process_desc_create(s);
 	libct_controller_add(ct, CTL_FREEZER);
-	libct_container_spawn_cb(ct, check_freezer_cg, ct_state);
+	libct_container_spawn_cb(ct, p, check_freezer_cg, ct_state);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);

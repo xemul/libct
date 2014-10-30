@@ -37,6 +37,7 @@ int main(int argc, char **argv)
 	int *ct_root_pids;
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_process_desc_t p;
 
 	ct_root_pids = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
@@ -45,12 +46,13 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
+	p = libct_process_desc_create(s);
 	if (libct_container_set_nsmask(ct, CLONE_NEWPID | CLONE_NEWNS))
 		return err("No pid & mount NS");
 
 	libct_container_set_option(ct, LIBCT_OPT_AUTO_PROC_MOUNT, NULL);
 
-	libct_container_spawn_cb(ct, set_ct_root_pids, ct_root_pids);
+	libct_container_spawn_cb(ct, p, set_ct_root_pids, ct_root_pids);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);

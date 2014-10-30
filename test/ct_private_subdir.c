@@ -35,6 +35,7 @@ int main(int argc, char **argv)
 	char *fs_data;
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_process_desc_t p;
 	int fs_err = 0;
 
 	mkdir(FS_ROOT, 0600);
@@ -49,9 +50,10 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
+	p = libct_process_desc_create(s);
 	libct_fs_set_root(ct, FS_ROOT);
 	libct_fs_set_private(ct, CT_FS_SUBDIR, FS_PRIVATE);
-	libct_container_spawn_cb(ct, check_fs_data, fs_data);
+	libct_container_spawn_cb(ct, p, check_fs_data, fs_data);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);

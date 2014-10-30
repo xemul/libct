@@ -43,6 +43,7 @@ int main(int argc, char **argv)
 	int pid, p[2];
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_process_desc_t pr;
 
 	pipe(p);
 	cta.mark = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
@@ -55,9 +56,10 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
+	pr = libct_process_desc_create(s);
 	libct_container_set_nsmask(ct, CLONE_NEWPID);
-	libct_container_spawn_cb(ct, set_ct_alive, &cta);
-	pid = libct_container_enter_cb(ct, set_ct_enter, &cta);
+	libct_container_spawn_cb(ct, pr, set_ct_alive, &cta);
+	pid = libct_container_enter_cb(ct, pr, set_ct_enter, &cta);
 	if (waitpid(pid, NULL, 0) < 0)
 		perror("Can't wait entered process");
 

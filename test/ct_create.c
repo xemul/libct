@@ -17,6 +17,7 @@ int main(int argc, char **argv)
 	int *ct_alive;
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_process_desc_t p;
 
 	ct_alive = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
@@ -24,7 +25,8 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
-	libct_container_spawn_cb(ct, set_ct_alive, ct_alive);
+	p = libct_process_desc_create(s);
+	libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);

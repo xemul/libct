@@ -27,6 +27,7 @@ int main(int argc, char **argv)
 	int *ct_status;
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_process_desc_t p;
 	ct_net_t nd;
 
 	ct_status = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
@@ -40,6 +41,7 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
+	p = libct_process_desc_create(s);
 	libct_container_set_nsmask(ct, CLONE_NEWNET);
 
 	nd = libct_net_add(ct, CT_NET_HOSTNIC, "dm0");
@@ -47,7 +49,7 @@ int main(int argc, char **argv)
 		system("ip link del dm0");
 		return err("Can't add hostnic");
 	}
-	if (libct_container_spawn_cb(ct, check_ct_net, ct_status) < 0) {
+	if (libct_container_spawn_cb(ct, p, check_ct_net, ct_status) < 0) {
 		system("ip link del dm0");
 		return err("Can't spawn CT");
 	}

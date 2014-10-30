@@ -40,6 +40,7 @@ int main(int argc, char **argv)
 	int *ct_alive;
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_process_desc_t p;
 
 	ct_alive = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
@@ -47,6 +48,7 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
+	p = libct_process_desc_create(s);
 	if (libct_container_set_nsmask(ct, CLONE_NEWPID | CLONE_NEWUSER | CLONE_NEWNS))
 		return 1;
 
@@ -67,7 +69,7 @@ int main(int argc, char **argv)
 	    libct_userns_add_gid_map(ct, 0, 140000, 1200) ||
 	    libct_userns_add_gid_map(ct, 1200, 150000, 1100))
 		return 1;
-	libct_container_spawn_cb(ct, set_ct_alive, ct_alive);
+	libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);
