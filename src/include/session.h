@@ -17,6 +17,7 @@ struct backend_ops {
 	ct_handler_t (*create_ct)(libct_session_t s, char *name);
 	ct_handler_t (*open_ct)(libct_session_t s, char *name);
 	void	     (*update_ct_state)(libct_session_t s, pid_t pid);
+	ct_process_desc_t (*create_process_desc)(libct_session_t s);
 	void (*close)(libct_session_t s);
 };
 
@@ -28,7 +29,6 @@ struct libct_session {
 
 struct local_session {
 	struct libct_session s;
-	int server_sk;
 };
 
 static inline struct local_session *s2ls(libct_session_t s)

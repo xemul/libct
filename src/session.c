@@ -3,6 +3,7 @@
 #include "uapi/libct.h"
 
 #include "session.h"
+#include "process.h"
 #include "xmalloc.h"
 #include "libct.h"
 #include "async.h"
@@ -11,9 +12,6 @@
 static void close_local_session(libct_session_t s)
 {
 	struct local_session *l = s2ls(s);
-	if (l->server_sk >= 0) {
-		close(l->server_sk);
-	}
 	xfree(l);
 }
 
@@ -26,6 +24,19 @@ static ct_handler_t create_local_ct(libct_session_t s, char *name)
 		return libct_err_to_handle(-1);
 	else
 		return ct;
+}
+
+static ct_process_desc_t local_process_create_desc(libct_session_t s)
+{
+	struct process_desc *p;
+
+	p = xmalloc(sizeof(*p));
+	if (p == NULL)
+		return NULL;
+
+	local_process_init(p);
+
+	return &p->h;
 }
 
 static void update_local_ct_state(libct_session_t s, pid_t pid)
@@ -46,6 +57,7 @@ static void update_local_ct_state(libct_session_t s, pid_t pid)
 static const struct backend_ops local_session_ops = {
 	.type = BACKEND_LOCAL,
 	.create_ct = create_local_ct,
+	.create_process_desc = local_process_create_desc,
 	.close = close_local_session,
 	.update_ct_state = update_local_ct_state,
 };
@@ -62,7 +74,6 @@ libct_session_t libct_session_open_local(void)
 		INIT_LIST_HEAD(&s->s.s_cts);
 		INIT_LIST_HEAD(&s->s.async_list);
 		s->s.ops = &local_session_ops;
-		s->server_sk = -1;
 		return &s->s;
 	}
 
@@ -105,6 +116,11 @@ ct_handler_t libct_container_open(libct_session_t ses, char *name)
 
 	cth = ses->ops->open_ct(ses, name);
 	return new_ct(ses, cth);
+}
+
+ct_process_desc_t libct_process_desc_create(libct_session_t ses)
+{
+	return ses->ops->create_process_desc(ses);
 }
 
 void libct_session_close(libct_session_t s)

@@ -9,12 +9,13 @@
 
 #include "fs.h"
 #include "net.h"
+#include "process.h"
 
 struct container_ops {
-	int (*spawn_cb)(ct_handler_t h, int (*cb)(void *), void *arg);
-	int (*spawn_execve)(ct_handler_t, char *path, char **argv, char **env, int *fds);
-	int (*enter_cb)(ct_handler_t h, int (*cb)(void *), void *arg);
-	int (*enter_execve)(ct_handler_t h, char *path, char **argv, char **env, int *fds);
+	int (*spawn_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
+	int (*spawn_execve)(ct_handler_t, ct_process_desc_t p, char *path, char **argv, char **env, int *fds);
+	int (*enter_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
+	int (*enter_execve)(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds);
 	int (*kill)(ct_handler_t h);
 	int (*wait)(ct_handler_t h);
 	enum ct_state (*get_state)(ct_handler_t h);
@@ -35,8 +36,10 @@ struct container_ops {
 	int (*net_del)(ct_handler_t h, enum ct_net_type, void *arg);
 	ct_net_route_t (*net_route_add)(ct_handler_t h);
 	int (*uname)(ct_handler_t h, char *host, char *domain);
-	int (*set_caps)(ct_handler_t h, unsigned long mask, unsigned int apply_to);
-	int (*set_pdeathsig)(ct_handler_t h, int sig);
+	int (*add_uid_map)(ct_handler_t ct, unsigned int first,
+			unsigned int lower_first, unsigned int count);
+	int (*add_gid_map)(ct_handler_t ct, unsigned int first,
+			unsigned int lower_first, unsigned int count);
 };
 
 struct ct_handler {
@@ -74,16 +77,6 @@ struct container {
 	char			*domainname;
 
 	/*
-	 * Security 
-	 */
-
-	unsigned int		cap_mask;
-
-	unsigned long		cap_bset;
-	unsigned long		cap_caps;
-	int			pdeathsig;
-
-	/*
 	 * FS-specific fields
 	 */
 
@@ -106,6 +99,16 @@ struct container {
 	int			tty_fd;
 
 	void			*private;	/* driver-specific */
+
+	struct list_head	uid_map;
+	struct list_head	gid_map;
+};
+
+struct _uid_gid_map {
+	struct list_head	node;
+	unsigned int first;
+	unsigned int lower_first;
+	unsigned int count;
 };
 
 static inline struct container *cth2ct(struct ct_handler *h)

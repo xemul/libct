@@ -6,6 +6,9 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+
 #include "test.h"
 
 struct ct_arg {
@@ -50,9 +53,10 @@ static int check_service_cg(int pid)
 int main(int argc, char **argv)
 {
 	struct ct_arg cta;
-	int pid, p[2], p2[2];
+	int p[2], p2[2];
 	libct_session_t s;
 	ct_handler_t ct;
+	ct_process_desc_t pr;
 	int cg_ok = 0;
 	char c;
 
@@ -66,10 +70,11 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test-s");
+	pr = libct_process_desc_create(s);
 	if (libct_container_set_option(ct, LIBCT_OPT_KILLABLE, NULL))
 		return err("can't set killable");
 
-	if (libct_container_spawn_cb(ct, set_ct_alive, &cta) < 0)
+	if (libct_container_spawn_cb(ct, pr, set_ct_alive, &cta) < 0)
 		return err("can't start CT");
 
 	read(p2[0], &c, 1);

@@ -26,6 +26,9 @@ extern void libct_session_close(libct_session_t s);
 struct ct_handler;
 typedef struct ct_handler *ct_handler_t;
 
+struct ct_process_desc;
+typedef struct ct_process_desc *ct_process_desc_t;
+
 enum ct_state {
 	CT_ERROR = -1,
 	CT_STOPPED,
@@ -37,16 +40,16 @@ extern ct_handler_t libct_container_open(libct_session_t ses, char *name);
 extern void libct_container_close(ct_handler_t ct);
 
 enum ct_state libct_container_state(ct_handler_t ct);
-extern int libct_container_spawn_cb(ct_handler_t ct, int (*ct_fn)(void *), void *arg);
-extern int libct_container_spawn_execvfds(ct_handler_t ct, char *path, char **argv, int *fds);
-extern int libct_container_spawn_execvefds(ct_handler_t ct, char *path, char **argv, char **env, int *fds);
-extern int libct_container_spawn_execv(ct_handler_t ct, char *path, char **argv);
-extern int libct_container_spawn_execve(ct_handler_t ct, char *path, char **argv, char **env);
-extern int libct_container_enter_cb(ct_handler_t ct, int (*ct_fn)(void *), void *arg);
-extern int libct_container_enter_execvfds(ct_handler_t ct, char *path, char **argv, int *fds);
-extern int libct_container_enter_execvefds(ct_handler_t ct, char *path, char **argv, char **env, int *fds);
-extern int libct_container_enter_execv(ct_handler_t ct, char *path, char **argv);
-extern int libct_container_enter_execve(ct_handler_t ct, char *path, char **argv, char **env);
+extern int libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*ct_fn)(void *), void *arg);
+extern int libct_container_spawn_execvfds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, int *fds);
+extern int libct_container_spawn_execvefds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds);
+extern int libct_container_spawn_execv(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv);
+extern int libct_container_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env);
+extern int libct_container_enter_cb(ct_handler_t ct, ct_process_desc_t p, int (*ct_fn)(void *), void *arg);
+extern int libct_container_enter_execvfds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, int *fds);
+extern int libct_container_enter_execvefds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env, int *fds);
+extern int libct_container_enter_execv(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv);
+extern int libct_container_enter_execve(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env);
 extern int libct_container_kill(ct_handler_t ct);
 extern int libct_container_wait(ct_handler_t ct);
 extern void libct_container_destroy(ct_handler_t ct);
@@ -74,13 +77,6 @@ extern int libct_controller_add(ct_handler_t ct, enum ct_controller ctype);
 extern int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype, char *param, char *value);
 
 extern int libct_container_uname(ct_handler_t ct, char *host, char *domain);
-
-#define CAPS_BSET	0x1
-#define CAPS_ALLCAPS	0x2
-#define CAPS_ALL	(CAPS_BSET | CAPS_ALLCAPS)
-extern int libct_container_set_caps(ct_handler_t ct, unsigned long mask, unsigned int apply_to);
-
-extern int libct_container_set_pdeathsig(ct_handler_t ct, int sig);
 
 /*
  * FS configuration
@@ -150,6 +146,11 @@ extern ct_net_route_nh_t libct_net_route_add_nh(ct_net_route_t r);
 extern int libct_net_route_nh_set_gw(ct_net_route_nh_t nh, char *addr);
 extern int libct_net_route_nh_set_dev(ct_net_route_nh_t nh, char *dev);
 
+extern int libct_userns_add_uid_map(ct_handler_t ct, unsigned int first,
+				unsigned lower_first, unsigned int count);
+extern int libct_userns_add_gid_map(ct_handler_t ct, unsigned int first,
+				unsigned lower_first, unsigned int count);
+
 /*
  * Options
  */
@@ -177,5 +178,19 @@ extern int libct_container_set_option(ct_handler_t ct, int opt, void *args);
 extern int libct_container_set_console_fd(ct_handler_t ct, int tty_fd);
 
 extern int libct_fs_add_devnode(ct_handler_t ct, char *path, int mode, int major, int minor);
+
+extern ct_process_desc_t libct_process_desc_create(libct_session_t ses);
+extern ct_process_desc_t libct_process_desc_copy(ct_process_desc_t p);
+extern void libct_process_desc_destroy(ct_process_desc_t p);
+extern int libct_process_desc_setuid(ct_process_desc_t p, unsigned int uid);
+extern int libct_process_desc_setgid(ct_process_desc_t p, unsigned int uid);
+extern int libct_process_desc_setgroupts(ct_process_desc_t p, unsigned int size, unsigned int groups[]);
+
+#define CAPS_BSET	0x1
+#define CAPS_ALLCAPS	0x2
+#define CAPS_ALL	(CAPS_BSET | CAPS_ALLCAPS)
+extern int libct_process_desc_set_caps(ct_process_desc_t ct, unsigned long mask, unsigned int apply_to);
+
+extern int libct_process_desc_set_pdeathsig(ct_process_desc_t ct, int sig);
 
 #endif /* __UAPI_LIBCT_H__ */

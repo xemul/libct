@@ -1,6 +1,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <unistd.h>
+#include <grp.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -9,6 +10,9 @@
 #include <sys/wait.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "uapi/libct.h"
 #include "asm/page.h"
@@ -30,6 +34,16 @@ static enum ct_state local_get_state(ct_handler_t h)
 	return cth2ct(h)->state;
 }
 
+static void local_ct_uid_gid_free(struct container *ct)
+{
+	struct _uid_gid_map *map, *t;
+
+	list_for_each_entry_safe(map, t, &ct->uid_map, node)
+		xfree(map);
+	list_for_each_entry_safe(map, t, &ct->gid_map, node)
+		xfree(map);
+}
+
 static void local_ct_destroy(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
@@ -41,6 +55,7 @@ static void local_ct_destroy(ct_handler_t h)
 	xfree(ct->hostname);
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
+	local_ct_uid_gid_free(ct);
 	xfree(ct);
 }
 
@@ -74,6 +89,7 @@ struct ct_clone_arg {
 	int (*cb)(void *);
 	void *arg;
 	struct container *ct;
+	struct process_desc *p;
 	int child_wait_pipe[2];
 	int parent_wait_pipe[2];
 };
@@ -184,11 +200,21 @@ static int ct_clone(void *arg)
 	int ret = -1;
 	struct ct_clone_arg *ca = arg;
 	struct container *ct = ca->ct;
+	struct process_desc *p = ca->p;
 
 	close(ca->child_wait_pipe[1]);
 	close(ca->parent_wait_pipe[0]);
 
-	if (prctl(PR_SET_PDEATHSIG, ct->pdeathsig))
+	ret = spawn_wait(ca->child_wait_pipe);
+	if (ret)
+		goto err_um;
+
+	if (ct->nsmask & CLONE_NEWUSER) {
+		if (setuid(0) || setgid(0) || setgroups(0, NULL))
+			goto err;
+	}
+
+	if (prctl(PR_SET_PDEATHSIG, p->pdeathsig))
 		goto err;
 
 	if (!(ct->flags & CT_NOSETSID) && setsid() == -1)
@@ -242,12 +268,8 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
-	ret = apply_caps(ct);
+	ret = apply_creds(p);
 	if (ret < 0)
-		goto err_um;
-
-	ret = spawn_wait(ca->child_wait_pipe);
-	if (ret)
 		goto err_um;
 
 	spawn_wake(ca->parent_wait_pipe, 0);
@@ -262,9 +284,45 @@ err:
 	exit(ret);
 }
 
-static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
+static int write_id_mappings(pid_t pid, struct list_head *list, char *id_map)
+{
+	int size = 0, off = 0, exit_code, fd = -1;
+	struct _uid_gid_map *map;
+	char *buf = NULL, *_buf;
+	char fname[PATH_MAX];
+
+	list_for_each_entry(map, list, node) {
+		if (size - off < 34) {
+			size += PAGE_SIZE;
+			_buf = xrealloc(buf, size);
+			if (_buf == NULL)
+				goto err;
+			buf = _buf;
+		}
+		off += snprintf(buf + off, size - off, "%u %u %u\n",
+				map->first, map->lower_first, map->count);
+
+	}
+
+	snprintf(fname, sizeof(fname), "/proc/%d/%s", pid, id_map);
+	fd = open(fname, O_WRONLY);
+	if (fd < 0)
+		goto err;
+	if (write(fd, buf, off) != off)
+		goto err;
+
+	exit_code = 0;
+err:
+	xfree(buf);
+	if (fd > 0)
+		close(fd);
+	return exit_code;
+}
+
+static int local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
+	struct process_desc *p = prh2pr(ph);
 	int ret = -1, pid, aux;
 	struct ct_clone_arg ca;
 
@@ -293,6 +351,7 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	ca.cb = cb;
 	ca.arg = arg;
 	ca.ct = ct;
+	ca.p = p;
 	pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD, &ca);
 	if (pid < 0)
 		goto err_clone;
@@ -300,6 +359,14 @@ static int local_spawn_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	close(ca.child_wait_pipe[0]);
 	close(ca.parent_wait_pipe[1]);
 	ct->root_pid = pid;
+
+	if (ct->nsmask & CLONE_NEWUSER) {
+		if (write_id_mappings(pid, &ct->uid_map, "uid_map"))
+			goto err_net;
+
+		if (write_id_mappings(pid, &ct->gid_map, "gid_map"))
+			goto err_net;
+	}
 
 	if (net_start(ct))
 		goto err_net;
@@ -371,7 +438,7 @@ err:
 	return -1;
 }
 
-static int local_spawn_execve(ct_handler_t ct, char *path, char **argv, char **env, int *fds)
+static int local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea;
 
@@ -380,12 +447,13 @@ static int local_spawn_execve(ct_handler_t ct, char *path, char **argv, char **e
 	ea.env = env;
 	ea.fds = fds;
 
-	return local_spawn_cb(ct, ct_execv, &ea);
+	return local_spawn_cb(ct, pr, ct_execv, &ea);
 }
 
-static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
+static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
 {
 	struct container *ct = cth2ct(h);
+	struct process_desc *p = prh2pr(ph);
 	int aux = -1, pid;
 
 	if (ct->state != CT_RUNNING)
@@ -427,7 +495,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 				exit(-1);
 		}
 
-		if (apply_caps(ct))
+		if (apply_creds(p))
 			exit(-1);
 
 		aux = cb(arg);
@@ -440,7 +508,7 @@ static int local_enter_cb(ct_handler_t h, int (*cb)(void *), void *arg)
 	return pid;
 }
 
-static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **env, int *fds)
+static int local_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea = {};
 
@@ -449,7 +517,7 @@ static int local_enter_execve(ct_handler_t h, char *path, char **argv, char **en
 	ea.env	= env;
 	ea.fds = fds;
 
-	return local_enter_cb(h, ct_execv, &ea);
+	return local_enter_cb(h, p, ct_execv, &ea);
 }
 
 static int local_ct_kill(ct_handler_t h)
@@ -546,35 +614,6 @@ static int local_uname(ct_handler_t h, char *host, char *dom)
 	return 0;
 }
 
-static int local_set_caps(ct_handler_t h, unsigned long mask, unsigned int apply_to)
-{
-	struct container *ct = cth2ct(h);
-
-	if (ct->state != CT_STOPPED)
-		return -LCTERR_BADCTSTATE;
-
-	if (apply_to & CAPS_BSET) {
-		ct->cap_mask |= CAPS_BSET;
-		ct->cap_bset = mask;
-	}
-
-	if (apply_to & CAPS_ALLCAPS) {
-		ct->cap_mask |= CAPS_ALLCAPS;
-		ct->cap_caps = mask;
-	}
-
-	return 0;
-}
-
-static int local_set_pdeathsig(ct_handler_t h, int sig)
-{
-	struct container *ct = cth2ct(h);
-
-	ct->pdeathsig = sig;
-
-	return 0;
-}
-
 char *local_ct_name(ct_handler_t h)
 {
 	return cth2ct(h)->name;
@@ -585,6 +624,40 @@ static int local_set_console_fd(ct_handler_t h, int fd)
 	struct container *ct = cth2ct(h);
 	ct->tty_fd = fd;
 	return 0;
+}
+
+static int local_add_map(struct list_head *list, unsigned int first,
+			unsigned int lower_first, unsigned int count)
+{
+	struct _uid_gid_map *_map;
+
+	_map = xmalloc(sizeof(struct _uid_gid_map));
+	if (_map == NULL)
+		return -1;
+
+	_map->first		= first;
+	_map->lower_first	= lower_first;
+	_map->count		= count;
+
+	list_add(&_map->node, list);
+
+	return 0;
+}
+
+static int local_add_uid_map(ct_handler_t h, unsigned int first,
+			unsigned int lower_first, unsigned int count)
+{
+	struct container *ct = cth2ct(h);
+
+	return local_add_map(&ct->uid_map, first, lower_first, count);
+}
+
+static int local_add_gid_map(ct_handler_t h, unsigned int first,
+			unsigned int lower_first, unsigned int count)
+{
+	struct container *ct = cth2ct(h);
+
+	return local_add_map(&ct->gid_map, first, lower_first, count);
 }
 
 static const struct container_ops local_ct_ops = {
@@ -612,8 +685,8 @@ static const struct container_ops local_ct_ops = {
 	.net_del		= local_net_del,
 	.net_route_add		= local_net_route_add,
 	.uname			= local_uname,
-	.set_caps		= local_set_caps,
-	.set_pdeathsig		= local_set_pdeathsig,
+	.add_uid_map		= local_add_uid_map,
+	.add_gid_map		= local_add_gid_map,
 };
 
 ct_handler_t ct_create(char *name)
@@ -633,10 +706,11 @@ ct_handler_t ct_create(char *name)
 		INIT_LIST_HEAD(&ct->ct_net_routes);
 		INIT_LIST_HEAD(&ct->fs_mnts);
 		INIT_LIST_HEAD(&ct->fs_devnodes);
+		INIT_LIST_HEAD(&ct->uid_map);
+		INIT_LIST_HEAD(&ct->gid_map);
 
 		return &ct->h;
 	}
 
 	return NULL;
 }
-

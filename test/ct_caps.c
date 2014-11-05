@@ -1,22 +1,31 @@
 /*
  * Test empty "container" creation
  */
-#include <unistd.h>
-#include <sys/types.h>
 #include <libct.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/mman.h>
+#include <linux/capability.h>
 #include "test.h"
 
-#define UID	31451
-#define GID	92653
+#define TEST_CAPS 0x1234
+
+extern int capget(cap_user_header_t header, const cap_user_data_t data);
+extern int capset(cap_user_header_t header, const cap_user_data_t data);
 
 static int set_ct_alive(void *a)
 {
-	if (getuid() != UID)
+	struct __user_cap_header_struct hdr = {_LINUX_CAPABILITY_VERSION_3, 0};
+	struct __user_cap_data_struct data[2];
+
+	memset(&data, 0, sizeof(data));
+
+	if (capget(&hdr, data))
 		return -1;
-	if (getgid() != GID)
-		return -1;
+
+	if (data[0].effective != TEST_CAPS)
+		return 1;
+
 	*(int *)a = 1;
 	return 0;
 }
@@ -35,8 +44,7 @@ int main(int argc, char **argv)
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
 	p = libct_process_desc_create(s);
-	libct_process_desc_setuid(p, UID);
-	libct_process_desc_setgid(p, GID);
+	libct_process_desc_set_caps(p, TEST_CAPS, CAPS_ALLCAPS);
 	libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
