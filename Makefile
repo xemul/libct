@@ -1,3 +1,5 @@
+include Makefile.config
+
 MAKEFLAGS 	:= -r -R --no-print-directory
 
 ifeq ($(strip $(V)),)
@@ -59,6 +61,8 @@ endif
 
 cflags-y	+= -iquote src/include
 cflags-y	+= -iquote src/include/vz
+cflags-y	+= -iquote src/lsm
+cflags-y	+= -iquote src
 cflags-y	+= -fno-strict-aliasing
 cflags-y	+= -I/usr/include
 ifeq ($(VZ),1)
@@ -93,6 +97,14 @@ ifeq ($(DEBUG),1)
 	CFLAGS	+= -O0 -ggdb3
 else
 	CFLAGS	+= -O2
+endif
+
+ifdef CONFIG_APPARMOR
+	DEFINES += -DHAVE_APPARMOR
+endif
+
+ifdef CONFIG_SELINUX
+	DEFINES += -DHAVE_SELINUX
 endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
@@ -156,7 +168,7 @@ tags:
 
 clean:
 	$(Q) $(MAKE) $(build)=src clean
-	$(Q) $(MAKE) $(build)=test clean
+	$(Q) $(MAKE) -C test clean
 	$(Q) $(MAKE) -s -C Documentation clean
 	$(Q) $(RM) $(LIBCT)
 	$(Q) $(RM) $(CONFIG)
