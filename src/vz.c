@@ -511,9 +511,8 @@ int env_create_data_ioctl(struct vzctl_env_create_data *data)
 	return errcode;
 }
 
-static int exec_init(struct info_pipes *pipes, struct execv_args *ea)
+static int exec_init(struct execv_args *ea)
 {
-	int fd = -1;
 	if (ea == NULL)
 		return -LCTERR_BADARG;
 
@@ -523,14 +522,6 @@ static int exec_init(struct info_pipes *pipes, struct execv_args *ea)
 		dup2(ea->fds[0], STDIN_FILENO);
 		dup2(ea->fds[1], STDOUT_FILENO);
 		dup2(ea->fds[2], STDERR_FILENO);
-	} else {
-		if ((fd = open("/dev/null", O_RDWR)) == -1) {
-			pr_perror("Unable to open /dev/null");
-			return -1;
-		}
-		dup2(fd, STDIN_FILENO);
-		dup2(fd, STDOUT_FILENO);
-		dup2(fd, STDERR_FILENO);
 	}
 
 	execve(ea->path, ea->argv, ea->env);
@@ -598,7 +589,7 @@ try:
 	if ((ret = pre_setup_env(h, pipes)))
 		return ret;
 
-	return exec_init(pipes, ea);
+	return exec_init(ea);
 }
 
 static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_args *ea)
@@ -613,7 +604,7 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	}
 
 	if (!ct->root_path) {
-		pr_err("Root path is not set");
+		pr_err("Container %s root_path is empty!", ct->name);
 		return -1;
 	}
 	if ((ret = vzctl_chroot(ct->root_path)))
@@ -621,7 +612,6 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	if ((ret = syscall(__NR_setluid, veid)))
 		goto err;
 
-	/* Create another process for proper resource accounting */
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Can not fork");
@@ -1064,11 +1054,91 @@ static int vz_config_controller(ct_handler_t h, enum ct_controller ctype,
 	return -LCTERR_CGCONFIG;
 }
 
+static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
+	struct container *ct = NULL;
+	unsigned int veid = -1;
+	int pid, child_pid, ret = 0;
+	struct execv_args ea = {
+		.path = path,
+		.argv = argv,
+		.env = env,
+		.fds = fds
+	};
+
+	if (!h)
+		return -LCTERR_BADARG;
+
+	ct = cth2ct(h);
+
+	if (ct->state != CT_RUNNING)
+		return -LCTERR_BADCTSTATE;
+
+	if (parse_uint(ct->name, &veid) < 0) {
+		pr_err("Unable to parse container's ID");
+		return -1;
+	}
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Cannot fork");
+		return -1;
+	} else if (pid == 0) {
+		int i;
+		int fd_flags[2];
+
+		for (i = 0; i < 2; i++) {
+			fd_flags[i] = fcntl(i, F_GETFL);
+			if (fd_flags[i] < 0) {
+				pr_perror("Unable to get fd%d flags", i);
+				_exit(-1);
+			}
+		}
+
+		ret = syscall(__NR_setluid, veid);
+		if (ret) {
+			pr_perror("Unable to setluid for container %ld", veid);
+			_exit(ret);
+		}
+
+		ret = vzctl_chroot(ct->root_path);
+		if (ret)
+			_exit(ret);
+
+		pr_info("Entering the Container %ld", veid);
+		child_pid = fork();
+		if (child_pid < 0) {
+			pr_perror("Unable to stop Container, fork failed");
+			_exit(1);
+		} else if (child_pid == 0) {
+			ret = vzctl_env_create_ioctl(veid, VE_ENTER);
+			if (ret >= 0) {
+				execve(ea.path, ea.argv, ea.env);
+			}
+		}
+
+		if (env_wait(child_pid, 0, NULL)) {
+			pr_err("Execution failed");
+			ret = -1;
+			return -1;
+		}
+
+		_exit(0);
+	}
+
+	return pid;
+}
+
+static int vz_enter_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
+{
+	pr_err("Enter with callback is not supported");
+	return -1;
+}
+
 static const struct container_ops vz_ct_ops = {
 	.spawn_cb		= vz_spawn_cb,
 	.spawn_execve		= vz_spawn_execve,
-	.enter_cb		= NULL,
-	.enter_execve		= NULL,
+	.enter_cb		= vz_enter_cb,
+	.enter_execve		= vz_enter_execve,
 	.kill			= vz_ct_kill,
 	.wait			= vz_ct_wait,
 	.destroy		= vz_ct_destroy,
