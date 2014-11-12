@@ -52,9 +52,17 @@ ifneq ($(ARCH),x86)
 $(error "The architecture $(ARCH) isn't supported"))
 endif
 
+ifneq ("$(wildcard /proc/vz)","")
+	VZ := 1
+endif
+
+
 cflags-y	+= -iquote src/include
 cflags-y	+= -fno-strict-aliasing
 cflags-y	+= -I/usr/include
+ifeq ($(VZ),1)
+	cflags-y += -I/usr/src/kernels/$(shell uname -r)/include/
+endif
 export cflags-y
 
 VERSION_MAJOR		:= 0
@@ -72,6 +80,9 @@ LIBS		:= -lrt
 
 DEFINES		+= -D_FILE_OFFSET_BITS=64
 DEFINES		+= -D_GNU_SOURCE
+ifeq ($(VZ),1)
+	DEFINES += -D_VZ
+endif
 
 WARNINGS	:= -Wall -Wno-unused-result
 
@@ -87,6 +98,10 @@ else
 endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
+
+ifneq ("$(wildcard /proc/vz)","")
+	CFLAGS += -D VZ
+endif
 
 export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
 export SH RM OBJCOPY LDARCH LD CP MKDIR CD LN
