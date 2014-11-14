@@ -28,6 +28,7 @@
 #include "net.h"
 #include "ct.h"
 #include "fs.h"
+#include "vz.h"
 
 static enum ct_state local_get_state(ct_handler_t h)
 {
@@ -399,13 +400,6 @@ err_cg:
 	return ret;
 }
 
-struct execv_args {
-	char *path;
-	char **argv;
-	char **env;
-	int *fds;
-};
-
 static int ct_execv(void *a)
 {
 	struct execv_args *ea = a;
@@ -644,7 +638,7 @@ static int local_add_map(struct list_head *list, unsigned int first,
 	return 0;
 }
 
-static int local_add_uid_map(ct_handler_t h, unsigned int first,
+int local_add_uid_map(ct_handler_t h, unsigned int first,
 			unsigned int lower_first, unsigned int count)
 {
 	struct container *ct = cth2ct(h);
@@ -652,7 +646,7 @@ static int local_add_uid_map(ct_handler_t h, unsigned int first,
 	return local_add_map(&ct->uid_map, first, lower_first, count);
 }
 
-static int local_add_gid_map(ct_handler_t h, unsigned int first,
+int local_add_gid_map(ct_handler_t h, unsigned int first,
 			unsigned int lower_first, unsigned int count)
 {
 	struct container *ct = cth2ct(h);
@@ -713,4 +707,31 @@ ct_handler_t ct_create(char *name)
 	}
 
 	return NULL;
+}
+
+ct_handler_t vz_ct_create(char *name)
+{
+	struct container *ct;
+
+	ct = xzalloc(sizeof(*ct));
+	if (ct) {
+		ct_handler_init(&ct->h);
+		ct->h.ops = get_vz_ct_ops();
+		ct->state = CT_STOPPED;
+		ct->name = xstrdup(name);
+		ct->tty_fd = -1;
+		INIT_LIST_HEAD(&ct->cgroups);
+		INIT_LIST_HEAD(&ct->cg_configs);
+		INIT_LIST_HEAD(&ct->ct_nets);
+		INIT_LIST_HEAD(&ct->ct_net_routes);
+		INIT_LIST_HEAD(&ct->fs_mnts);
+		INIT_LIST_HEAD(&ct->fs_devnodes);
+		INIT_LIST_HEAD(&ct->uid_map);
+		INIT_LIST_HEAD(&ct->gid_map);
+
+		return &ct->h;
+	}
+
+	return NULL;
+
 }

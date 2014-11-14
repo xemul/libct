@@ -10,6 +10,7 @@ enum {
 	BACKEND_NONE,
 	BACKEND_LOCAL,
 	BACKEND_UNIX,
+	BACKEND_VZ,
 };
 
 struct backend_ops {
