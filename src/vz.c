@@ -19,6 +19,7 @@
 #include <sched.h>
 #include <ctype.h>
 
+#include "beancounter.h"
 #include "vzcalluser.h"
 #include "vzlist.h"
 #include "vziolimit.h"
@@ -41,6 +42,9 @@
 #define LINUX_REBOOT_MAGIC1		0xfee1dead
 #define LINUX_REBOOT_MAGIC2		672274793
 #define LINUX_REBOOT_CMD_POWER_OFF	0x4321FEDC
+#define IOPRIO_CLASS_BE			2
+#define IOPRIO_CLASS_SHIFT		13
+#define IOPRIO_WHO_UBC			1000
 
 typedef enum {
 	M_HALT,
@@ -154,6 +158,7 @@ static void vz_ct_destroy(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
 
+	cgroups_free(ct);
 	fs_free(ct);
 	net_release(ct);
 
@@ -605,6 +610,229 @@ static int env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_arg
 	return exec_init(ea);
 }
 
+static int vzctl2_set_ioprio(unsigned veid, int prio)
+{
+	int ret;
+
+	if (prio < 0)
+		return -LCTERR_BADARG;
+
+	pr_info("Set up ioprio: %d", prio);
+	ret = syscall(__NR_ioprio_set, IOPRIO_WHO_UBC, veid,
+			prio | IOPRIO_CLASS_BE << IOPRIO_CLASS_SHIFT);
+	if (ret) {
+		if (errno == ESRCH) {
+			pr_err("Container is not running");
+			return -LCTERR_BADCTSTATE;
+		}
+		else if (errno == EINVAL) {
+			pr_warn("ioprio feature is not supported"
+				" by the kernel: ioprio configuration is skippe");
+			return -LCTERR_OPNOTSUPP;
+		}
+		pr_perror("Unable to set ioprio");
+		return -1;
+	}
+	return 0;
+}
+
+static int ublimit_mem_syscall(unsigned int veid, int type, unsigned long value)
+{
+	unsigned long param[2] = {value, value};
+
+	return syscall(__NR_setublimit, veid, type, param);
+}
+
+static int vz_set_memory_param(struct container *ct, char *param, char *value)
+{
+	unsigned long ram = 0;
+	unsigned long swap = 0;
+	float overcommit = LONG_MAX;
+	float memory;
+	unsigned int veid = 0;;
+
+	if (parse_uint(ct->name, &veid) < 0) {
+		pr_err("Unable to parse container's ID");
+		return -1;
+	}
+
+	if (strcmp(param, "limit_in_bytes") == 0) {
+		if (parse_uint(value, (unsigned int *)&ram) < 0) {
+			pr_err("Unable to parse container's RAM");
+			return -1;
+		}
+		ram /= getpagesize();
+
+		if (ublimit_mem_syscall(veid, UB_PHYSPAGES, ram)) {
+			pr_perror("Unable to set UB_LOCKEDPAGES");
+			return -1;
+		}
+
+		if (ublimit_mem_syscall(veid, UB_SWAPPAGES, 0)) {
+			pr_perror("Unable to set UB_LOCKEDPAGES");
+			return -1;
+		}
+
+		if (ublimit_mem_syscall(veid, UB_LOCKEDPAGES, ram)) {
+			pr_perror("Unable to set UB_LOCKEDPAGES");
+			return -1;
+		}
+
+		if (ublimit_mem_syscall(veid, UB_OOMGUARPAGES, ram)) {
+			pr_perror("Unable to set UB_OOMGUARPAGES");
+			return -1;
+		}
+
+		if (ublimit_mem_syscall(veid, UB_VMGUARPAGES, ram + swap)) {
+			pr_perror("Unable to set UB_VMGUARPAGES");
+			return -1;
+		}
+
+		memory = (ram + swap) * overcommit;
+		if (memory > LONG_MAX)
+			memory = UINT_MAX;
+
+		if (ublimit_mem_syscall(veid, UB_PRIVVMPAGES, memory)) {
+			pr_perror("Unable to set UB_PRIVVMPAGES");
+			return -1;
+		}
+		return 0;
+	}
+
+	pr_err("Unsupported param for CTL_MEMORY: %s", param);
+	return -1;
+}
+
+
+static int vzctl2_set_iopslimit(unsigned veid, int limit)
+{
+	int ret;
+	struct iolimit_state io;
+
+	if (limit < 0)
+		return -LCTERR_BADARG;
+	io.id = veid;
+	io.speed = limit;
+	io.burst = limit * 3;
+	io.latency = 10*1000;
+	pr_info("Set up iopslimit: %d", limit);
+	ret = ioctl(get_vzctlfd(), VZCTL_SET_IOPSLIMIT, &io);
+	if (ret) {
+		if (errno == ESRCH) {
+			pr_err("Container is not running");
+			return -LCTERR_BADCTSTATE;
+		}
+		else if (errno == ENOTTY) {
+			pr_warn("iopslimit feature is not supported"
+				" by the kernel; iopslimit configuration is skipped");
+			return -LCTERR_OPNOTSUPP;
+		}
+		pr_perror("Unable to set iopslimit");
+		return -1;
+	}
+	return 0;
+}
+
+static int vz_set_io_param(struct container *ct, char *param, char *value)
+{
+	unsigned int veid = 0;
+
+	if (parse_uint(ct->name, &veid) < 0) {
+		pr_err("Unable to parse container's ID");
+		return -1;
+	}
+
+	if (strcmp(param, "weight") == 0) {
+		int prio = -1;
+		if (parse_int(value, &prio)) {
+			pr_err("Unable to parse priority from '%s'", value);
+			return -1;
+		}
+		return vzctl2_set_ioprio(veid, prio);
+	} else if (strcmp(param, "throttle.write_iops_device") == 0 ||
+			strcmp(param, "throttle.read_iops_device") == 0) {
+		int limit = -1;
+		if (parse_int(value, &limit)) {
+			pr_err("Unable to parse limit from '%s'", value);
+			return -1;
+		}
+		return vzctl2_set_iopslimit(veid, limit);
+	}
+
+	pr_err("Unsupported param for CTL_BLKIO: %s", param);
+	return -1;
+}
+
+static int vz_resources_create(struct container *ct)
+{
+	struct controller *ctl;
+	int ret = 0;
+	unsigned int veid;
+
+	if (parse_uint(ct->name, &veid) < 0) {
+		pr_err("Unable to parse container's ID");
+		return -1;
+	}
+
+	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
+		switch (ctl->ctype) {
+		case CTL_MEMORY:
+		case CTL_BLKIO:
+			ret = syscall(__NR_setluid, veid);
+			if (ret)
+				return -LCTERR_CGCREATE;
+			break;
+		case CTL_CPU:
+		case CTL_CPUSET:
+			if (ct->nsmask == 0) {
+				ret = cgroup_create_one(ct, ctl);
+				if (ret)
+					return -LCTERR_CGCREATE;
+			}
+			break;
+		default:
+			return -LCTERR_OPNOTSUPP;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+static int vz_resources_set(struct container *ct)
+{
+	struct cg_config *cfg;
+	int ret = 0;
+
+	list_for_each_entry(cfg, &ct->cg_configs, l) {
+		switch (cfg->ctype) {
+		case CTL_MEMORY:
+			ret = vz_set_memory_param(ct, cfg->param, cfg->value);
+			if (ret)
+				return -LCTERR_CGCONFIG;
+			break;
+		case CTL_BLKIO:
+			ret = vz_set_io_param(ct, cfg->param, cfg->value);
+			if (ret)
+				return -LCTERR_CGCONFIG;
+			break;
+		case CTL_CPU:
+		case CTL_CPUSET:
+			ret = config_controller(ct, cfg->ctype, cfg->param, cfg->value);
+			if (ret) {
+				pr_err("local_config_controller failed %d", ret);
+				return -LCTERR_CGCONFIG;
+			}
+		default:
+			return -LCTERR_OPNOTSUPP;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+
 static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_args *ea)
 {
 	int ret, pid;
@@ -623,7 +851,7 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	if ((ret = vzctl_chroot(ct->root_path)))
 		goto err;
 
-	ret = syscall(__NR_setluid, veid);
+	ret = vz_resources_create(ct);
 	if (ret)
 		goto err;
 
@@ -741,6 +969,12 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		goto err_net;
 	}
 
+	ret = vz_resources_create(ct);
+	if (ret) {
+		pr_err("vz_resourse_create");
+		goto err_res;
+	}
+
 	ret = net_start(ct);
 	if (ret) {
 		pr_err("Unable to start network");
@@ -762,6 +996,7 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 err_wait:
 	net_stop(ct);
 err_net:
+err_res:
 	proc_wake_close(child_wait, -1);
 err_fork:
 	fs_umount(ct);
@@ -837,35 +1072,6 @@ static int wait_env_state(unsigned int veid, int state, unsigned int timeout)
 	return -1;
 }
 
-static int vzctl2_set_iopslimit(unsigned veid, int limit)
-{
-	int ret;
-	struct iolimit_state io;
-
-	if (limit < 0)
-		return -LCTERR_BADARG;
-	io.id = veid;
-	io.speed = limit;
-	io.burst = limit * 3;
-	io.latency = 10*1000;
-	pr_info("Set up iopslimit: %d", limit);
-	ret = ioctl(get_vzctlfd(), VZCTL_SET_IOPSLIMIT, &io);
-	if (ret) {
-		if (errno == ESRCH) {
-			pr_err("Container is not running");
-			return -LCTERR_BADCTSTATE;
-		}
-		else if (errno == ENOTTY) {
-			pr_warn("iopslimit feature is not supported"
-				" by the kernel; iopslimit configuration is skipped");
-			return -LCTERR_OPNOTSUPP;
-		}
-		pr_perror("Unable to set iopslimit");
-		return -1;
-	}
-	return 0;
-}
-
 static int real_env_stop(int stop_mode)
 {
 	int fd;
@@ -931,7 +1137,7 @@ static int vz_ct_wait(ct_handler_t h)
 		act.sa_flags = SA_NOCLDSTOP;
 		sigaction(SIGCHLD, &act, NULL);
 
-		ret = syscall(__NR_setluid, veid);
+		ret = vz_resources_create(ct);
 		if (ret)
 			_exit(ret);
 
@@ -1065,14 +1271,8 @@ static int vz_set_nsmask(ct_handler_t h, unsigned long nsmask)
 	return 0;
 }
 
-static int vz_config_controller(ct_handler_t h, enum ct_controller ctype,
-		char *param, char *value)
-{
-	pr_perror("Controller configuration are not supported");
-	return -LCTERR_CGCONFIG;
-}
-
 static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
+{
 	struct container *ct = NULL;
 	unsigned int veid = -1;
 	int pid, child_pid, ret = 0;
@@ -1112,9 +1312,9 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 			}
 		}
 
-		ret = syscall(__NR_setluid, veid);
+		ret = vz_resources_create(ct);
 		if (ret) {
-			pr_perror("Unable to setluid for container %ld", veid);
+			pr_perror("Unable to create resources for container %ld", veid);
 			_exit(ret);
 		}
 
@@ -1130,8 +1330,15 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		} else if (child_pid == 0) {
 			if (ct->nsmask) {
 				ret = vzctl_env_create_ioctl(veid, VE_ENTER);
-				if (ret < 0)
+				if (ret < 0) {
+					pr_perror("ioctl failed");
 					_exit(1);
+				}
+			}
+			ret = vz_resources_set(ct);
+			if (ret) {
+				pr_err("vz_resourse_create");
+				_exit(1);
 			}
 			execve(ea.path, ea.argv, ea.env);
 		}
@@ -1165,7 +1372,7 @@ static const struct container_ops vz_ct_ops = {
 	.detach			= vz_ct_destroy,
 	.set_nsmask		= vz_set_nsmask,
 	.add_controller		= local_add_controller,
-	.config_controller	= vz_config_controller,
+	.config_controller	= local_config_controller,
 	.fs_set_root		= local_fs_set_root,
 	.fs_set_private		= local_fs_set_private,
 	.fs_add_mount		= local_add_mount,
