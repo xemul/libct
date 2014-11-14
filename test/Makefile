@@ -5,7 +5,8 @@ LOCAL_TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter \
 	ct_cgroup_sub ct_service ct_kill_nons ct_pid_enter \
 	ct_userns ct_caps
 
-VZ_TESTS = vz_create_exec vz_net_veth vz_enter
+VZ_TESTS = vz_create_exec vz_net_veth vz_enter \
+	vz_cgroup_memory vz_cgroup_cpu vz_cgroup_blkio
 
 TESTS = $(LOCAL_TESTS) $(VZ_TESTS)
 
@@ -14,6 +15,7 @@ PIGS  = file_piggy
 CC = gcc
 CFLAGS = -I../src/include/uapi/ -g -Wall -Werror
 ifneq ("$(wildcard /proc/vz)","")
+	CFLAGS += -I/usr/src/kernels/$(shell uname -r)/include/
 	CFLAGS += -DVZ
 endif
 LIBNLDIR = ../.shipped/libnl/lib/.libs
