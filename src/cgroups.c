@@ -170,7 +170,7 @@ static struct cg_config *cg_config_alloc(enum ct_controller ctype, char *param, 
 	return cg;
 }
 
-static int config_controller(struct container *ct, enum ct_controller ctype,
+int config_controller(struct container *ct, enum ct_controller ctype,
 		char *param, char *value)
 {
 	char path[PATH_MAX], *t;
@@ -228,7 +228,7 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 	return config_controller(ct, ctype, param, value) ? -LCTERR_CGCONFIG : 0;
 }
 
-static int cgroup_create_one(struct container *ct, struct controller *ctl)
+int cgroup_create_one(struct container *ct, struct controller *ctl)
 {
 	char path[PATH_MAX], *t;
 
