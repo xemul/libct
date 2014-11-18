@@ -17,6 +17,7 @@ obj-y			+= devnodes.o
 obj-y			+= route.o
 obj-y			+= process.o
 obj-y			+= vz/vz.o
+obj-y			+= vz/readelf.o
 
 cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
 cflags-so		+= -rdynamic
