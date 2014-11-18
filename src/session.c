@@ -8,6 +8,7 @@
 #include "libct.h"
 #include "async.h"
 #include "ct.h"
+#include "vz.h"
 
 static void close_local_session(libct_session_t s)
 {
@@ -22,8 +23,8 @@ static ct_handler_t create_local_ct(libct_session_t s, char *name)
 	ct = ct_create(name);
 	if (!ct)
 		return libct_err_to_handle(-1);
-	else
-		return ct;
+
+	return ct;
 }
 
 static ct_process_desc_t local_process_create_desc(libct_session_t s)
@@ -62,6 +63,41 @@ static const struct backend_ops local_session_ops = {
 	.update_ct_state = update_local_ct_state,
 };
 
+
+static void close_vz_session(libct_session_t s)
+{
+	struct local_session *l = s2ls(s);
+	xfree(l);
+	vzctl_close();
+}
+
+static ct_handler_t create_vz_ct(libct_session_t s, char *name)
+{
+	ct_handler_t ct = NULL;
+	if (vzctl_open() == -1)
+		return libct_err_to_handle(-1);
+
+	ct = vz_ct_create(name);
+	if (!ct)
+		return libct_err_to_handle(-1);
+
+	return ct;
+}
+
+static void update_vz_ct_state(libct_session_t s, pid_t pid)
+{
+	/* TODO: implement afterwards */
+}
+
+
+static const struct backend_ops vz_session_ops = {
+	.type = BACKEND_VZ,
+	.create_ct = create_vz_ct,
+	.create_process_desc = local_process_create_desc,
+	.close = close_vz_session,
+	.update_ct_state = update_vz_ct_state,
+};
+
 libct_session_t libct_session_open_local(void)
 {
 	struct local_session *s;
@@ -73,7 +109,11 @@ libct_session_t libct_session_open_local(void)
 	if (s) {
 		INIT_LIST_HEAD(&s->s.s_cts);
 		INIT_LIST_HEAD(&s->s.async_list);
+#ifndef VZ
 		s->s.ops = &local_session_ops;
+#else
+		s->s.ops = &vz_session_ops;
+#endif
 		return &s->s;
 	}
 
