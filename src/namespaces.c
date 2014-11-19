@@ -34,9 +34,14 @@ static struct ns_desc uts_ns = {
 struct ns_desc *namespaces[] = {
 	&pid_ns,
 	&net_ns,
-	&mnt_ns,
 	&ipc_ns,
 	&uts_ns,
+	/*
+	 * mnt_ns must be the last one. After switching in a mount namespace,
+	 * the old /proc becomes inaccessible and we are not able switch other
+	 * namespaces
+	 */
+	&mnt_ns,
 	NULL
 };
 
