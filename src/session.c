@@ -109,11 +109,10 @@ libct_session_t libct_session_open_local(void)
 	if (s) {
 		INIT_LIST_HEAD(&s->s.s_cts);
 		INIT_LIST_HEAD(&s->s.async_list);
-#ifndef VZ
-		s->s.ops = &local_session_ops;
-#else
-		s->s.ops = &vz_session_ops;
-#endif
+		if (!access("/proc/vz", F_OK))
+			s->s.ops = &vz_session_ops;
+		else
+			s->s.ops = &local_session_ops;
 		return &s->s;
 	}
 

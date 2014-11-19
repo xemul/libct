@@ -8,6 +8,9 @@
 struct _NetaddReq;
 struct container;
 
+typedef const struct ct_net_ops *(*net_get_ops_cb)(enum ct_net_type ntype);
+extern ct_net_t __local_net_add(ct_handler_t h, enum ct_net_type, void *arg, net_get_ops_cb cb);
+
 extern ct_net_t local_net_add(ct_handler_t h, enum ct_net_type, void *arg);
 extern int local_net_del(ct_handler_t h, enum ct_net_type, void *arg);
 extern void net_release(struct container *ct);
