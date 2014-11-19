@@ -1427,8 +1427,6 @@ static const struct container_ops vz_ct_ops = {
 	.net_del		= local_net_del,
 	.net_route_add		= local_net_route_add,
 	.uname			= vz_uname,
-	.add_uid_map		= local_add_uid_map,
-	.add_gid_map		= local_add_gid_map,
 };
 
 const struct container_ops *get_vz_ct_ops(void)

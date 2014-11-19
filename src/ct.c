@@ -651,7 +651,7 @@ static int local_add_map(struct list_head *list, unsigned int first,
 	return 0;
 }
 
-int local_add_uid_map(ct_handler_t h, unsigned int first,
+static int local_add_uid_map(ct_handler_t h, unsigned int first,
 			unsigned int lower_first, unsigned int count)
 {
 	struct container *ct = cth2ct(h);
@@ -659,7 +659,7 @@ int local_add_uid_map(ct_handler_t h, unsigned int first,
 	return local_add_map(&ct->uid_map, first, lower_first, count);
 }
 
-int local_add_gid_map(ct_handler_t h, unsigned int first,
+static int local_add_gid_map(ct_handler_t h, unsigned int first,
 			unsigned int lower_first, unsigned int count)
 {
 	struct container *ct = cth2ct(h);
