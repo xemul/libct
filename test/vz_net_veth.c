@@ -9,7 +9,7 @@
 #define VETH_HOST_NAME	"hveth0"
 #define VETH_CT_NAME	"cveth0"
 
-#define FS_ROOT		"/"
+#define FS_ROOT		"root"
 int main(int argc, char *argv[])
 {
 	libct_session_t s;

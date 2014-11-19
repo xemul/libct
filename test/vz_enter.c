@@ -2,19 +2,25 @@
 #include <stdlib.h>
 #include <libct.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <linux/sched.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "test.h"
 
-#define FS_ROOT		"/"
+#define FS_ROOT		"root"
 int main(int argc, char *argv[])
 {
 	libct_session_t s;
 	ct_handler_t ct;
 	ct_process_desc_t p;
-	char *sleep_a[] = { "sleep", "60", NULL};
-	char *ls_a[] = { "ls", "/root/work/libct/test", NULL};
+	char *sleep_a[] = { "cat", NULL};
+	char *ls_a[] = { "sh", "-c", "echo ok", NULL};
 	int fds[] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO};
+	int pfd[2], tfd[2], status;
+	char buf[10];
+	pid_t pid;
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "1339");
@@ -28,11 +34,32 @@ int main(int argc, char *argv[])
 			CLONE_NEWNET |
 			CLONE_NEWPID);
 
-	if (libct_container_spawn_execvfds(ct, p, "/bin/sleep", sleep_a, fds) <= 0)
+	if (pipe(pfd))
 		goto err;
 
-	if (libct_container_enter_execvfds(ct, p, "/bin/ls", ls_a, fds) <= 0)
+	fds[0] = pfd[0];
+	fcntl(pfd[1], F_SETFD, FD_CLOEXEC);
+	if (libct_container_spawn_execvfds(ct, p, "/bin/cat", sleep_a, fds) <= 0)
 		goto err;
+	close(pfd[0]);
+
+	if (pipe(tfd))
+		goto err;
+
+	fds[0] = STDIN_FILENO;
+	fds[1] = tfd[1];
+	fcntl(pfd[0], F_SETFD, FD_CLOEXEC);
+	pid = libct_container_enter_execvfds(ct, p, "/bin/sh", ls_a, fds);
+	if (pid <= 0)
+		goto err;
+	close(tfd[1]);
+
+	if (read(tfd[0], buf, sizeof(buf)) != 3)
+		goto err;
+
+	waitpid(pid, &status, 0);
+
+	close(pfd[1]);
 
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
