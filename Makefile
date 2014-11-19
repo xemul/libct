@@ -127,6 +127,8 @@ $(LIBCT).a: src/$(LIBCT).a
 	$(E) "  LN      " $@
 	$(Q) $(LN) -sf $^ $@
 
+src/$(LIBCT).so: src/$(LIBCT).a
+
 all: $(LIBCT).so $(LIBCT).a
 	@true
 
