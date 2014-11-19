@@ -25,6 +25,7 @@
 #include "security.h"
 #include "list.h"
 #include "util.h"
+#include "lsm.h"
 #include "net.h"
 #include "ct.h"
 #include "fs.h"
@@ -273,6 +274,12 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
+	if (p->lsm_label)
+		ret = lsm_process_label_set(p->lsm_label, false, p->lsm_on_exec);
+	p->lsm_on_exec = 0;
+	if (ret < 0)
+		goto err;
+
 	spawn_wake(ca->parent_wait_pipe, 0);
 
 	return ca->cb(ca->arg);
@@ -435,11 +442,14 @@ err:
 static int local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea;
+	struct process_desc *p = prh2pr(pr);
 
 	ea.path = path;
 	ea.argv = argv;
 	ea.env = env;
 	ea.fds = fds;
+
+	p->lsm_on_exec = true;
 
 	return local_spawn_cb(ct, pr, ct_execv, &ea);
 }
@@ -502,16 +512,19 @@ static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 	return pid;
 }
 
-static int local_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
+static int local_enter_execve(ct_handler_t h, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea = {};
+	struct process_desc *p = prh2pr(pr);
 
 	ea.path	= path;
 	ea.argv	= argv;
 	ea.env	= env;
 	ea.fds = fds;
 
-	return local_enter_cb(h, p, ct_execv, &ea);
+	p->lsm_on_exec = true;
+
+	return local_enter_cb(h, pr, ct_execv, &ea);
 }
 
 static int local_ct_kill(ct_handler_t h)

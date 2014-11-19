@@ -212,3 +212,8 @@ void libct_process_desc_destroy(ct_process_desc_t p)
 {
 	return p->ops->destroy(p);
 }
+
+int libct_process_desc_set_lsm_label(ct_process_desc_t p, char *label)
+{
+	return p->ops->set_lsm_label(p, label);
+}

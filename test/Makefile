@@ -1,3 +1,5 @@
+include ../Makefile.config
+
 LOCAL_TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter \
 	ct_create_exec ct_cgroup_basic ct_net_host \
 	ct_net_veth ct_private_subdir \
@@ -25,6 +27,16 @@ LDFLAGS = -Wl,--no-as-needed \
 
 LOCAL_OUTS = $(LOCAL_TESTS:%=%.out)
 VZ_OUTS = $(VZ_TESTS:%=%.out)
+
+ifdef CONFIG_APPARMOR
+LDFLAGS += -lapparmor
+LOCAL_TESTS += ct_apparmor
+endif
+
+ifdef CONFIG_SELINUX
+LDFLAGS += -lselinux
+endif
+
 OUTS = $(TESTS:%=%.out)
 OBJS = $(TESTS:%=%.o)
 

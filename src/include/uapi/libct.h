@@ -185,6 +185,7 @@ extern void libct_process_desc_destroy(ct_process_desc_t p);
 extern int libct_process_desc_setuid(ct_process_desc_t p, unsigned int uid);
 extern int libct_process_desc_setgid(ct_process_desc_t p, unsigned int uid);
 extern int libct_process_desc_setgroupts(ct_process_desc_t p, unsigned int size, unsigned int groups[]);
+extern int libct_process_desc_set_lsm_label(ct_process_desc_t p, char *label);
 
 #define CAPS_BSET	0x1
 #define CAPS_ALLCAPS	0x2
