@@ -424,7 +424,8 @@ static int ct_execv(void *a)
 			goto err;
 		}
 		for (i = 0; i < 3; i++)
-			close(ea->fds[i]);
+			if (ea->fds[i] != i)
+				close(ea->fds[i]);
 	}
 
 	sigfillset(&mask);
