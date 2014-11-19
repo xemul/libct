@@ -144,13 +144,15 @@ src: $(EARLY-GEN)
 
 .PHONY: src
 
+$(LIBCT).a: src/$(LIBCT).a
+	$(E) "  LN      " $@
+	$(Q) $(LN) -sf $^ $@
+
 $(LIBCT).so: src/$(LIBCT).so
 	$(E) "  LN      " $@
 	$(Q) $(LN) -sf $^ $@
 
-$(LIBCT).a: src/$(LIBCT).a
-	$(E) "  LN      " $@
-	$(Q) $(LN) -sf $^ $@
+src/$(LIBCT).so: src/$(LIBCT).a
 
 all: $(LIBCT).so $(LIBCT).a
 	@true
