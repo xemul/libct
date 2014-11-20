@@ -51,6 +51,8 @@ int main(int argc, char **argv)
 	pr = libct_process_desc_create(s);
 	libct_container_spawn_cb(ct, pr, set_ct_alive, &cta);
 	pid = libct_container_enter_cb(ct, pr, set_ct_enter, &cta);
+	if (pid < 0)
+		return fail("Unable to enter into CT");
 	waitpid(pid, NULL, 0);
 	write(p[1], "a", 1);
 	libct_container_wait(ct);
