@@ -460,6 +460,7 @@ static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 	struct container *ct = cth2ct(h);
 	struct process_desc *p = prh2pr(ph);
 	int aux = -1, pid;
+	int wait_pipe[2];
 
 	if (ct->state != CT_RUNNING)
 		return -LCTERR_BADCTSTATE;
@@ -469,9 +470,14 @@ static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 			return -1;
 	}
 
+	if (pipe(wait_pipe))
+		return -1;
+
 	pid = fork();
 	if (pid == 0) {
 		struct ns_desc *ns;
+
+		close(wait_pipe[0]);
 
 		for (aux = 0; namespaces[aux]; aux++) {
 			ns = namespaces[aux];
@@ -503,12 +509,20 @@ static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 		if (apply_creds(p))
 			exit(-1);
 
+		spawn_wake(wait_pipe, 0);
 		aux = cb(arg);
 		exit(aux);
 	}
 
+	close(wait_pipe[1]);
+
 	if (aux >= 0)
 		restore_ns(aux, &pid_ns);
+
+	if (spawn_wait(wait_pipe)) {
+		waitpid(pid, NULL, 0);
+		return -1;
+	}
 
 	return pid;
 }
