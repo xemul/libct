@@ -22,6 +22,8 @@ int main(int argc, char *argv[])
 	char buf[10];
 	pid_t pid;
 
+	test_init();
+
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "1339");
 	p = libct_process_desc_create(s);

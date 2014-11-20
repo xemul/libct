@@ -9,4 +9,6 @@
 
 #define DEFAULT_LOGLEVEL	LOG_WARN
 
+void libct_log_init(int fd, unsigned int level);
+
 #endif /* __UAPI_LIBCT_LOG_LEVELS_H__ */

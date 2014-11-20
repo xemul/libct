@@ -1,5 +1,15 @@
 #ifndef __LIBCT_TEST_H__
 #define __LIBCT_TEST_H__
+
+#include <unistd.h>
+
+#include <libct-log-levels.h>
+
+static inline void test_init()
+{
+	libct_log_init(STDERR_FILENO, LOG_DEBUG);
+}
+
 static inline int pass(char *msg)
 {
 	printf("%s\n", msg);
