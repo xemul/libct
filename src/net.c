@@ -97,7 +97,7 @@ static int local_net_link_apply(char *name, ct_net_t n, int pid)
 	return ret;
 }
 
-ct_net_t local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
+ct_net_t __local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg, const struct ct_net_ops *(*get_ops_cb)(enum ct_net_type ntype))
 {
 	struct container *ct = cth2ct(h);
 	const struct ct_net_ops *nops;
@@ -113,11 +113,7 @@ ct_net_t local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 	if (ntype == CT_NET_NONE)
 		return 0;
 
-#ifndef VZ
-	nops = net_get_ops(ntype);
-#else
-	nops = vz_net_get_ops(ntype);
-#endif
+	nops = get_ops_cb(ntype);
 	if (!nops)
 		return ERR_PTR(-LCTERR_BADTYPE);
 
@@ -127,6 +123,11 @@ ct_net_t local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
 
 	list_add_tail(&cn->l, &ct->ct_nets);
 	return cn;
+}
+
+ct_net_t local_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
+{
+	return __local_net_add(h, ntype, arg, net_get_ops);
 }
 
 int local_net_del(ct_handler_t h, enum ct_net_type ntype, void *arg)

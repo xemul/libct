@@ -65,9 +65,6 @@ cflags-y	+= -iquote src/lsm
 cflags-y	+= -iquote src
 cflags-y	+= -fno-strict-aliasing
 cflags-y	+= -I/usr/include
-ifeq ($(VZ),1)
-	cflags-y += -I/usr/src/kernels/$(shell uname -r)/include/
-endif
 export cflags-y
 
 VERSION_MAJOR		:= 0
@@ -109,10 +106,6 @@ endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
 
-ifneq ("$(wildcard /proc/vz)","")
-	CFLAGS += -D VZ
-endif
-
 export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
 export SH RM OBJCOPY LDARCH LD CP MKDIR CD LN
 export ESED SED CAT
@@ -144,11 +137,11 @@ src: $(EARLY-GEN)
 
 .PHONY: src
 
-$(LIBCT).so: src/$(LIBCT).so
+$(LIBCT).a: src/$(LIBCT).a
 	$(E) "  LN      " $@
 	$(Q) $(LN) -sf $^ $@
 
-$(LIBCT).a: src/$(LIBCT).a
+$(LIBCT).so: src/$(LIBCT).so
 	$(E) "  LN      " $@
 	$(Q) $(LN) -sf $^ $@
 

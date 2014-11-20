@@ -118,10 +118,6 @@ static inline struct container *cth2ct(struct ct_handler *h)
 }
 
 extern char *local_ct_name(ct_handler_t h);
-extern int local_add_uid_map(ct_handler_t h, unsigned int first,
-			unsigned int lower_first, unsigned int count);
-extern int local_add_gid_map(ct_handler_t h, unsigned int first,
-			unsigned int lower_first, unsigned int count);
 
 static inline bool fs_private(struct container *ct)
 {

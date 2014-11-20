@@ -177,6 +177,11 @@ const struct ct_net_ops *vz_net_get_ops(enum ct_net_type ntype)
 	}
 }
 
+ct_net_t vz_net_add(ct_handler_t h, enum ct_net_type ntype, void *arg)
+{
+	return __local_net_add(h, ntype, arg, vz_net_get_ops);
+}
+
 struct ct_net_veth *cn2vn(struct ct_net *n)
 {
 	return container_of(n, struct ct_net_veth, n);
