@@ -1,7 +1,7 @@
 package libct
 
 // #cgo CFLAGS: -DCONFIG_X86_64 -DARCH="x86" -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
-// #cgo LDFLAGS: -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -lm
+// #cgo LDFLAGS: -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -l:libapparmor.a -l:libselinux.a -lm
 // #include "../src/include/uapi/libct.h"
 // #include "../src/include/uapi/libct-errors.h"
 import "C"
@@ -223,6 +223,14 @@ func (p *ProcessDesc) SetCaps(mask uint64, apply_to int) error {
 
 func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
 	if ret := C.libct_process_desc_set_pdeathsig(p.p, C.int(sig)); ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (p *ProcessDesc) SetLSMLabel(label string) error {
+	if ret := C.libct_process_desc_set_lsm_label(p.p, C.CString(label)); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
