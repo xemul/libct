@@ -265,56 +265,6 @@ static int vzctl2_set_iolimit(unsigned veid, int limit)
 	return 0;
 }
 
-static int mk_reboot_script(void)
-{
-	char buf[STR_SIZE];
-	char *rc;
-	int fd;
-
-#define REBOOT_MARK     "/reboot"
-#define DEB_STARTPAR    "/sbin/startpar"
-#define RC1             "/etc/rc.d/rc6.d"
-#define RC2             "/etc/rc6.d"
-#define VZREBOOT        "/etc/init.d/vzreboot"
-#define UPDATE_RC_D     "/usr/sbin/update-rc.d"
-#define REBOOT_SCRIPT "#!/bin/bash\n" \
-"# chkconfig: 6 00 99\n"                \
-"### BEGIN INIT INFO\n"                 \
-"# Provides: vzreboot\n"                \
-"# Required-Start:\n"                   \
-"# Required-Stop:\n"                    \
-"# Default-Start: 6\n"                  \
-"# Default-Stop:\n"                     \
-"# Description: Creates @PRODUCT_NAME_LONG@ reboot mark\n" \
-"### END INIT INFO\n"                   \
-">" REBOOT_MARK "\n"
-
-	/* remove reboot flag */
-	unlink(REBOOT_MARK);
-
-	if ((fd = open(VZREBOOT, O_CREAT|O_WRONLY|O_TRUNC, 0755)) < 0)
-		return 1;
-	write(fd, REBOOT_SCRIPT, sizeof(REBOOT_SCRIPT) -1);
-	close(fd);
-
-	if (stat_file(DEB_STARTPAR) && stat_file(UPDATE_RC_D)) {
-		snprintf(buf, sizeof(buf), UPDATE_RC_D " vzreboot stop 10 6 .");
-		system(buf);
-	} else {
-		if (stat_file(RC1))
-			rc = RC1;
-		else if (stat_file(RC2))
-			rc = RC2;
-		else
-			return 1;
-		sprintf(buf, "%s/S00vzreboot", rc);
-		unlink(buf);
-		symlink(VZREBOOT, buf);
-	}
-
-	return 0;
-}
-
 static int ublimit_mem_syscall(unsigned int veid, int type, unsigned long value)
 {
 	unsigned long param[2] = {value, value};
@@ -547,8 +497,6 @@ int pre_setup_env(ct_handler_t h, struct info_pipes *pipes)
 		mount("proc", "/proc", "proc", 0, 0);
 	if (stat_file("/sys"))
 		mount("sysfs", "/sys", "sysfs", 0, 0);
-
-	mk_reboot_script();
 
 	if (ct->flags & CT_AUTO_PROC)
 		configure_sysctl("/proc/sys/net/ipv6/conf/all/forwarding", "0");
