@@ -435,6 +435,7 @@ static int vz_cgroup_resources_set(struct container *ct)
 				pr_err("local_config_controller failed %d", ret);
 				return -LCTERR_CGCONFIG;
 			}
+			break;
 		default:
 			return -LCTERR_OPNOTSUPP;
 			break;
@@ -508,7 +509,7 @@ int pre_setup_env(ct_handler_t h, struct info_pipes *pipes)
 
 	ret = vz_cgroup_resources_set(ct);
 	if (ret) {
-		pr_err("vz_cgroup_resource_create");
+		pr_err("vz_cgroup_resource_set failed");
 		_exit(1);
 	}
 
@@ -621,7 +622,7 @@ static int vzctl_chroot(const char *root)
                 pr_perror("unable to change dir to %s", root);
 		return -1;
 	}
-	if (chroot(root)) {
+	if (chroot(".")) {
 		pr_perror("chroot %s failed", root);
 		return -1;
 	}
@@ -1329,7 +1330,15 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 				pr_err("vz_resourse_create");
 				_exit(1);
 			}
+			if (ea.fds) {
+				dup2(ea.fds[0], STDIN_FILENO);
+				dup2(ea.fds[1], STDOUT_FILENO);
+				dup2(ea.fds[2], STDERR_FILENO);
+			}
+
 			execve(ea.path, ea.argv, ea.env);
+			pr_perror("Unable to execve");
+			_exit(-1);
 		}
 
 		if (env_wait(child_pid, 0, NULL)) {
