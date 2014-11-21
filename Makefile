@@ -165,7 +165,7 @@ clean:
 	$(Q) $(MAKE) $(build)=src clean
 	$(Q) $(MAKE) -C test clean
 	$(Q) $(MAKE) -s -C Documentation clean
-	$(Q) $(RM) $(LIBCT)
+	$(Q) $(RM) $(LIBCT).so $(LIBCT).a
 	$(Q) $(RM) $(CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
 
