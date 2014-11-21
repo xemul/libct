@@ -47,8 +47,10 @@ int main(int argc, char **argv)
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
 	p = libct_process_desc_create(s);
-	if (libct_container_set_nsmask(ct, CLONE_NEWPID | CLONE_NEWNS))
-		return err("No pid & mount NS");
+	if (libct_container_set_nsmask(ct, CLONE_NEWPID | CLONE_NEWNS)) {
+		tst_err("No pid & mount NS");
+		return 2;
+	}
 
 	libct_container_set_option(ct, LIBCT_OPT_AUTO_PROC_MOUNT, NULL);
 
