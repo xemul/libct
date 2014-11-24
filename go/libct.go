@@ -69,6 +69,16 @@ func (s *Session) ContainerCreate(name string) (*Container, error) {
 	return &Container{ct}, nil
 }
 
+func (s *Session) ContainerOpen(name string) (*Container, error) {
+	ct := C.libct_container_open(s.s, C.CString(name))
+
+	if ct == nil {
+		return nil, LibctError{-1}
+	}
+
+	return &Container{ct}, nil
+}
+
 func (s *Session) ProcessCreateDesc() (*ProcessDesc, error) {
 	p := C.libct_process_desc_create(s.s)
 	if p == nil {
