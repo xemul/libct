@@ -109,7 +109,18 @@ func (ct *Container) SetConsoleFd(f *os.File) error {
 }
 
 func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
-	var cfdsp *C.int
+	return ct.execve(p, path, argv, env, fds, true)
+}
+
+func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
+	return ct.execve(p, path, argv, env, fds, false)
+}
+
+func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr, spawn bool) (int, error) {
+	var (
+		cfdsp *C.int
+		ret int
+	)
 
 	cargv := make([]*C.char, len(argv)+1)
 	for i, arg := range argv {
@@ -129,7 +140,11 @@ func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env
 		cfdsp = &cfds[0]
 	}
 
-	ret := int(C.libct_container_spawn_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+	if spawn {
+		ret = int(C.libct_container_spawn_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+	} else {
+		ret = int(C.libct_container_enter_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+	}
 	if ret < 0 {
 		return -1, LibctError{int(ret)}
 	}
