@@ -38,10 +38,6 @@
 #define MAX_SHTD_TM 			120
 #define VZCTLDEV			"/dev/vzctl"
 #define ENVRETRY 			3
-#define STR_SIZE			512
-#define LINUX_REBOOT_MAGIC1		0xfee1dead
-#define LINUX_REBOOT_MAGIC2		672274793
-#define LINUX_REBOOT_CMD_POWER_OFF	0x4321FEDC
 #define IOPRIO_CLASS_BE			2
 #define IOPRIO_CLASS_SHIFT		13
 #define IOPRIO_WHO_UBC			1000
@@ -59,6 +55,10 @@ struct info_pipes {
 	int *err;
 	int *child_wait;
 	int *parent_wait;
+};
+
+struct vz_private {
+	int exec_waiting_pid;
 };
 
 static int __vzctlfd = -1;
@@ -166,6 +166,7 @@ static void vz_ct_destroy(ct_handler_t h)
 	xfree(ct->hostname);
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
+	xfree(ct->private);
 	xfree(ct);
 }
 
@@ -233,36 +234,6 @@ err:
 	if (ve.pid != buf)
 		free(ve.pid);
 	return ret;
-}
-
-static int vzctl2_set_iolimit(unsigned veid, int limit)
-{
-	int ret;
-	struct iolimit_state io;
-
-	if (limit < 0)
-		return -LCTERR_BADARG;
-
-	io.id = veid;
-	io.speed = limit;
-	io.burst = limit * 3;
-	io.latency = 10*1000;
-	pr_info("Set up iolimit: %d", limit);
-	ret = ioctl(get_vzctlfd(), VZCTL_SET_IOLIMIT, &io);
-	if (ret) {
-		if (errno == ESRCH) {
-			pr_err("Container is not running");
-			return -1;
-		}
-		else if (errno == ENOTTY) {
-			pr_warn("iolimit feature is not supported by the kernel; "
-					"iolimit configuration is skipped");
-			return -1;
-		}
-		pr_perror("Unable to set iolimit");
-		return -1;
-	}
-	return 0;
 }
 
 static int ublimit_mem_syscall(unsigned int veid, int type, unsigned long value)
@@ -573,42 +544,6 @@ static int env_wait(int pid, int timeout, int *retcode)
 	return ret;
 }
 
-static int execvep(const char *path, char *const argv[], char *const envp[])
-{
-	if (!strchr(path, '/')) {
-		char *p = "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin";
-		for (; p && *p;) {
-			char partial[FILENAME_MAX];
-			char *p2;
-
-			p2 = strchr(p, ':');
-			if (p2) {
-				size_t len = p2 - p;
-
-				strncpy(partial, p, len);
-				partial[len] = 0;
-			} else {
-				strcpy(partial, p);
-			}
-			if (strlen(partial))
-				strcat(partial, "/");
-			strcat(partial, path);
-
-			execve(partial, argv, envp);
-
-			if (errno != ENOENT)
-				return -1;
-			if (p2) {
-				p = p2 + 1;
-			} else {
-				p = 0;
-			}
-		}
-		return -1;
-	} else
-		return execve(path, argv, envp);
-}
-
 static int vzctl_chroot(const char *root)
 {
 	int i;
@@ -885,6 +820,7 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		.parent_wait = parent_wait,
 	};
 	struct sigaction act;
+	struct vz_private *priv = ct->private;
 	int pid = -1;
 	int root_pid = -1;
 
@@ -974,7 +910,7 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		goto err_wait;
 	}
 	proc_wake_close(child_wait, 0);
-
+	priv->exec_waiting_pid = pid;
 	ct->state = CT_RUNNING;
 	return ct->root_pid;
 
@@ -1036,72 +972,17 @@ static int vz_ct_kill(ct_handler_t h)
 	return env_kill(veid); /* for VZ containers CT_KILLABLE option is ignored */
 }
 
-static int wait_env_state(unsigned int veid, int state, unsigned int timeout)
-{
-	int i, rc;
-
-	for (i = 0; i < timeout * 2; i++) {
-		rc = env_is_run(veid);
-		switch (state) {
-		case CT_RUNNING:
-			if (rc == 1)
-				return 0;
-			break;
-		case CT_STOPPED:
-			if (rc == 0)
-				return 0;
-			break;
-		}
-		usleep(500000);
-	}
-	return -1;
-}
-
-static int real_env_stop(int stop_mode)
-{
-	int fd;
-
-	fd = open("/dev/null", O_RDWR);
-	if (fd != -1) {
-		dup2(fd, 0); dup2(fd, 1); dup2(fd, 2);
-		close(fd);
-	} else {
-		close(0); close(1); close(2);
-	}
-
-	/* Disable fsync. The fsync will be done by umount() */
-	configure_sysctl("/proc/sys/fs/fsync-enable", "0");
-	switch (stop_mode) {
-	case M_HALT: {
-		char *argv[] = {"halt", NULL};
-		char *argv_init[] = {"init", "0", NULL};
-		execvep(argv[0], argv, NULL);
-		execvep(argv_init[0], argv_init, NULL);
-		break;
-	}
-	case M_REBOOT: {
-		char *argv[] = {"reboot", NULL};
-		execvep(argv[0], argv, NULL);
-		break;
-	}
-	case M_KILL:
-		return syscall(__NR_reboot, LINUX_REBOOT_MAGIC1,
-			LINUX_REBOOT_MAGIC2,
-			LINUX_REBOOT_CMD_POWER_OFF, NULL);
-	}
-	return -1;
-}
-
 static int vz_ct_wait(ct_handler_t h)
 {
 	struct container *ct = NULL;
+	struct vz_private *priv = NULL;
 	unsigned int veid = -1;
-	int pid, child_pid, ret = 0;
 
 	if (!h)
 		return -LCTERR_BADARG;
 
 	ct = cth2ct(h);
+	priv = ct->private;
 	if (parse_uint(ct->name, &veid) < 0) {
 		pr_err("Unable to parse container's ID");
 		return -1;
@@ -1110,76 +991,21 @@ static int vz_ct_wait(ct_handler_t h)
 	if (ct->state != CT_RUNNING)
 		return -LCTERR_BADCTSTATE;
 
-	child_pid = fork();
-	if (child_pid < 0) {
-		pr_perror("Unable to stop Container, fork failed");
-		goto kill_force;
-	} else if (child_pid == 0) {
-		struct sigaction act, actold;
-		sigaction(SIGCHLD, NULL, &actold);
-		sigemptyset(&act.sa_mask);
-		act.sa_handler = SIG_IGN;
-		act.sa_flags = SA_NOCLDSTOP;
-		sigaction(SIGCHLD, &act, NULL);
-
-		ret = vz_resources_create(ct);
-		if (ret)
-			_exit(ret);
-
-		ret = vzctl_chroot(ct->root_path);
-		if (ret)
-			_exit(ret);
-
-		pr_info("Stopping the Container ...");
-		pid = fork();
-		if (pid < 0) {
-			pr_perror("Unable to stop Container, fork failed");
-			_exit(1);
-		} else if (pid == 0) {
-			if (ct->nsmask) {
-				ret = vzctl_env_create_ioctl(veid, VE_ENTER);
-				if (ret < 0)
-					_exit(ret);
-			}
-			ret = real_env_stop(M_HALT);
-			_exit(ret);
-		}
-
-		if (wait_env_state(veid, CT_STOPPED, MAX_SHTD_TM) == 0)
-			_exit(0);
-
-		pr_info("Forcibly stop the Container...");
-		vzctl2_set_iolimit(veid, 0);
-		vzctl2_set_iopslimit(veid, 0);
-
-		pid = fork();
-		if (pid < 0) {
-			pr_perror("Unable to stop Container, fork failed");
-			_exit(1);
-		} else if (pid == 0) {
-			ret = vzctl_env_create_ioctl(veid, VE_ENTER);
-			if (ret >= 0)
-				ret = real_env_stop(M_KILL);
-			_exit(ret);
-		}
-		if (wait_env_state(veid, CT_STOPPED, MAX_SHTD_TM) == 0)
-			_exit(0);
-
-		_exit(1);
-	}
-	env_wait(child_pid, 0, NULL);
+	env_wait(priv->exec_waiting_pid, 0, NULL);
 	if (!env_is_run(veid)) {
 		pr_info("Container was stopped");
 		return 0;
 	}
+	fs_umount(ct);
+	cgroups_destroy(ct);
+	net_stop(ct);
 
-kill_force:
 	pr_info("Forcibly kill the Container...");
 	if (env_kill(veid)) {
 		pr_err("Unable to stop Container: operation timed out");
 		return -1;
 	}
-
+	ct->state = CT_STOPPED;
 	return 0;
 }
 
@@ -1402,6 +1228,7 @@ ct_handler_t vz_ct_create(char *name)
 		ct->state = CT_STOPPED;
 		ct->name = xstrdup(name);
 		ct->tty_fd = -1;
+		ct->private = xmalloc(sizeof(struct vz_private));
 		INIT_LIST_HEAD(&ct->cgroups);
 		INIT_LIST_HEAD(&ct->cg_configs);
 		INIT_LIST_HEAD(&ct->ct_nets);
