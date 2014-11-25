@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 
 	fds[0] = STDIN_FILENO;
 	fds[1] = tfd[1];
-	fcntl(pfd[0], F_SETFD, FD_CLOEXEC);
+	fcntl(tfd[0], F_SETFD, FD_CLOEXEC);
 	pid = libct_container_enter_execvfds(ct, p, "/bin/sh", ls_a, fds);
 	if (pid <= 0)
 		goto err;
