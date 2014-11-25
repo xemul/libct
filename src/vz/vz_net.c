@@ -50,7 +50,7 @@ static int gen_hwaddr(unsigned char *buf, int size)
 	return 0;
 }
 
-static int vz_veth_ioctl(int op_type, struct container *ct, const char *pair0, const char *pair1)
+static int vz_veth_ioctl(int op_type, struct container *ct, struct ct_net *n, const char *pair0, const char *pair1)
 {
 	struct vzctl_ve_hwaddr veth;
 	int ret = -1;
@@ -75,10 +75,17 @@ static int vz_veth_ioctl(int op_type, struct container *ct, const char *pair0, c
 		pr_err("Failed to gen_hwaddr: err=%d", ret);
 		return -1;
 	}
-	ret = gen_hwaddr(veth.dev_addr_ve, ETH_ALEN);
-	if (ret) {
-		pr_err("Failed to gen_hwaddr: err=%d", ret);
-		return -1;
+	if (n->addr) {
+		sscanf(n->addr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &veth.dev_addr_ve[0],
+			&veth.dev_addr_ve[1], &veth.dev_addr_ve[2], &veth.dev_addr_ve[3],
+			&veth.dev_addr_ve[4], &veth.dev_addr_ve[5]);
+
+	} else  {
+		ret = gen_hwaddr(veth.dev_addr_ve, ETH_ALEN);
+		if (ret) {
+			pr_err("Failed to gen_hwaddr: err=%d", ret);
+			return -1;
+		}
 	}
 	memcpy(veth.dev_name, pair0, sizeof(veth.dev_name));
 	memcpy(veth.dev_name_ve, pair1, sizeof(veth.dev_name_ve));
@@ -137,10 +144,10 @@ static int vz_veth_start(struct container *ct, struct ct_net *n)
 		return -LCTERR_BADARG;
 	vn = cn2vn(n);
 
-	ret = vz_veth_ioctl(VE_ETH_ADD, ct, vn->peer.name, vn->n.name);
+	ret = vz_veth_ioctl(VE_ETH_ADD, ct, n, vn->peer.name, vn->n.name);
 	if (ret)
 		return ret;
-	ret = vz_veth_ioctl(VE_ETH_ALLOW_MAC_CHANGE, ct, vn->peer.name, vn->n.name);
+	ret = vz_veth_ioctl(VE_ETH_ALLOW_MAC_CHANGE, ct, n, vn->peer.name, vn->n.name);
 	return ret;
 }
 
