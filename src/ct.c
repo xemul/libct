@@ -25,9 +25,11 @@
 #include "security.h"
 #include "list.h"
 #include "util.h"
+#include "lsm.h"
 #include "net.h"
 #include "ct.h"
 #include "fs.h"
+#include "vz.h"
 
 static enum ct_state local_get_state(ct_handler_t h)
 {
@@ -272,6 +274,12 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
+	if (p->lsm_label)
+		ret = lsm_process_label_set(p->lsm_label, false, p->lsm_on_exec);
+	p->lsm_on_exec = 0;
+	if (ret < 0)
+		goto err;
+
 	spawn_wake(ca->parent_wait_pipe, 0);
 
 	return ca->cb(ca->arg);
@@ -399,13 +407,6 @@ err_cg:
 	return ret;
 }
 
-struct execv_args {
-	char *path;
-	char **argv;
-	char **env;
-	int *fds;
-};
-
 static int ct_execv(void *a)
 {
 	struct execv_args *ea = a;
@@ -423,7 +424,8 @@ static int ct_execv(void *a)
 			goto err;
 		}
 		for (i = 0; i < 3; i++)
-			close(ea->fds[i]);
+			if (ea->fds[i] != i)
+				close(ea->fds[i]);
 	}
 
 	sigfillset(&mask);
@@ -441,11 +443,14 @@ err:
 static int local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea;
+	struct process_desc *p = prh2pr(pr);
 
 	ea.path = path;
 	ea.argv = argv;
 	ea.env = env;
 	ea.fds = fds;
+
+	p->lsm_on_exec = true;
 
 	return local_spawn_cb(ct, pr, ct_execv, &ea);
 }
@@ -508,16 +513,19 @@ static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 	return pid;
 }
 
-static int local_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
+static int local_enter_execve(ct_handler_t h, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
 {
 	struct execv_args ea = {};
+	struct process_desc *p = prh2pr(pr);
 
 	ea.path	= path;
 	ea.argv	= argv;
 	ea.env	= env;
 	ea.fds = fds;
 
-	return local_enter_cb(h, p, ct_execv, &ea);
+	p->lsm_on_exec = true;
+
+	return local_enter_cb(h, pr, ct_execv, &ea);
 }
 
 static int local_ct_kill(ct_handler_t h)
@@ -713,4 +721,31 @@ ct_handler_t ct_create(char *name)
 	}
 
 	return NULL;
+}
+
+ct_handler_t vz_ct_create(char *name)
+{
+	struct container *ct;
+
+	ct = xzalloc(sizeof(*ct));
+	if (ct) {
+		ct_handler_init(&ct->h);
+		ct->h.ops = get_vz_ct_ops();
+		ct->state = CT_STOPPED;
+		ct->name = xstrdup(name);
+		ct->tty_fd = -1;
+		INIT_LIST_HEAD(&ct->cgroups);
+		INIT_LIST_HEAD(&ct->cg_configs);
+		INIT_LIST_HEAD(&ct->ct_nets);
+		INIT_LIST_HEAD(&ct->ct_net_routes);
+		INIT_LIST_HEAD(&ct->fs_mnts);
+		INIT_LIST_HEAD(&ct->fs_devnodes);
+		INIT_LIST_HEAD(&ct->uid_map);
+		INIT_LIST_HEAD(&ct->gid_map);
+
+		return &ct->h;
+	}
+
+	return NULL;
+
 }

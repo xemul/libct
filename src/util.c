@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
+#include <ctype.h>
+#include <sys/param.h>
 
 #include "uapi/libct.h"
 #include "xmalloc.h"
@@ -113,3 +116,55 @@ int set_string(char **dest, char *src)
 	return 0;
 }
 
+int parse_uint(const char *str, unsigned int *val)
+{
+	char *tail;
+	long int n;
+
+	if (*str == '\0')
+		return -1;
+
+	errno = 0;
+	n = strtoul(str, &tail, 10);
+	if (*tail != '\0' || n >= UINT_MAX)
+		return -1;
+	*val = (unsigned int)n;
+
+	return 0;
+}
+
+int parse_int(const char *str, int *val)
+{
+	char *tail;
+	long int n;
+
+	if (*str == '\0')
+		return -1;
+
+	errno = 0;
+	n = strtol(str, &tail, 10);
+	if (*tail != '\0' || errno == ERANGE || n > INT_MAX)
+		return -1;
+	*val = (int)n;
+
+	return 0;
+}
+
+/*
+	1 - exist
+	0 - doesn't exist
+	-1 - error
+*/
+int stat_file(const char *file)
+{
+	struct stat st;
+
+	if (stat(file, &st)) {
+		if (errno != ENOENT) {
+			pr_perror("unable to stat %s", file);
+			return -1;
+		}
+		return 0;
+	}
+	return 1;
+}

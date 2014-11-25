@@ -34,6 +34,7 @@ struct cg_config {
 
 extern struct cg_desc cg_descs[];
 
+extern int cgroup_create_one(struct container *ct, struct controller *ctl);
 extern int cgroups_create(struct container *ct);
 extern int cgroups_attach(struct container *ct);
 extern void cgroups_destroy(struct container *ct);
@@ -41,6 +42,7 @@ extern void cgroups_free(struct container *ct);
 
 extern int local_add_controller(ct_handler_t h, enum ct_controller ctype);
 extern int local_config_controller(ct_handler_t h, enum ct_controller ctype, char *param, char *value);
+extern int config_controller(struct container *ct, enum ct_controller ctype, char *param, char *value);
 
 extern int try_mount_cg(struct container *ct);
 

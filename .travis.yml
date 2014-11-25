@@ -6,7 +6,7 @@ before_install:
     - sudo apt-get update -qq
 
 install:
-    - sudo apt-get install make gcc autoconf autoconf-doc libtool bison flex
+    - sudo apt-get install make gcc autoconf autoconf-doc libtool bison flex libselinux1-dev libapparmor-dev
 
 script:
     - git submodule update --init --recursive

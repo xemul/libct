@@ -12,6 +12,7 @@
 #include "err.h"
 #include "net.h"
 #include "ct.h"
+#include "net_util.h"
 
 void net_route_nh_free(ct_net_route_nh_t nh)
 {
@@ -151,6 +152,9 @@ int net_route_setup(struct container *ct)
 	int rst, ret = -1;
 	struct nl_sock *sk;
 	struct nl_cache *cache;
+
+	if (list_empty(&ct->ct_net_routes))
+		return 0;
 
 	if (switch_ns(ct->root_pid, &net_ns, &rst))
 		return -1;

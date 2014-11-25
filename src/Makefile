@@ -16,6 +16,14 @@ obj-y			+= util.o
 obj-y			+= devnodes.o
 obj-y			+= route.o
 obj-y			+= process.o
+obj-y			+= net_util.o
+obj-y			+= vz/vz.o
+obj-y			+= vz/vz_net.o
+obj-y			+= vz/readelf.o
+obj-y			+= lsm/lsm.o
+obj-$(CONFIG_APPARMOR)	+= lsm/apparmor.o
+obj-$(CONFIG_SELINUX)	+= lsm/selinux.o
+obj-y			+= lsm/nop.o
 
 cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
 cflags-so		+= -rdynamic

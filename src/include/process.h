@@ -11,6 +11,7 @@ struct process_desc_ops {
 	int (*setgroups)(ct_process_desc_t p, unsigned int size, unsigned int *groups);
 	int (*set_caps)(ct_process_desc_t h, unsigned long mask, unsigned int apply_to);
 	int (*set_pdeathsig)(ct_process_desc_t h, int sig);
+	int (*set_lsm_label)(ct_process_desc_t h, char *label);
 	ct_process_desc_t (*copy)(ct_process_desc_t h);
 	void (*destroy)(ct_process_desc_t p);
 };
@@ -31,6 +32,9 @@ struct process_desc {
 	unsigned long		cap_caps;
 
 	int			pdeathsig;
+
+	int			lsm_on_exec;
+	char			*lsm_label;
 };
 
 static inline struct process_desc *prh2pr(ct_process_desc_t h)

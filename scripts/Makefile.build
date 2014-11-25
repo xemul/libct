@@ -217,8 +217,8 @@ $(obj)/$(lib-a).a: $(all-objs) $(libs-e)
 	$(E) "  LINK    " $@
 	$(Q) ar -cru -o $@ $^
 
-_all += $(obj)/$(lib-so).so
-cleanup-y += $(obj)/$(lib-so).so
+_all += $(obj)/$(lib-a).a
+cleanup-y += $(obj)/$(lib-a).a
 endif
 
 ##

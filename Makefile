@@ -1,3 +1,5 @@
+include Makefile.config
+
 MAKEFLAGS 	:= -r -R --no-print-directory
 
 ifeq ($(strip $(V)),)
@@ -52,7 +54,15 @@ ifneq ($(ARCH),x86)
 $(error "The architecture $(ARCH) isn't supported"))
 endif
 
+ifneq ("$(wildcard /proc/vz)","")
+	VZ := 1
+endif
+
+
 cflags-y	+= -iquote src/include
+cflags-y	+= -iquote src/include/vz
+cflags-y	+= -iquote src/lsm
+cflags-y	+= -iquote src
 cflags-y	+= -fno-strict-aliasing
 cflags-y	+= -I/usr/include
 export cflags-y
@@ -84,6 +94,14 @@ ifeq ($(DEBUG),1)
 	CFLAGS	+= -O0 -ggdb3
 else
 	CFLAGS	+= -O2
+endif
+
+ifdef CONFIG_APPARMOR
+	DEFINES += -DHAVE_APPARMOR
+endif
+
+ifdef CONFIG_SELINUX
+	DEFINES += -DHAVE_SELINUX
 endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
@@ -119,13 +137,15 @@ src: $(EARLY-GEN)
 
 .PHONY: src
 
+$(LIBCT).a: src/$(LIBCT).a
+	$(E) "  LN      " $@
+	$(Q) $(LN) -sf $^ $@
+
 $(LIBCT).so: src/$(LIBCT).so
 	$(E) "  LN      " $@
 	$(Q) $(LN) -sf $^ $@
 
-$(LIBCT).a: src/$(LIBCT).a
-	$(E) "  LN      " $@
-	$(Q) $(LN) -sf $^ $@
+src/$(LIBCT).so: src/$(LIBCT).a
 
 all: $(LIBCT).so $(LIBCT).a
 	@true
@@ -143,7 +163,7 @@ tags:
 
 clean:
 	$(Q) $(MAKE) $(build)=src clean
-	$(Q) $(MAKE) $(build)=test clean
+	$(Q) $(MAKE) -C test clean
 	$(Q) $(MAKE) -s -C Documentation clean
 	$(Q) $(RM) $(LIBCT)
 	$(Q) $(RM) $(CONFIG)

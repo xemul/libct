@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "namespaces.h"
+#include "vzsyscalls.h"
 
 struct ns_desc pid_ns = {
 	.name = "pid",
@@ -33,11 +34,26 @@ static struct ns_desc uts_ns = {
 struct ns_desc *namespaces[] = {
 	&pid_ns,
 	&net_ns,
-	&mnt_ns,
 	&ipc_ns,
 	&uts_ns,
+	/*
+	 * mnt_ns must be the last one. After switching in a mount namespace,
+	 * the old /proc becomes inaccessible and we are not able switch other
+	 * namespaces
+	 */
+	&mnt_ns,
 	NULL
 };
+
+int setns(int fd, int nstype) __attribute__((weak));
+
+static int libct_setns(int fd, int nstype)
+{
+	if (setns)
+		return setns(fd, nstype);
+
+	return syscall(__NR_setns, fd, nstype);
+}
 
 int switch_ns(int pid, struct ns_desc *nd, int *rst)
 {
@@ -57,7 +73,7 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 			goto err_rst;
 	}
 
-	ret = setns(nsfd, nd->cflag);
+	ret = libct_setns(nsfd, nd->cflag);
 	if (ret < 0)
 		goto err_set;
 
@@ -75,6 +91,6 @@ err_ns:
 
 void restore_ns(int rst, struct ns_desc *nd)
 {
-	setns(rst, nd->cflag);
+	libct_setns(rst, nd->cflag);
 	close(rst);
 }
