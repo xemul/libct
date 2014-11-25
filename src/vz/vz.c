@@ -18,6 +18,7 @@
 #include <limits.h>
 #include <sched.h>
 #include <ctype.h>
+#include <dirent.h>
 
 #include "beancounter.h"
 #include "vzcalluser.h"
@@ -91,6 +92,38 @@ int get_vzctlfd(void)
 	return __vzctlfd;
 }
 
+DIR *open_fds_proc(pid_t pid)
+{
+	char dn[PATH_MAX] = {'\0'};
+	snprintf(dn, PATH_MAX, "/proc/%d/fd", pid);
+	return opendir(dn);
+}
+
+int close_all_fds(DIR *dir)
+{
+	struct dirent *de;
+	int fd, ret;
+
+	while ((de = readdir(dir))) {
+		if (!strcmp(de->d_name, ".") ||
+			!strcmp(de->d_name, "..") ||
+			!strcmp(de->d_name, "0") ||
+			!strcmp(de->d_name, "1") ||
+			!strcmp(de->d_name, "2"))
+			continue;
+
+		ret = sscanf(de->d_name, "%d", &fd);
+		if (ret != 1) {
+			pr_err("Can't parse %s\n", de->d_name);
+			return -1;
+		}
+		close(fd);
+	}
+
+	closedir(dir);
+
+	return 0;
+}
 static int configure_sysctl(const char *var, const char *val)
 {
 	int fd = -1, len = -1, ret = -1;
@@ -616,6 +649,7 @@ int env_create_data_ioctl(struct vzctl_env_create_data *data)
 
 static int exec_init(struct execv_args *ea)
 {
+	size_t i;
 	if (ea == NULL)
 		return -LCTERR_BADARG;
 
@@ -626,6 +660,9 @@ static int exec_init(struct execv_args *ea)
 		dup2(ea->fds[1], STDOUT_FILENO);
 		dup2(ea->fds[2], STDERR_FILENO);
 	}
+	for (i = 0; i < 3; i++)
+		if (ea->fds[i] != i)
+			close(ea->fds[i]);
 
 	execve(ea->path, ea->argv, ea->env);
 	return -1;
@@ -749,9 +786,16 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	int ret, pid;
 	struct container *ct = cth2ct(h);
 	unsigned int veid;
+	DIR *dir = NULL;
 
 	if (parse_uint(ct->name, &veid) < 0) {
 		pr_err("Unable to parse container's ID");
+		return -1;
+	}
+
+	dir = open_fds_proc(getpid());
+	if (dir == NULL) {
+		pr_err("Unable to open /proc/%d/fd", getpid());
 		return -1;
 	}
 
@@ -782,6 +826,11 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	}
 	if (write(pipes->parent_wait[1], &pid, sizeof(pid)) == -1) {
 		pr_perror("Unable to write to parent_wait pipe");
+		goto err;
+	}
+
+	if (close_all_fds(dir)) {
+		pr_perror("Unable to close fds!\n");
 		goto err;
 	}
 
@@ -1114,13 +1163,18 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 	} else if (pid == 0) {
 		int i;
 		int fd_flags[2];
-
+		DIR *dir = NULL;
 		for (i = 0; i < 2; i++) {
 			fd_flags[i] = fcntl(i, F_GETFL);
 			if (fd_flags[i] < 0) {
 				pr_perror("Unable to get fd%d flags", i);
 				_exit(-1);
 			}
+		}
+		dir = open_fds_proc(getpid());
+		if (dir == NULL) {
+			pr_perror("Unable to open /proc/%d/fd", getpid());
+			_exit(-1);
 		}
 
 		ret = vz_resources_create(ct);
@@ -1156,17 +1210,15 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 				pr_err("vz_resourse_create");
 				_exit(1);
 			}
-			if (ea.fds) {
-				dup2(ea.fds[0], STDIN_FILENO);
-				dup2(ea.fds[1], STDOUT_FILENO);
-				dup2(ea.fds[2], STDERR_FILENO);
-			}
-
-			execve(ea.path, ea.argv, ea.env);
+			exec_init(&ea);
 			pr_perror("Unable to execve");
 			_exit(-1);
 		}
 
+		if (close_all_fds(dir)) {
+			pr_perror("Unable to close fds!");
+			_exit(-1);
+		}
 		if (env_wait(child_pid, 0, NULL)) {
 			pr_err("Execution failed");
 			ret = -1;
