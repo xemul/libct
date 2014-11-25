@@ -1390,3 +1390,30 @@ const struct container_ops *get_vz_ct_ops(void)
 {
 	return &vz_ct_ops;
 }
+
+ct_handler_t vz_ct_create(char *name)
+{
+	struct container *ct;
+
+	ct = xzalloc(sizeof(*ct));
+	if (ct) {
+		ct_handler_init(&ct->h);
+		ct->h.ops = get_vz_ct_ops();
+		ct->state = CT_STOPPED;
+		ct->name = xstrdup(name);
+		ct->tty_fd = -1;
+		INIT_LIST_HEAD(&ct->cgroups);
+		INIT_LIST_HEAD(&ct->cg_configs);
+		INIT_LIST_HEAD(&ct->ct_nets);
+		INIT_LIST_HEAD(&ct->ct_net_routes);
+		INIT_LIST_HEAD(&ct->fs_mnts);
+		INIT_LIST_HEAD(&ct->fs_devnodes);
+		INIT_LIST_HEAD(&ct->uid_map);
+		INIT_LIST_HEAD(&ct->gid_map);
+
+		return &ct->h;
+	}
+
+	return NULL;
+
+}
