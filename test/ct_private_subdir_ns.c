@@ -44,8 +44,10 @@ int main(int argc, char **argv)
 
 	mkdir(FS_ROOT, 0600);
 	mkdir(FS_PRIVATE, 0600);
-	if (creat(FS_PRIVATE "/" FS_FILE, 0600) < 0)
-		return err("Can't create file");
+	if (creat(FS_PRIVATE "/" FS_FILE, 0600) < 0) {
+		tst_perr("Can't create file");
+		return 2;
+	}
 	unlink(FS_ROOT "/" FS_FILE);
 
 	fs_data = mmap(NULL, 4096, PROT_READ | PROT_WRITE,

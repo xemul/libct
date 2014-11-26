@@ -1,6 +1,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <grp.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -94,12 +95,19 @@ struct ct_clone_arg {
 	struct process_desc *p;
 	int child_wait_pipe[2];
 	int parent_wait_pipe[2];
+	bool is_exec;
 };
 
 static inline int spawn_wait(int *pipe)
 {
-	int ret = -1;
+	int ret = INT_MIN;
 	read(pipe[0], &ret, sizeof(ret));
+	return ret;
+}
+
+static inline int spawn_wait_and_close(int *pipe)
+{
+	int ret = spawn_wait(pipe);
 	close(pipe[0]);
 	return ret;
 }
@@ -108,6 +116,14 @@ static inline void spawn_wake(int *pipe, int ret)
 {
 	write(pipe[1], &ret, sizeof(ret));
 	close(pipe[1]);
+}
+
+static inline void spawn_wake_and_cloexec(int *pipe, int ret)
+{
+	if (fcntl(pipe[1], F_SETFD, FD_CLOEXEC))
+		close(pipe[1]);
+
+	write(pipe[1], &ret, sizeof(ret));
 }
 
 static int re_mount_proc(struct container *ct)
@@ -207,7 +223,7 @@ static int ct_clone(void *arg)
 	close(ca->child_wait_pipe[1]);
 	close(ca->parent_wait_pipe[0]);
 
-	ret = spawn_wait(ca->child_wait_pipe);
+	ret = spawn_wait_and_close(ca->child_wait_pipe);
 	if (ret)
 		goto err_um;
 
@@ -280,9 +296,16 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err;
 
-	spawn_wake(ca->parent_wait_pipe, 0);
+	if (ca->is_exec)
+		spawn_wake_and_cloexec(ca->parent_wait_pipe, 0); // FIXME
+	else
+		spawn_wake(ca->parent_wait_pipe, 0);
 
-	return ca->cb(ca->arg);
+	ret = ca->cb(ca->arg);
+	if (ca->is_exec)
+		spawn_wake(ca->parent_wait_pipe, ret);
+
+	return ret;
 
 err_um:
 	if (ct->root_path)
@@ -327,7 +350,7 @@ err:
 	return exit_code;
 }
 
-static int local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
+static int __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg, bool is_exec)
 {
 	struct container *ct = cth2ct(h);
 	struct process_desc *p = prh2pr(ph);
@@ -360,6 +383,7 @@ static int local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 	ca.arg = arg;
 	ca.ct = ct;
 	ca.p = p;
+	ca.is_exec = is_exec;
 	pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD, &ca);
 	if (pid < 0)
 		goto err_clone;
@@ -380,9 +404,16 @@ static int local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 		goto err_net;
 
 	spawn_wake(ca.child_wait_pipe, 0);
+
 	aux = spawn_wait(ca.parent_wait_pipe);
 	if (aux != 0) {
 		ret = aux;
+		goto err_ch;
+	}
+
+	aux = spawn_wait_and_close(ca.parent_wait_pipe);
+	if (aux != INT_MIN) {
+		ret = -1;
 		goto err_ch;
 	}
 
@@ -405,6 +436,11 @@ err_pipe:
 err_cg:
 	fs_umount(ct);
 	return ret;
+}
+
+static int local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
+{
+	return __local_spawn_cb(h, ph, cb, arg, false);
 }
 
 static int ct_execv(void *a)
@@ -452,14 +488,15 @@ static int local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path,
 
 	p->lsm_on_exec = true;
 
-	return local_spawn_cb(ct, pr, ct_execv, &ea);
+	return __local_spawn_cb(ct, pr, ct_execv, &ea, true);
 }
 
-static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
+static int __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg, bool is_exec)
 {
 	struct container *ct = cth2ct(h);
 	struct process_desc *p = prh2pr(ph);
 	int aux = -1, pid;
+	int wait_pipe[2];
 
 	if (ct->state != CT_RUNNING)
 		return -LCTERR_BADCTSTATE;
@@ -469,9 +506,14 @@ static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 			return -1;
 	}
 
+	if (pipe(wait_pipe))
+		return -1;
+
 	pid = fork();
 	if (pid == 0) {
 		struct ns_desc *ns;
+
+		close(wait_pipe[0]);
 
 		for (aux = 0; namespaces[aux]; aux++) {
 			ns = namespaces[aux];
@@ -503,14 +545,39 @@ static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 		if (apply_creds(p))
 			exit(-1);
 
+		if (is_exec)
+			spawn_wake_and_cloexec(wait_pipe, 0);
+		else
+			spawn_wake(wait_pipe, 0);
+
 		aux = cb(arg);
+
+		if (is_exec)
+			spawn_wake(wait_pipe, -1);
 		exit(aux);
 	}
+
+	close(wait_pipe[1]);
 
 	if (aux >= 0)
 		restore_ns(aux, &pid_ns);
 
+	if (spawn_wait(wait_pipe))
+		goto err;
+
+	if (spawn_wait_and_close(wait_pipe) != INT_MIN)
+		goto err;
+
 	return pid;
+err:
+	close(wait_pipe[0]);
+	waitpid(pid, NULL, 0);
+	return -1;
+}
+
+static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg)
+{
+	return __local_enter_cb(h, ph, cb, arg, false);
 }
 
 static int local_enter_execve(ct_handler_t h, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
@@ -525,7 +592,7 @@ static int local_enter_execve(ct_handler_t h, ct_process_desc_t pr, char *path, 
 
 	p->lsm_on_exec = true;
 
-	return local_enter_cb(h, pr, ct_execv, &ea);
+	return __local_enter_cb(h, pr, ct_execv, &ea, true);
 }
 
 static int local_ct_kill(ct_handler_t h)

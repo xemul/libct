@@ -68,8 +68,10 @@ int main(int argc, char **argv)
 
 	mkdir(FS_ROOT, 0600);
 	fd = open(FS_ROOT "/" FS_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-	if (fd < 0)
-		return err("Can't create file");
+	if (fd < 0) {
+		tst_perr("Can't create file");
+		return 2;
+	}
 
 	write(fd, FS_DATA, sizeof(FS_DATA));
 	close(fd);

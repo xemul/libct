@@ -7,7 +7,9 @@ RUN apt-get update && apt-get install -y \
     autoconf \
     git-core \
     bison \
-    flex
+    flex \
+    libselinux1-dev \
+    libapparmor-dev
 
 COPY . /libct
 WORKDIR /libct

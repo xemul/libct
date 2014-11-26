@@ -22,6 +22,8 @@ int main(int argc, char *argv[])
 	char buf[10];
 	pid_t pid;
 
+	test_init();
+
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "1339");
 	p = libct_process_desc_create(s);
@@ -48,7 +50,7 @@ int main(int argc, char *argv[])
 
 	fds[0] = STDIN_FILENO;
 	fds[1] = tfd[1];
-	fcntl(pfd[0], F_SETFD, FD_CLOEXEC);
+	fcntl(tfd[0], F_SETFD, FD_CLOEXEC);
 	pid = libct_container_enter_execvfds(ct, p, "/bin/sh", ls_a, fds);
 	if (pid <= 0)
 		goto err;

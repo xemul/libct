@@ -53,6 +53,7 @@ int main(int argc, char **argv)
 		return 1;
 
 	unshare(CLONE_NEWNS);
+	mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL);
 
 	umask(0);
 	mkdir(CT_USERNS_ROOT, 0777);

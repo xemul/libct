@@ -56,7 +56,7 @@ int main(int argc, char **argv)
 
 	mkdir(FS_EXT, 0600);
 	if (creat(FS_EXT "/" FS_FILE, 0600) < 0)
-		return err("Can't create file");
+		return tst_perr("Can't create file");
 
 	mkdir(FS_ROOT, 0600);
 	mkdir(FS_ROOT "/" FS_DIR, 0600);

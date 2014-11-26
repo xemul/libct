@@ -62,10 +62,10 @@ int main(int argc, char **argv)
 	ct = libct_container_create(s, "test-k");
 	pr = libct_process_desc_create(s);
 	if (libct_container_set_option(ct, LIBCT_OPT_KILLABLE, NULL))
-		return err("can't set killable");
+		return tst_err("can't set killable");
 
 	if (libct_container_spawn_cb(ct, pr, loop_in_ct, &cta) < 0)
-		return err("can't start CT");
+		return tst_err("can't start CT");
 
 	close(p[1]);
 	read(p[0], &c, 1);

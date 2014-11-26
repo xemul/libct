@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 
 	system("ip link add name dm0 type dummy");
 	if (system("ip link l dm0"))
-		return err("Can't create dummy device");
+		return tst_err("Can't create dummy device");
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
@@ -47,11 +47,11 @@ int main(int argc, char **argv)
 	nd = libct_net_add(ct, CT_NET_HOSTNIC, "dm0");
 	if (libct_handle_is_err(nd)) {
 		system("ip link del dm0");
-		return err("Can't add hostnic");
+		return tst_err("Can't add hostnic");
 	}
 	if (libct_container_spawn_cb(ct, p, check_ct_net, ct_status) < 0) {
 		system("ip link del dm0");
-		return err("Can't spawn CT");
+		return tst_err("Can't spawn CT");
 	}
 
 	libct_container_wait(ct);

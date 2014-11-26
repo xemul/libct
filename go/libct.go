@@ -1,7 +1,7 @@
 package libct
 
 // #cgo CFLAGS: -DCONFIG_X86_64 -DARCH="x86" -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
-// #cgo LDFLAGS: -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -lm
+// #cgo LDFLAGS: -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -l:libapparmor.a -l:libselinux.a -lm
 // #include "../src/include/uapi/libct.h"
 // #include "../src/include/uapi/libct-errors.h"
 import "C"
@@ -69,6 +69,16 @@ func (s *Session) ContainerCreate(name string) (*Container, error) {
 	return &Container{ct}, nil
 }
 
+func (s *Session) ContainerOpen(name string) (*Container, error) {
+	ct := C.libct_container_open(s.s, C.CString(name))
+
+	if ct == nil {
+		return nil, LibctError{-1}
+	}
+
+	return &Container{ct}, nil
+}
+
 func (s *Session) ProcessCreateDesc() (*ProcessDesc, error) {
 	p := C.libct_process_desc_create(s.s)
 	if p == nil {
@@ -109,7 +119,18 @@ func (ct *Container) SetConsoleFd(f *os.File) error {
 }
 
 func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
-	var cfdsp *C.int
+	return ct.execve(p, path, argv, env, fds, true)
+}
+
+func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
+	return ct.execve(p, path, argv, env, fds, false)
+}
+
+func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr, spawn bool) (int, error) {
+	var (
+		cfdsp *C.int
+		ret int
+	)
 
 	cargv := make([]*C.char, len(argv)+1)
 	for i, arg := range argv {
@@ -129,7 +150,11 @@ func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env
 		cfdsp = &cfds[0]
 	}
 
-	ret := int(C.libct_container_spawn_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+	if spawn {
+		ret = int(C.libct_container_spawn_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+	} else {
+		ret = int(C.libct_container_enter_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+	}
 	if ret < 0 {
 		return -1, LibctError{int(ret)}
 	}
@@ -223,6 +248,14 @@ func (p *ProcessDesc) SetCaps(mask uint64, apply_to int) error {
 
 func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
 	if ret := C.libct_process_desc_set_pdeathsig(p.p, C.int(sig)); ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (p *ProcessDesc) SetLSMLabel(label string) error {
+	if ret := C.libct_process_desc_set_lsm_label(p.p, C.CString(label)); ret != 0 {
 		return LibctError{int(ret)}
 	}
 

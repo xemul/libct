@@ -62,13 +62,13 @@ int main(int argc, char **argv)
 
 	nd = libct_net_add(ct, CT_NET_VETH, &va);
 	if (libct_handle_is_err(nd))
-		return err("Can't add hostnic");
+		return tst_err("Can't add hostnic");
 
 	if (libct_net_dev_set_mac_addr(nd, "00:11:22:33:44:55"))
-		return err("Can't set mac");
+		return tst_err("Can't set mac");
 
 	if (libct_container_spawn_cb(ct, pr, check_ct_net, &ca) < 0)
-		return err("Can't spawn CT");
+		return tst_err("Can't spawn CT");
 
 	if (!system("ip link l " VETH_HOST_NAME ""))
 		ca.mark[1] = 1;
