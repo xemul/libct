@@ -18,6 +18,7 @@
 #include <limits.h>
 #include <sched.h>
 #include <ctype.h>
+#include <dirent.h>
 
 #include "beancounter.h"
 #include "vzcalluser.h"
@@ -38,10 +39,6 @@
 #define MAX_SHTD_TM 			120
 #define VZCTLDEV			"/dev/vzctl"
 #define ENVRETRY 			3
-#define STR_SIZE			512
-#define LINUX_REBOOT_MAGIC1		0xfee1dead
-#define LINUX_REBOOT_MAGIC2		672274793
-#define LINUX_REBOOT_CMD_POWER_OFF	0x4321FEDC
 #define IOPRIO_CLASS_BE			2
 #define IOPRIO_CLASS_SHIFT		13
 #define IOPRIO_WHO_UBC			1000
@@ -59,6 +56,10 @@ struct info_pipes {
 	int *err;
 	int *child_wait;
 	int *parent_wait;
+};
+
+struct vz_private {
+	int exec_waiting_pid;
 };
 
 static int __vzctlfd = -1;
@@ -91,6 +92,38 @@ int get_vzctlfd(void)
 	return __vzctlfd;
 }
 
+DIR *open_fds_proc(pid_t pid)
+{
+	char dn[PATH_MAX] = {'\0'};
+	snprintf(dn, PATH_MAX, "/proc/%d/fd", pid);
+	return opendir(dn);
+}
+
+int close_all_fds(DIR *dir)
+{
+	struct dirent *de;
+	int fd, ret;
+
+	while ((de = readdir(dir))) {
+		if (!strcmp(de->d_name, ".") ||
+			!strcmp(de->d_name, "..") ||
+			!strcmp(de->d_name, "0") ||
+			!strcmp(de->d_name, "1") ||
+			!strcmp(de->d_name, "2"))
+			continue;
+
+		ret = sscanf(de->d_name, "%d", &fd);
+		if (ret != 1) {
+			pr_err("Can't parse %s\n", de->d_name);
+			return -1;
+		}
+		close(fd);
+	}
+
+	closedir(dir);
+
+	return 0;
+}
 static int configure_sysctl(const char *var, const char *val)
 {
 	int fd = -1, len = -1, ret = -1;
@@ -166,6 +199,7 @@ static void vz_ct_destroy(ct_handler_t h)
 	xfree(ct->hostname);
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
+	xfree(ct->private);
 	xfree(ct);
 }
 
@@ -233,86 +267,6 @@ err:
 	if (ve.pid != buf)
 		free(ve.pid);
 	return ret;
-}
-
-static int vzctl2_set_iolimit(unsigned veid, int limit)
-{
-	int ret;
-	struct iolimit_state io;
-
-	if (limit < 0)
-		return -LCTERR_BADARG;
-
-	io.id = veid;
-	io.speed = limit;
-	io.burst = limit * 3;
-	io.latency = 10*1000;
-	pr_info("Set up iolimit: %d", limit);
-	ret = ioctl(get_vzctlfd(), VZCTL_SET_IOLIMIT, &io);
-	if (ret) {
-		if (errno == ESRCH) {
-			pr_err("Container is not running");
-			return -1;
-		}
-		else if (errno == ENOTTY) {
-			pr_warn("iolimit feature is not supported by the kernel; "
-					"iolimit configuration is skipped");
-			return -1;
-		}
-		pr_perror("Unable to set iolimit");
-		return -1;
-	}
-	return 0;
-}
-
-static int mk_reboot_script(void)
-{
-	char buf[STR_SIZE];
-	char *rc;
-	int fd;
-
-#define REBOOT_MARK     "/reboot"
-#define DEB_STARTPAR    "/sbin/startpar"
-#define RC1             "/etc/rc.d/rc6.d"
-#define RC2             "/etc/rc6.d"
-#define VZREBOOT        "/etc/init.d/vzreboot"
-#define UPDATE_RC_D     "/usr/sbin/update-rc.d"
-#define REBOOT_SCRIPT "#!/bin/bash\n" \
-"# chkconfig: 6 00 99\n"                \
-"### BEGIN INIT INFO\n"                 \
-"# Provides: vzreboot\n"                \
-"# Required-Start:\n"                   \
-"# Required-Stop:\n"                    \
-"# Default-Start: 6\n"                  \
-"# Default-Stop:\n"                     \
-"# Description: Creates @PRODUCT_NAME_LONG@ reboot mark\n" \
-"### END INIT INFO\n"                   \
-">" REBOOT_MARK "\n"
-
-	/* remove reboot flag */
-	unlink(REBOOT_MARK);
-
-	if ((fd = open(VZREBOOT, O_CREAT|O_WRONLY|O_TRUNC, 0755)) < 0)
-		return 1;
-	write(fd, REBOOT_SCRIPT, sizeof(REBOOT_SCRIPT) -1);
-	close(fd);
-
-	if (stat_file(DEB_STARTPAR) && stat_file(UPDATE_RC_D)) {
-		snprintf(buf, sizeof(buf), UPDATE_RC_D " vzreboot stop 10 6 .");
-		system(buf);
-	} else {
-		if (stat_file(RC1))
-			rc = RC1;
-		else if (stat_file(RC2))
-			rc = RC2;
-		else
-			return 1;
-		sprintf(buf, "%s/S00vzreboot", rc);
-		unlink(buf);
-		symlink(VZREBOOT, buf);
-	}
-
-	return 0;
 }
 
 static int ublimit_mem_syscall(unsigned int veid, int type, unsigned long value)
@@ -485,6 +439,7 @@ static int vz_cgroup_resources_set(struct container *ct)
 				pr_err("local_config_controller failed %d", ret);
 				return -LCTERR_CGCONFIG;
 			}
+			break;
 		default:
 			return -LCTERR_OPNOTSUPP;
 			break;
@@ -548,8 +503,6 @@ int pre_setup_env(ct_handler_t h, struct info_pipes *pipes)
 	if (stat_file("/sys"))
 		mount("sysfs", "/sys", "sysfs", 0, 0);
 
-	mk_reboot_script();
-
 	if (ct->flags & CT_AUTO_PROC)
 		configure_sysctl("/proc/sys/net/ipv6/conf/all/forwarding", "0");
 
@@ -560,7 +513,7 @@ int pre_setup_env(ct_handler_t h, struct info_pipes *pipes)
 
 	ret = vz_cgroup_resources_set(ct);
 	if (ret) {
-		pr_err("vz_cgroup_resource_create");
+		pr_err("vz_cgroup_resource_set failed");
 		_exit(1);
 	}
 
@@ -624,42 +577,6 @@ static int env_wait(int pid, int timeout, int *retcode)
 	return ret;
 }
 
-static int execvep(const char *path, char *const argv[], char *const envp[])
-{
-	if (!strchr(path, '/')) {
-		char *p = "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin";
-		for (; p && *p;) {
-			char partial[FILENAME_MAX];
-			char *p2;
-
-			p2 = strchr(p, ':');
-			if (p2) {
-				size_t len = p2 - p;
-
-				strncpy(partial, p, len);
-				partial[len] = 0;
-			} else {
-				strcpy(partial, p);
-			}
-			if (strlen(partial))
-				strcat(partial, "/");
-			strcat(partial, path);
-
-			execve(partial, argv, envp);
-
-			if (errno != ENOENT)
-				return -1;
-			if (p2) {
-				p = p2 + 1;
-			} else {
-				p = 0;
-			}
-		}
-		return -1;
-	} else
-		return execve(path, argv, envp);
-}
-
 static int vzctl_chroot(const char *root)
 {
 	int i;
@@ -673,7 +590,7 @@ static int vzctl_chroot(const char *root)
                 pr_perror("unable to change dir to %s", root);
 		return -1;
 	}
-	if (chroot(root)) {
+	if (chroot(".")) {
 		pr_perror("chroot %s failed", root);
 		return -1;
 	}
@@ -732,6 +649,7 @@ int env_create_data_ioctl(struct vzctl_env_create_data *data)
 
 static int exec_init(struct execv_args *ea)
 {
+	size_t i;
 	if (ea == NULL)
 		return -LCTERR_BADARG;
 
@@ -742,6 +660,9 @@ static int exec_init(struct execv_args *ea)
 		dup2(ea->fds[1], STDOUT_FILENO);
 		dup2(ea->fds[2], STDERR_FILENO);
 	}
+	for (i = 0; i < 3; i++)
+		if (ea->fds[i] != i)
+			close(ea->fds[i]);
 
 	execve(ea->path, ea->argv, ea->env);
 	return -1;
@@ -865,9 +786,16 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	int ret, pid;
 	struct container *ct = cth2ct(h);
 	unsigned int veid;
+	DIR *dir = NULL;
 
 	if (parse_uint(ct->name, &veid) < 0) {
 		pr_err("Unable to parse container's ID");
+		return -1;
+	}
+
+	dir = open_fds_proc(getpid());
+	if (dir == NULL) {
+		pr_err("Unable to open /proc/%d/fd", getpid());
 		return -1;
 	}
 
@@ -898,6 +826,11 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	}
 	if (write(pipes->parent_wait[1], &pid, sizeof(pid)) == -1) {
 		pr_perror("Unable to write to parent_wait pipe");
+		goto err;
+	}
+
+	if (close_all_fds(dir)) {
+		pr_perror("Unable to close fds!\n");
 		goto err;
 	}
 
@@ -936,6 +869,7 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		.parent_wait = parent_wait,
 	};
 	struct sigaction act;
+	struct vz_private *priv = ct->private;
 	int pid = -1;
 	int root_pid = -1;
 
@@ -1025,7 +959,7 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		goto err_wait;
 	}
 	proc_wake_close(child_wait, 0);
-
+	priv->exec_waiting_pid = pid;
 	ct->state = CT_RUNNING;
 	return ct->root_pid;
 
@@ -1087,72 +1021,17 @@ static int vz_ct_kill(ct_handler_t h)
 	return env_kill(veid); /* for VZ containers CT_KILLABLE option is ignored */
 }
 
-static int wait_env_state(unsigned int veid, int state, unsigned int timeout)
-{
-	int i, rc;
-
-	for (i = 0; i < timeout * 2; i++) {
-		rc = env_is_run(veid);
-		switch (state) {
-		case CT_RUNNING:
-			if (rc == 1)
-				return 0;
-			break;
-		case CT_STOPPED:
-			if (rc == 0)
-				return 0;
-			break;
-		}
-		usleep(500000);
-	}
-	return -1;
-}
-
-static int real_env_stop(int stop_mode)
-{
-	int fd;
-
-	fd = open("/dev/null", O_RDWR);
-	if (fd != -1) {
-		dup2(fd, 0); dup2(fd, 1); dup2(fd, 2);
-		close(fd);
-	} else {
-		close(0); close(1); close(2);
-	}
-
-	/* Disable fsync. The fsync will be done by umount() */
-	configure_sysctl("/proc/sys/fs/fsync-enable", "0");
-	switch (stop_mode) {
-	case M_HALT: {
-		char *argv[] = {"halt", NULL};
-		char *argv_init[] = {"init", "0", NULL};
-		execvep(argv[0], argv, NULL);
-		execvep(argv_init[0], argv_init, NULL);
-		break;
-	}
-	case M_REBOOT: {
-		char *argv[] = {"reboot", NULL};
-		execvep(argv[0], argv, NULL);
-		break;
-	}
-	case M_KILL:
-		return syscall(__NR_reboot, LINUX_REBOOT_MAGIC1,
-			LINUX_REBOOT_MAGIC2,
-			LINUX_REBOOT_CMD_POWER_OFF, NULL);
-	}
-	return -1;
-}
-
 static int vz_ct_wait(ct_handler_t h)
 {
 	struct container *ct = NULL;
+	struct vz_private *priv = NULL;
 	unsigned int veid = -1;
-	int pid, child_pid, ret = 0;
 
 	if (!h)
 		return -LCTERR_BADARG;
 
 	ct = cth2ct(h);
+	priv = ct->private;
 	if (parse_uint(ct->name, &veid) < 0) {
 		pr_err("Unable to parse container's ID");
 		return -1;
@@ -1161,76 +1040,21 @@ static int vz_ct_wait(ct_handler_t h)
 	if (ct->state != CT_RUNNING)
 		return -LCTERR_BADCTSTATE;
 
-	child_pid = fork();
-	if (child_pid < 0) {
-		pr_perror("Unable to stop Container, fork failed");
-		goto kill_force;
-	} else if (child_pid == 0) {
-		struct sigaction act, actold;
-		sigaction(SIGCHLD, NULL, &actold);
-		sigemptyset(&act.sa_mask);
-		act.sa_handler = SIG_IGN;
-		act.sa_flags = SA_NOCLDSTOP;
-		sigaction(SIGCHLD, &act, NULL);
-
-		ret = vz_resources_create(ct);
-		if (ret)
-			_exit(ret);
-
-		ret = vzctl_chroot(ct->root_path);
-		if (ret)
-			_exit(ret);
-
-		pr_info("Stopping the Container ...");
-		pid = fork();
-		if (pid < 0) {
-			pr_perror("Unable to stop Container, fork failed");
-			_exit(1);
-		} else if (pid == 0) {
-			if (ct->nsmask) {
-				ret = vzctl_env_create_ioctl(veid, VE_ENTER);
-				if (ret < 0)
-					_exit(ret);
-			}
-			ret = real_env_stop(M_HALT);
-			_exit(ret);
-		}
-
-		if (wait_env_state(veid, CT_STOPPED, MAX_SHTD_TM) == 0)
-			_exit(0);
-
-		pr_info("Forcibly stop the Container...");
-		vzctl2_set_iolimit(veid, 0);
-		vzctl2_set_iopslimit(veid, 0);
-
-		pid = fork();
-		if (pid < 0) {
-			pr_perror("Unable to stop Container, fork failed");
-			_exit(1);
-		} else if (pid == 0) {
-			ret = vzctl_env_create_ioctl(veid, VE_ENTER);
-			if (ret >= 0)
-				ret = real_env_stop(M_KILL);
-			_exit(ret);
-		}
-		if (wait_env_state(veid, CT_STOPPED, MAX_SHTD_TM) == 0)
-			_exit(0);
-
-		_exit(1);
-	}
-	env_wait(child_pid, 0, NULL);
+	env_wait(priv->exec_waiting_pid, 0, NULL);
 	if (!env_is_run(veid)) {
 		pr_info("Container was stopped");
 		return 0;
 	}
+	fs_umount(ct);
+	cgroups_destroy(ct);
+	net_stop(ct);
 
-kill_force:
 	pr_info("Forcibly kill the Container...");
 	if (env_kill(veid)) {
 		pr_err("Unable to stop Container: operation timed out");
 		return -1;
 	}
-
+	ct->state = CT_STOPPED;
 	return 0;
 }
 
@@ -1339,13 +1163,18 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 	} else if (pid == 0) {
 		int i;
 		int fd_flags[2];
-
+		DIR *dir = NULL;
 		for (i = 0; i < 2; i++) {
 			fd_flags[i] = fcntl(i, F_GETFL);
 			if (fd_flags[i] < 0) {
 				pr_perror("Unable to get fd%d flags", i);
 				_exit(-1);
 			}
+		}
+		dir = open_fds_proc(getpid());
+		if (dir == NULL) {
+			pr_perror("Unable to open /proc/%d/fd", getpid());
+			_exit(-1);
 		}
 
 		ret = vz_resources_create(ct);
@@ -1381,9 +1210,15 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 				pr_err("vz_resourse_create");
 				_exit(1);
 			}
-			execve(ea.path, ea.argv, ea.env);
+			exec_init(&ea);
+			pr_perror("Unable to execve");
+			_exit(-1);
 		}
 
+		if (close_all_fds(dir)) {
+			pr_perror("Unable to close fds!");
+			_exit(-1);
+		}
 		if (env_wait(child_pid, 0, NULL)) {
 			pr_err("Execution failed");
 			ret = -1;
@@ -1432,4 +1267,32 @@ static const struct container_ops vz_ct_ops = {
 const struct container_ops *get_vz_ct_ops(void)
 {
 	return &vz_ct_ops;
+}
+
+ct_handler_t vz_ct_create(char *name)
+{
+	struct container *ct;
+
+	ct = xzalloc(sizeof(*ct));
+	if (ct) {
+		ct_handler_init(&ct->h);
+		ct->h.ops = get_vz_ct_ops();
+		ct->state = CT_STOPPED;
+		ct->name = xstrdup(name);
+		ct->tty_fd = -1;
+		ct->private = xmalloc(sizeof(struct vz_private));
+		INIT_LIST_HEAD(&ct->cgroups);
+		INIT_LIST_HEAD(&ct->cg_configs);
+		INIT_LIST_HEAD(&ct->ct_nets);
+		INIT_LIST_HEAD(&ct->ct_net_routes);
+		INIT_LIST_HEAD(&ct->fs_mnts);
+		INIT_LIST_HEAD(&ct->fs_devnodes);
+		INIT_LIST_HEAD(&ct->uid_map);
+		INIT_LIST_HEAD(&ct->gid_map);
+
+		return &ct->h;
+	}
+
+	return NULL;
+
 }

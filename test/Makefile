@@ -78,6 +78,6 @@ run: cleanouts $(PIGS) $(OUTS)
 
 root:
 	mkdir root
-	curl http://images.linuxcontainers.org/images/ubuntu/utopic/amd64/default/20141119_03:49/rootfs.tar.xz | tar -JxC root
+	curl http://images.linuxcontainers.org/images/ubuntu/utopic/amd64/default/`date '+%Y%m%d_03:49'`/rootfs.tar.xz | tar -JxC root
 
 .PHONY: all local vz clean run run-local run-vz
