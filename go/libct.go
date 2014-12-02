@@ -25,10 +25,6 @@ type Container struct {
 	ct C.ct_handler_t
 }
 
-type ProcessDesc struct {
-	p C.ct_process_desc_t
-}
-
 type NetDev struct {
 	dev C.ct_net_t
 }
@@ -118,12 +114,32 @@ func (ct *Container) SetConsoleFd(f *os.File) error {
 	return nil
 }
 
-func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
-	return ct.execve(p, path, argv, env, fds, true)
+func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) (int, error) {
+	var (
+		fds [3]uintptr
+		i   int = 0
+	)
+
+	type F func(*ProcessDesc) (*os.File, error)
+	for _, setupFd := range []F{(*ProcessDesc).stdin, (*ProcessDesc).stdout, (*ProcessDesc).stderr} {
+		fd, err := setupFd(p)
+		if err != nil {
+			p.closeDescriptors(p.closeAfterStart)
+			p.closeDescriptors(p.closeAfterWait)
+			return 0, err
+		}
+		p.childFiles = append(p.childFiles, fd)
+		fds[i] = fd.Fd()
+		i = i + 1
+	}
+
+	return ct.execve(p, path, argv, env, &fds, true)
 }
 
 func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
-	return ct.execve(p, path, argv, env, fds, false)
+	pid, err := ct.execve(p, path, argv, env, fds, false)
+	p.closeDescriptors(p.closeAfterStart)
+	return pid, err
 }
 
 func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr, spawn bool) (int, error) {
