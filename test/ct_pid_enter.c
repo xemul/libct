@@ -60,6 +60,8 @@ int main(int argc, char **argv)
 	libct_container_set_nsmask(ct, CLONE_NEWPID);
 	libct_container_spawn_cb(ct, pr, set_ct_alive, &cta);
 	pid = libct_container_enter_cb(ct, pr, set_ct_enter, &cta);
+	if (pid < 0)
+		perror("Unable to enter into CT");
 	if (waitpid(pid, NULL, 0) < 0)
 		perror("Can't wait entered process");
 

@@ -8,7 +8,6 @@ import "C"
 import "fmt"
 import "os"
 import "unsafe"
-import "syscall"
 
 const (
 	LIBCT_OPT_AUTO_PROC_MOUNT = C.LIBCT_OPT_AUTO_PROC_MOUNT
@@ -116,7 +115,6 @@ func (ct *Container) SetConsoleFd(f *os.File) error {
 
 func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) (int, error) {
 	var (
-		fds [3]uintptr
 		i   int = 0
 	)
 
@@ -129,22 +127,22 @@ func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env
 			return 0, err
 		}
 		p.childFiles = append(p.childFiles, fd)
-		fds[i] = fd.Fd()
 		i = i + 1
 	}
 
-	return ct.execve(p, path, argv, env, &fds, true)
+	p.childFiles = append(p.childFiles, p.ExtraFiles...)
+
+	return ct.execve(p, path, argv, env, true)
 }
 
-func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
-	pid, err := ct.execve(p, path, argv, env, fds, false)
+func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) (int, error) {
+	pid, err := ct.execve(p, path, argv, env, false)
 	p.closeDescriptors(p.closeAfterStart)
 	return pid, err
 }
 
-func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr, spawn bool) (int, error) {
+func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) (int, error) {
 	var (
-		cfdsp *C.int
 		ret   int
 	)
 
@@ -158,18 +156,17 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 		cenv[i] = C.CString(e)
 	}
 
-	if fds != nil {
-		cfds := make([]C.int, 3)
-		for i, fd := range fds {
-			cfds[i] = C.int(fd)
-		}
-		cfdsp = &cfds[0]
+	cfds := make([]C.int, len(p.childFiles))
+	for i, fd := range p.childFiles {
+		cfds[i] = C.int(fd.Fd())
 	}
 
+	C.libct_process_desc_set_fds(p.p, &cfds[0], C.int(len(p.childFiles)))
+
 	if spawn {
-		ret = int(C.libct_container_spawn_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+		ret = int(C.libct_container_spawn_execve(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0]))
 	} else {
-		ret = int(C.libct_container_enter_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+		ret = int(C.libct_container_enter_execve(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0]))
 	}
 	if ret < 0 {
 		return -1, LibctError{int(ret)}

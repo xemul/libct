@@ -73,6 +73,7 @@ static void local_desc_destroy(ct_process_desc_t h)
 
 	xfree(p->lsm_label);
 	xfree(p->groups);
+	xfree(p->fds);
 	xfree(p);
 }
 
@@ -88,11 +89,21 @@ ct_process_desc_t local_desc_copy(ct_process_desc_t h)
 	memcpy(c, p, sizeof(struct process_desc));
 	c->groups = NULL;
 	c->lsm_label = NULL;
+	c->fds = NULL;
 
 	if (p->ngroups) {
-		p->groups = xmalloc(sizeof(p->ngroups * sizeof(c->groups[0])));
+		c->groups = xmalloc(p->ngroups * sizeof(c->groups[0]));
 		if (c->groups == NULL)
 			goto err;
+		memcpy(c->groups, p->groups, p->ngroups * sizeof(c->groups[0]));
+	}
+
+	if (p->fds) {
+		/* reserve space for wait_pipe */
+		c->fds = xmalloc((p->fdn + 1) * sizeof(c->fds[0]));
+		if (c->fds == NULL)
+			goto err;
+		memcpy(c->fds, p->fds, p->fdn * sizeof(c->fds[0]));
 	}
 
 	if (p->lsm_label) {
@@ -120,6 +131,27 @@ int local_desc_set_lsm_label(ct_process_desc_t h, char *label)
 	return 0;
 }
 
+int local_desc_set_fds(ct_process_desc_t h, int *fds, int fdn)
+{
+	struct process_desc *p = prh2pr(h);
+	int *t = NULL;
+
+	if (fds) {
+		/* reserve space for wait_pipe */
+		t = xmalloc(sizeof(int) * (fdn + 1));
+		if (t == NULL)
+			return -1;
+
+		memcpy(t, fds, sizeof(int) * fdn);
+	}
+
+	xfree(p->fds);
+	p->fds = t;
+	p->fdn = fdn;
+
+	return 0;
+}
+
 static const struct process_desc_ops local_process_ops = {
 	.copy		= local_desc_copy,
 	.destroy	= local_desc_destroy,
@@ -129,6 +161,7 @@ static const struct process_desc_ops local_process_ops = {
 	.set_caps	= local_desc_set_caps,
 	.set_pdeathsig	= local_desc_set_pdeathsig,
 	.set_lsm_label	= local_desc_set_lsm_label,
+	.set_fds	= local_desc_set_fds,
 };
 
 void local_process_init(struct process_desc *p)
@@ -142,4 +175,6 @@ void local_process_init(struct process_desc *p)
 	p->groups	= NULL;
 	p->ngroups	= 0;
 	p->lsm_label	= NULL;
+	p->fds		= NULL;
+	p->fdn		= 0;
 }

@@ -7,6 +7,7 @@ package libct
 import "C"
 import "os"
 import "io"
+import "syscall"
 
 type ProcessDesc struct {
 	p C.ct_process_desc_t
@@ -24,6 +25,11 @@ type ProcessDesc struct {
 	// goroutine at a time will call Write.
 	Stdout io.Writer
 	Stderr io.Writer
+
+	// ExtraFiles specifies additional open files to be inherited by the
+	// new process. It does not include standard input, standard output, or
+	// standard error. If non-nil, entry i becomes file descriptor 3+i.
+	ExtraFiles []*os.File
 
 	childFiles      []*os.File
 	closeAfterStart []io.Closer

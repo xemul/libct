@@ -168,3 +168,100 @@ int stat_file(const char *file)
 	}
 	return 1;
 }
+
+/* Close all file descriptors, which are not less than n */
+static int close_fds(DIR *d, int n)
+{
+	struct dirent *de;
+
+	d = opendir("/proc/self/fd");
+	if (d == NULL) {
+		pr_perror("Unable to open /proc/self/fd");
+		return -1;
+	}
+
+	while ((de = readdir(d))) {
+		int fd;
+
+		if (de->d_name[0] == '.')
+			continue;
+
+		fd = atoi(de->d_name);
+		if (dirfd(d) == fd)
+			continue;
+		if (fd < n)
+			continue;
+		close(fd);
+	}
+
+	closedir(d);
+
+	return 0;
+}
+
+/*
+ * Setup file descriptors from the fds array according to the positions in the
+ * arrays and close other file descriptros.
+ *
+ * proc_self_d has to point on /proc/self/fd
+ */
+int setup_fds_at(DIR *proc_self_d, int *fds, int n)
+{
+	int i;
+
+	/* skip used file descriptors and fill all unused descriptors  */
+	for (i = 0; i < n; i++) {
+		if (fcntl(i, F_GETFD) != -1 || errno != EBADF)
+			continue; /* inuse */
+
+		if (dup2(fds[i], i) == -1) {
+			pr_perror("Unable to dup %d -> %d", fds[i], i);
+			return -1;
+		}
+
+		fds[i] = i;
+	}
+
+	/* move target descriptros from target places */
+	for (i = 0; i < n; i++) {
+		int ret;
+
+		if (fds[i] == i || fds[i] >= n)
+			continue;
+
+		ret = dup(fds[i]);
+		if (ret == -1) {
+			pr_perror("Unable to dup %d", fds[i]);
+			return -1;
+		}
+
+		fds[i] = ret;
+	}
+
+	for (i = 0; i < n; i++) {
+		if (fds[i] == i)
+			continue;
+
+		if (dup2(fds[i], i) == -1) {
+			pr_perror("Unable to dup %d -> %d", fds[i], i);
+			return -1;
+		}
+
+		fds[i] = i;
+	}
+
+	return close_fds(proc_self_d, n);
+}
+
+int setup_fds(int *fds, int n)
+{
+	DIR *d;
+
+	d = opendir("/proc/self/fd");
+	if (d == NULL) {
+		pr_perror("Unable to open /proc/self/fd");
+		return -1;
+	}
+
+	return setup_fds_at(d, fds, n);
+}

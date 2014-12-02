@@ -53,7 +53,10 @@ int main(int argc, char **argv)
 		goto err;
 
 	fds[0] = fds[1] = fds[2] = slave;
-	if (libct_container_spawn_execvfds(ct, p, "./file_piggy", piggy_a, fds) < 0)
+	if (libct_process_desc_set_fds(p, fds, 3))
+		goto err;
+
+	if (libct_container_spawn_execv(ct, p, "./file_piggy", piggy_a) < 0)
 		goto err;
 
 	read(master, dat, 3);

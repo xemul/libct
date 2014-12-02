@@ -13,7 +13,6 @@ int main(int argc, char *argv[])
 	ct_handler_t ct;
 	ct_process_desc_t p;
 	char *ls_a[2] = { "ls", NULL};
-	int fds[] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO};
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "1337");
@@ -26,7 +25,7 @@ int main(int argc, char *argv[])
 			CLONE_NEWNET |
 			CLONE_NEWPID);
 
-	if (libct_container_spawn_execvfds(ct, p, "/bin/ls", ls_a, fds) <= 0)
+	if (libct_container_spawn_execv(ct, p, "/bin/ls", ls_a) <= 0)
 		goto err;
 
 	libct_container_wait(ct);

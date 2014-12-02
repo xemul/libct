@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dirent.h>
 
 #include "uapi/libct.h"
 #include "asm/page.h"
@@ -241,6 +242,15 @@ static int ct_clone(void *arg)
 	if (ct->tty_fd >= 0 && ioctl(ct->tty_fd, TIOCSCTTY, 0) == -1)
 		goto err;
 
+	if (p->fds) {
+		p->fds[p->fdn] = ca->parent_wait_pipe[1];
+
+		if (setup_fds(p->fds, p->fdn + 1))
+			goto err;
+
+		ca->parent_wait_pipe[1] = p->fdn;
+	}
+
 	if (ct->nsmask & CLONE_NEWNS) {
 		/*
 		 * Remount / as slave, so that it doesn't
@@ -297,7 +307,7 @@ static int ct_clone(void *arg)
 		goto err;
 
 	if (ca->is_exec)
-		spawn_wake_and_cloexec(ca->parent_wait_pipe, 0); // FIXME
+		spawn_wake_and_cloexec(ca->parent_wait_pipe, 0);
 	else
 		spawn_wake(ca->parent_wait_pipe, 0);
 
@@ -446,23 +456,7 @@ static int local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 static int ct_execv(void *a)
 {
 	struct execv_args *ea = a;
-	int ret, i;
 	sigset_t mask;
-
-	if (ea->fds) {
-		ret  = dup2(ea->fds[0], 0);
-		if (ret >= 0)
-			ret = dup2(ea->fds[1], 1);
-		if (ret >= 0)
-			ret = dup2(ea->fds[2], 2);
-		if (ret < 0) {
-			pr_perror("Unable to duplicate file descriptors");
-			goto err;
-		}
-		for (i = 0; i < 3; i++)
-			if (ea->fds[i] != i)
-				close(ea->fds[i]);
-	}
 
 	sigfillset(&mask);
 	sigprocmask(SIG_UNBLOCK, &mask, NULL);
@@ -472,11 +466,11 @@ static int ct_execv(void *a)
 		execvpe(ea->path, ea->argv, ea->env);
 	else
 		execvp(ea->path, ea->argv);
-err:
+
 	return -1;
 }
 
-static int local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
+static int local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env)
 {
 	struct execv_args ea;
 	struct process_desc *p = prh2pr(pr);
@@ -484,7 +478,6 @@ static int local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path,
 	ea.path = path;
 	ea.argv = argv;
 	ea.env = env;
-	ea.fds = fds;
 
 	p->lsm_on_exec = true;
 
@@ -514,6 +507,15 @@ static int __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void
 		struct ns_desc *ns;
 
 		close(wait_pipe[0]);
+
+		if (p->fds) {
+			p->fds[p->fdn] = wait_pipe[1];
+
+			if (setup_fds(p->fds, p->fdn + 1))
+				exit(-1);
+
+			wait_pipe[1] = p->fdn;
+		}
 
 		for (aux = 0; namespaces[aux]; aux++) {
 			ns = namespaces[aux];
@@ -580,7 +582,7 @@ static int local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *
 	return __local_enter_cb(h, ph, cb, arg, false);
 }
 
-static int local_enter_execve(ct_handler_t h, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
+static int local_enter_execve(ct_handler_t h, ct_process_desc_t pr, char *path, char **argv, char **env)
 {
 	struct execv_args ea = {};
 	struct process_desc *p = prh2pr(pr);
@@ -588,7 +590,6 @@ static int local_enter_execve(ct_handler_t h, ct_process_desc_t pr, char *path, 
 	ea.path	= path;
 	ea.argv	= argv;
 	ea.env	= env;
-	ea.fds = fds;
 
 	p->lsm_on_exec = true;
 

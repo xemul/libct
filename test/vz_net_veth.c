@@ -21,7 +21,6 @@ int main(int argc, char *argv[])
 		.ct_name = VETH_CT_NAME
 	};
 	char *ip_a[] = { "ip", "link", "show", NULL};
-	int fds[] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO};
 
 	s = libct_session_open_local();
 
@@ -42,7 +41,7 @@ int main(int argc, char *argv[])
 	if (libct_net_dev_set_mac_addr(nd, "00:11:22:33:44:55"))
 		return tst_err("Can't set mac");
 
-	if (libct_container_spawn_execvfds(ct, p, "/sbin/ip", ip_a, fds) <= 0)
+	if (libct_container_spawn_execv(ct, p, "/sbin/ip", ip_a) <= 0)
 		goto err;
 
 	libct_container_wait(ct);

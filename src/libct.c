@@ -71,17 +71,7 @@ int libct_container_spawn_execv(ct_handler_t ct, ct_process_desc_t pr, char *pat
 
 int libct_container_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env)
 {
-	return ct->ops->spawn_execve(ct, pr, path, argv, env, NULL);
-}
-
-int libct_container_spawn_execvfds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, int *fds)
-{
-	return libct_container_spawn_execvefds(ct, pr, path, argv, NULL, fds);
-}
-
-int libct_container_spawn_execvefds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
-{
-	return ct->ops->spawn_execve(ct, pr, path, argv, env, fds);
+	return ct->ops->spawn_execve(ct, pr, path, argv, env);
 }
 
 int libct_container_enter_cb(ct_handler_t ct, ct_process_desc_t p, int (*cb)(void *), void *arg)
@@ -92,16 +82,6 @@ int libct_container_enter_cb(ct_handler_t ct, ct_process_desc_t p, int (*cb)(voi
 	return ct->ops->enter_cb(ct, p, cb, arg);
 }
 
-int libct_container_enter_execvfds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, int *fds)
-{
-	return libct_container_enter_execvefds(ct, p, path, argv, NULL, fds);
-}
-
-int libct_container_enter_execvefds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
-{
-	return ct->ops->enter_execve(ct, p, path, argv, env, fds);
-}
-
 int libct_container_enter_execv(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv)
 {
 	return libct_container_enter_execve(ct, p, path, argv, NULL);
@@ -109,7 +89,7 @@ int libct_container_enter_execv(ct_handler_t ct, ct_process_desc_t p, char *path
 
 int libct_container_enter_execve(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env)
 {
-	return ct->ops->enter_execve(ct, p, path, argv, env, NULL);
+	return ct->ops->enter_execve(ct, p, path, argv, env);
 }
 
 
@@ -216,4 +196,9 @@ void libct_process_desc_destroy(ct_process_desc_t p)
 int libct_process_desc_set_lsm_label(ct_process_desc_t p, char *label)
 {
 	return p->ops->set_lsm_label(p, label);
+}
+
+int libct_process_desc_set_fds(ct_process_desc_t p, int *fds, int n)
+{
+	return p->ops->set_fds(p, fds, n);
 }

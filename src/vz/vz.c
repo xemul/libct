@@ -647,20 +647,10 @@ int env_create_data_ioctl(struct vzctl_env_create_data *data)
 
 static int exec_init(struct execv_args *ea)
 {
-	size_t i;
 	if (ea == NULL)
 		return -LCTERR_BADARG;
 
 	pr_info("executing command %s", ea->path);
-
-	if (ea->fds) {
-		dup2(ea->fds[0], STDIN_FILENO);
-		dup2(ea->fds[1], STDOUT_FILENO);
-		dup2(ea->fds[2], STDERR_FILENO);
-	}
-	for (i = 0; i < 3; i++)
-		if (ea->fds[i] != i)
-			close(ea->fds[i]);
 
 	execve(ea->path, ea->argv, ea->env);
 	return -1;
@@ -850,7 +840,7 @@ static int vz_spawn_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), v
 	return -1;
 }
 
-static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
+static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env)
 {
 	int ret = -1;
 	int child_wait[2];
@@ -860,7 +850,6 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		.path = path,
 		.argv = argv,
 		.env = env,
-		.fds = fds
 	};
 	struct info_pipes pipes = {
 		.child_wait = child_wait,
@@ -1129,7 +1118,7 @@ static int vz_set_nsmask(ct_handler_t h, unsigned long nsmask)
 	return 0;
 }
 
-static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
+static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env)
 {
 	struct container *ct = NULL;
 	unsigned int veid = -1;
@@ -1138,7 +1127,6 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		.path = path,
 		.argv = argv,
 		.env = env,
-		.fds = fds
 	};
 
 	if (!h)

@@ -13,9 +13,9 @@
 
 struct container_ops {
 	int (*spawn_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
-	int (*spawn_execve)(ct_handler_t, ct_process_desc_t p, char *path, char **argv, char **env, int *fds);
+	int (*spawn_execve)(ct_handler_t, ct_process_desc_t p, char *path, char **argv, char **env);
 	int (*enter_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
-	int (*enter_execve)(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds);
+	int (*enter_execve)(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env);
 	int (*kill)(ct_handler_t h);
 	int (*wait)(ct_handler_t h);
 	enum ct_state (*get_state)(ct_handler_t h);
@@ -129,7 +129,6 @@ struct execv_args {
 	char *path;
 	char **argv;
 	char **env;
-	int *fds;
 };
 
 #endif /* __LIBCT_CT_H__ */

@@ -41,7 +41,8 @@ int main(int argc, char *argv[])
 
 	fds[0] = pfd[0];
 	fcntl(pfd[1], F_SETFD, FD_CLOEXEC);
-	if (libct_container_spawn_execvfds(ct, p, "/bin/cat", sleep_a, fds) <= 0)
+	libct_process_desc_set_fds(p, fds, 3);
+	if (libct_container_spawn_execv(ct, p, "/bin/cat", sleep_a) <= 0)
 		goto err;
 	close(pfd[0]);
 
@@ -51,7 +52,8 @@ int main(int argc, char *argv[])
 	fds[0] = STDIN_FILENO;
 	fds[1] = tfd[1];
 	fcntl(tfd[0], F_SETFD, FD_CLOEXEC);
-	pid = libct_container_enter_execvfds(ct, p, "/bin/sh", ls_a, fds);
+	libct_process_desc_set_fds(p, fds, 3);
+	pid = libct_container_enter_execv(ct, p, "/bin/sh", ls_a);
 	if (pid <= 0)
 		goto err;
 	close(tfd[1]);
