@@ -159,7 +159,7 @@ docs-pdf:
 tags:
 	$(E) "  GEN     " $@
 	$(Q) $(RM) tags
-	$(Q) $(FIND) -L . -name '*.[hcS]' ! -path './.*' -print | xargs ctags -a
+	$(Q) $(FIND) -L . \( -name '*.[hcS]' -o -name '*.go' \) ! -path './.*' -print | xargs ctags -a
 
 clean:
 	$(Q) $(MAKE) $(build)=src clean
