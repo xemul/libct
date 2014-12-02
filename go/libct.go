@@ -81,7 +81,7 @@ func (s *Session) ProcessCreateDesc() (*ProcessDesc, error) {
 		return nil, LibctError{-1}
 	}
 
-	return &ProcessDesc{p}, nil
+	return &ProcessDesc{p: p}, nil
 }
 
 func (ct *Container) SetNsMask(nsmask uint64) error {
@@ -145,7 +145,7 @@ func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env
 func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr, spawn bool) (int, error) {
 	var (
 		cfdsp *C.int
-		ret int
+		ret   int
 	)
 
 	cargv := make([]*C.char, len(argv)+1)

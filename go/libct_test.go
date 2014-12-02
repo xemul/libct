@@ -12,7 +12,7 @@ func TestSpawnExecv(t *testing.T) {
 		t.Fail()
 	}
 
-	p, err :=s.ProcessCreateDesc();
+	p, err := s.ProcessCreateDesc()
 	if err != nil {
 		t.Fail()
 	}
