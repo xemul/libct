@@ -115,3 +115,28 @@ func (p *ProcessDesc) closeDescriptors(closers []io.Closer) {
 		fd.Close()
 	}
 }
+
+func (p *ProcessDesc) SetCaps(mask uint64, apply_to int) error {
+	ret := C.libct_process_desc_set_caps(p.p, C.ulong(mask), C.uint(apply_to))
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
+	if ret := C.libct_process_desc_set_pdeathsig(p.p, C.int(sig)); ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (p *ProcessDesc) SetLSMLabel(label string) error {
+	if ret := C.libct_process_desc_set_lsm_label(p.p, C.CString(label)); ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
