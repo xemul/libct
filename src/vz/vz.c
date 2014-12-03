@@ -92,11 +92,9 @@ int get_vzctlfd(void)
 	return __vzctlfd;
 }
 
-DIR *open_fds_proc(pid_t pid)
+DIR *open_fds_proc(void)
 {
-	char dn[PATH_MAX] = {'\0'};
-	snprintf(dn, PATH_MAX, "/proc/%d/fd", pid);
-	return opendir(dn);
+	return opendir("/proc/self/fd");
 }
 
 int close_all_fds(DIR *dir)
@@ -793,7 +791,7 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 		return -1;
 	}
 
-	dir = open_fds_proc(getpid());
+	dir = open_fds_proc();
 	if (dir == NULL) {
 		pr_err("Unable to open /proc/%d/fd", getpid());
 		return -1;
@@ -1171,7 +1169,7 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 				_exit(-1);
 			}
 		}
-		dir = open_fds_proc(getpid());
+		dir = open_fds_proc();
 		if (dir == NULL) {
 			pr_perror("Unable to open /proc/%d/fd", getpid());
 			_exit(-1);
