@@ -6,7 +6,6 @@
 #include "process.h"
 #include "xmalloc.h"
 #include "libct.h"
-#include "async.h"
 #include "ct.h"
 #include "vz.h"
 
@@ -50,8 +49,6 @@ static void update_local_ct_state(libct_session_t s, pid_t pid)
 			continue;
 
 		h->ops->wait(h);
-
-		async_req_run(s, CT_STATE, (void *) h);
 	}
 }
 
@@ -108,7 +105,6 @@ libct_session_t libct_session_open_local(void)
 	s = xmalloc(sizeof(*s));
 	if (s) {
 		INIT_LIST_HEAD(&s->s.s_cts);
-		INIT_LIST_HEAD(&s->s.async_list);
 		if (!access("/proc/vz", F_OK))
 			s->s.ops = &vz_session_ops;
 		else
@@ -168,8 +164,6 @@ void libct_session_close(libct_session_t s)
 
 	list_for_each_entry_safe(cth, n, &s->s_cts, s_lh)
 		libct_container_close(cth);
-
-	async_req_destroy(s);
 
 	s->ops->close(s);
 }

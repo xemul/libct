@@ -11,7 +11,6 @@ obj-y			+= linux_kernel.o
 obj-y			+= fs.o
 obj-y			+= net.o
 obj-y			+= security.o
-obj-y			+= async.o
 obj-y			+= util.o
 obj-y			+= devnodes.o
 obj-y			+= route.o

@@ -24,7 +24,6 @@ struct backend_ops {
 
 struct libct_session {
 	const struct backend_ops *ops;
-	struct list_head async_list;
 	struct list_head s_cts;
 };
 
