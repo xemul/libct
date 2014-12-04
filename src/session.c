@@ -32,7 +32,7 @@ static ct_process_desc_t local_process_create_desc(libct_session_t s)
 
 	p = xmalloc(sizeof(*p));
 	if (p == NULL)
-		return NULL;
+		return libct_err_to_handle(-1);
 
 	local_process_desc_init(p);
 
