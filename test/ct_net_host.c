@@ -35,6 +35,9 @@ int main(int argc, char **argv)
 
 	ct_status = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
+	if (ct_status == MAP_FAILED)
+		return tst_perr("Unable to allocate memory");
+
 	ct_status[0] = 0;
 	ct_status[1] = 0;
 
@@ -43,9 +46,18 @@ int main(int argc, char **argv)
 		return tst_err("Can't create dummy device");
 
 	s = libct_session_open_local();
+	if (libct_handle_is_err(s))
+		return tst_err("Unable to create a session");
+
 	ct = libct_container_create(s, "test");
 	p = libct_process_desc_create(s);
-	libct_container_set_nsmask(ct, CLONE_NEWNET);
+
+	if (libct_handle_is_err(ct) ||
+	    libct_handle_is_err(p))
+		return tst_err("Unable tot create handle");
+
+	if (libct_container_set_nsmask(ct, CLONE_NEWNET))
+		return tst_err("Unable to set nsmask");
 
 	nd = libct_net_add(ct, CT_NET_HOSTNIC, "dm0");
 	if (libct_handle_is_err(nd)) {

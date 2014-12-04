@@ -54,9 +54,12 @@ int main(int argc, char **argv)
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
 	p = libct_process_desc_create(s);
-	libct_fs_set_root(ct, FS_ROOT);
-	libct_container_spawn_cb(ct, p, check_fs_data, fs_data);
-	libct_container_wait(ct);
+	if (libct_fs_set_root(ct, FS_ROOT))
+		return fail("Unable to set root");
+	if (libct_container_spawn_cb(ct, p, check_fs_data, fs_data))
+		return fail("Unable to start CT");
+	if (libct_container_wait(ct))
+		return fail("Unable to wait CT");
 	libct_container_destroy(ct);
 	libct_session_close(s);
 

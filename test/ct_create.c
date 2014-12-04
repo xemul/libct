@@ -30,14 +30,28 @@ int main(int argc, char **argv)
 
 	ct_alive = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
+	if (ct_alive == MAP_FAILED)
+		return tst_perr("Unable to allocate memory");
 	*ct_alive = 0;
 
 	s = libct_session_open_local();
+	if (libct_handle_is_err(s))
+		return fail("Unable to create a new session");
+
 	ct = libct_container_create(s, "test");
+	if (libct_handle_is_err(ct))
+		return fail("Unable to create a container object");
+
 	p = libct_process_desc_create(s);
+	if (libct_handle_is_err(p))
+		return fail("Unable to create a process descriptor");
+
 	libct_process_desc_setuid(p, UID);
 	libct_process_desc_setgid(p, GID);
-	libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive);
+
+	if (libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive))
+		return fail("Unable to start CT");
+
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);
