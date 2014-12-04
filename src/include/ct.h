@@ -12,10 +12,10 @@
 #include "process.h"
 
 struct container_ops {
-	int (*spawn_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
-	int (*spawn_execve)(ct_handler_t, ct_process_desc_t p, char *path, char **argv, char **env);
-	int (*enter_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
-	int (*enter_execve)(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env);
+	ct_process_t (*spawn_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
+	ct_process_t (*spawn_execve)(ct_handler_t, ct_process_desc_t p, char *path, char **argv, char **env);
+	ct_process_t (*enter_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
+	ct_process_t (*enter_execve)(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env);
 	int (*kill)(ct_handler_t h);
 	int (*wait)(ct_handler_t h);
 	enum ct_state (*get_state)(ct_handler_t h);
@@ -61,7 +61,6 @@ struct container {
 	struct ct_handler	h;
 	enum ct_state		state;
 
-	int			root_pid;	/* pid of the root task */
 	unsigned int		flags;
 
 	/*
@@ -102,6 +101,8 @@ struct container {
 
 	struct list_head	uid_map;
 	struct list_head	gid_map;
+
+	struct process		p;
 };
 
 struct _uid_gid_map {

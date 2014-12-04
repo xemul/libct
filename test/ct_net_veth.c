@@ -39,7 +39,8 @@ int main(int argc, char **argv)
 	struct ct_arg ca;
 	libct_session_t s;
 	ct_handler_t ct;
-	ct_process_desc_t pr;
+	ct_process_desc_t pd;
+	ct_process_t pr;
 	struct ct_net_veth_arg va;
 	ct_net_t nd;
 
@@ -57,7 +58,7 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
-	pr = libct_process_desc_create(s);
+	pd = libct_process_desc_create(s);
 	libct_container_set_nsmask(ct, CLONE_NEWNET);
 
 	nd = libct_net_add(ct, CT_NET_VETH, &va);
@@ -67,7 +68,8 @@ int main(int argc, char **argv)
 	if (libct_net_dev_set_mac_addr(nd, "00:11:22:33:44:55"))
 		return tst_err("Can't set mac");
 
-	if (libct_container_spawn_cb(ct, pr, check_ct_net, &ca) < 0)
+	pr = libct_container_spawn_cb(ct, pd, check_ct_net, &ca);
+	if (libct_handle_is_err(pr))
 		return tst_err("Can't spawn CT");
 
 	if (!system("ip link l " VETH_HOST_NAME ""))

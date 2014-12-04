@@ -19,7 +19,8 @@ int main(int argc, char **argv)
 {
 	libct_session_t s;
 	ct_handler_t ct;
-	ct_process_desc_t p;
+	ct_process_desc_t pd;
+	ct_process_t p;
 	char *piggy_a[4];
 	int fd, master, slave;
 	char dat[sizeof(PIGGY_DATA)];
@@ -28,7 +29,7 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
-	p = libct_process_desc_create(s);
+	pd = libct_process_desc_create(s);
 
 	piggy_a[0] = "file_piggy";
 	piggy_a[1] = PIGGY_FILE;
@@ -53,10 +54,11 @@ int main(int argc, char **argv)
 		goto err;
 
 	fds[0] = fds[1] = fds[2] = slave;
-	if (libct_process_desc_set_fds(p, fds, 3))
+	if (libct_process_desc_set_fds(pd, fds, 3))
 		goto err;
 
-	if (libct_container_spawn_execv(ct, p, "./file_piggy", piggy_a) < 0)
+	p = libct_container_spawn_execv(ct, pd, "./file_piggy", piggy_a);
+	if (libct_handle_is_err(p))
 		goto err;
 
 	read(master, dat, 3);

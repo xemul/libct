@@ -45,11 +45,13 @@ func (e LibctError) Error() string {
 }
 
 func (s *Session) OpenLocal() error {
-	s.s = C.libct_session_open_local()
+	h := C.libct_session_open_local()
 
-	if s.s == nil {
-		return LibctError{-1}
+	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {
+		return LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
 	}
+
+	s.s = h
 
 	return nil
 }
@@ -57,8 +59,8 @@ func (s *Session) OpenLocal() error {
 func (s *Session) ContainerCreate(name string) (*Container, error) {
 	ct := C.libct_container_create(s.s, C.CString(name))
 
-	if ct == nil {
-		return nil, LibctError{-1}
+	if C.libct_handle_is_err(unsafe.Pointer(ct)) != 0 {
+		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(ct)))}
 	}
 
 	return &Container{ct}, nil
@@ -67,8 +69,8 @@ func (s *Session) ContainerCreate(name string) (*Container, error) {
 func (s *Session) ContainerOpen(name string) (*Container, error) {
 	ct := C.libct_container_open(s.s, C.CString(name))
 
-	if ct == nil {
-		return nil, LibctError{-1}
+	if C.libct_handle_is_err(unsafe.Pointer(ct)) != 0 {
+		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(ct)))}
 	}
 
 	return &Container{ct}, nil
@@ -76,11 +78,11 @@ func (s *Session) ContainerOpen(name string) (*Container, error) {
 
 func (s *Session) ProcessCreateDesc() (*ProcessDesc, error) {
 	p := C.libct_process_desc_create(s.s)
-	if p == nil {
-		return nil, LibctError{-1}
+	if C.libct_handle_is_err(unsafe.Pointer(p)) != 0 {
+		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(p)))}
 	}
 
-	return &ProcessDesc{p: p}, nil
+	return &ProcessDesc{desc: p}, nil
 }
 
 func (ct *Container) SetNsMask(nsmask uint64) error {
@@ -113,7 +115,7 @@ func (ct *Container) SetConsoleFd(f *os.File) error {
 	return nil
 }
 
-func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) (int, error) {
+func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
 	var (
 		i   int = 0
 	)
@@ -124,7 +126,7 @@ func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env
 		if err != nil {
 			p.closeDescriptors(p.closeAfterStart)
 			p.closeDescriptors(p.closeAfterWait)
-			return 0, err
+			return err
 		}
 		p.childFiles = append(p.childFiles, fd)
 		i = i + 1
@@ -132,18 +134,20 @@ func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env
 
 	p.childFiles = append(p.childFiles, p.ExtraFiles...)
 
-	return ct.execve(p, path, argv, env, true)
+	err := ct.execve(p, path, argv, env, true)
+
+	return err
 }
 
-func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) (int, error) {
-	pid, err := ct.execve(p, path, argv, env, false)
+func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
+	err := ct.execve(p, path, argv, env, false)
 	p.closeDescriptors(p.closeAfterStart)
-	return pid, err
+	return err
 }
 
-func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) (int, error) {
+func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) (error) {
 	var (
-		ret   int
+		h     C.ct_process_t
 	)
 
 	cargv := make([]*C.char, len(argv)+1)
@@ -161,18 +165,21 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 		cfds[i] = C.int(fd.Fd())
 	}
 
-	C.libct_process_desc_set_fds(p.p, &cfds[0], C.int(len(p.childFiles)))
+	C.libct_process_desc_set_fds(p.desc, &cfds[0], C.int(len(p.childFiles)))
 
 	if spawn {
-		ret = int(C.libct_container_spawn_execve(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0]))
+		h = C.libct_container_spawn_execve(ct.ct, p.desc, C.CString(path), &cargv[0], &cenv[0])
 	} else {
-		ret = int(C.libct_container_enter_execve(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0]))
-	}
-	if ret < 0 {
-		return -1, LibctError{int(ret)}
+		h = C.libct_container_enter_execve(ct.ct, p.desc, C.CString(path), &cargv[0], &cenv[0])
 	}
 
-	return ret, nil
+	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {
+		return  LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
+	}
+
+	p.handle = h
+
+	return nil
 }
 
 func (ct *Container) Wait() error {

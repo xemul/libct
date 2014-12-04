@@ -35,6 +35,7 @@
 #include "net.h"
 #include "util.h"
 #include "vz_net.h"
+#include "err.h"
 
 #define MAX_SHTD_TM 			120
 #define VZCTLDEV			"/dev/vzctl"
@@ -834,13 +835,13 @@ err:
 	return ret;
 }
 
-static int vz_spawn_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
+static ct_process_t vz_spawn_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
 {
 	pr_err("Spawn with callback is not supported");
-	return -1;
+	return ERR_PTR(-1);
 }
 
-static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env)
+static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env)
 {
 	int ret = -1;
 	int child_wait[2];
@@ -913,7 +914,7 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		ret = -1;
 		goto err_wait;
 	}
-	ct->root_pid = root_pid;
+	ct->p.pid = root_pid;
 
 	if (proc_wait(parent_wait) == -1) {
 		ret = -1;
@@ -948,7 +949,7 @@ static int vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 	proc_wake_close(child_wait, 0);
 	priv->exec_waiting_pid = pid;
 	ct->state = CT_RUNNING;
-	return ct->root_pid;
+	return &ct->p.h;
 
 err_wait:
 	net_stop(ct);
@@ -963,7 +964,7 @@ err_pipe:
 	close(child_wait[0]);
 	close(child_wait[1]);
 err:
-	return ret;
+	return ERR_PTR(ret);
 }
 
 static int vz_set_option(ct_handler_t h, int opt, void *args)
@@ -1004,7 +1005,7 @@ static int vz_ct_kill(ct_handler_t h)
 	if (ct->state != CT_RUNNING)
 		return -LCTERR_BADCTSTATE;
 	if (ct->nsmask & CLONE_NEWPID)
-		return kill(ct->root_pid, SIGKILL);
+		return kill(ct->p.pid, SIGKILL);
 	return env_kill(veid); /* for VZ containers CT_KILLABLE option is ignored */
 }
 
@@ -1118,9 +1119,10 @@ static int vz_set_nsmask(ct_handler_t h, unsigned long nsmask)
 	return 0;
 }
 
-static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env)
+static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env)
 {
 	struct container *ct = NULL;
+	struct process *pr;
 	unsigned int veid = -1;
 	int pid, child_pid, ret = 0;
 	struct execv_args ea = {
@@ -1130,22 +1132,29 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 	};
 
 	if (!h)
-		return -LCTERR_BADARG;
+		return ERR_PTR(-LCTERR_BADARG);
 
 	ct = cth2ct(h);
 
 	if (ct->state != CT_RUNNING)
-		return -LCTERR_BADCTSTATE;
+		return ERR_PTR(-LCTERR_BADCTSTATE);
 
 	if (parse_uint(ct->name, &veid) < 0) {
 		pr_err("Unable to parse container's ID");
-		return -1;
+		return ERR_PTR(-LCTERR_BADARG);
 	}
+
+	pr = xmalloc(sizeof(struct process));
+	if (pr == NULL)
+		return ERR_PTR(-1);
+
+	local_process_init(pr);
 
 	pid = fork();
 	if (pid < 0) {
+		xfree(pr);
 		pr_perror("Cannot fork");
-		return -1;
+		return ERR_PTR(-1);
 	} else if (pid == 0) {
 		int i;
 		int fd_flags[2];
@@ -1208,19 +1217,26 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		if (env_wait(child_pid, 0, NULL)) {
 			pr_err("Execution failed");
 			ret = -1;
-			return -1;
+			_exit(-1);
 		}
 
 		_exit(0);
 	}
 
-	return pid;
+	if (pid > 0)
+		pr->pid = pid;
+	else {
+		xfree(pr);
+		pr = NULL;
+	}
+
+	return &pr->h;
 }
 
-static int vz_enter_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
+static ct_process_t vz_enter_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
 {
 	pr_err("Enter with callback is not supported");
-	return -1;
+	return ERR_PTR(-1);
 }
 
 static const struct container_ops vz_ct_ops = {

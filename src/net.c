@@ -251,7 +251,7 @@ static int host_nic_start(struct container *ct, struct ct_net *n)
 	link = rtnl_link_alloc();
 	if (link == NULL)
 		goto free;
-	rtnl_link_set_ns_pid(link, ct->root_pid);
+	rtnl_link_set_ns_pid(link, ct->p.pid);
 
 	orig = rtnl_link_alloc();
 	if (orig == NULL)
@@ -265,7 +265,7 @@ static int host_nic_start(struct container *ct, struct ct_net *n)
 		goto free;
 	}
 
-	if (local_net_link_apply(n->name, n, ct->root_pid))
+	if (local_net_link_apply(n->name, n, ct->p.pid))
 		return -1;
 free:
 	rtnl_link_put(link);
@@ -358,7 +358,7 @@ static int veth_start(struct container *ct, struct ct_net *n)
 		goto err;
 
 	rtnl_link_set_name(link, name);
-	rtnl_link_set_ns_pid(link, ct->root_pid);
+	rtnl_link_set_ns_pid(link, ct->p.pid);
 
 	peer = rtnl_link_veth_get_peer(link);
 	rtnl_link_set_name(peer, vn->peer.name);
@@ -370,7 +370,7 @@ static int veth_start(struct container *ct, struct ct_net *n)
 		goto err;
 	}
 
-	if (local_net_link_apply(name, n, ct->root_pid))
+	if (local_net_link_apply(name, n, ct->p.pid))
 		goto err;
 	if (local_net_link_apply(vn->peer.name, &vn->peer, -1))
 		goto err; /* FIXME rollback */

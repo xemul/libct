@@ -10,7 +10,8 @@ import "io"
 import "syscall"
 
 type ProcessDesc struct {
-	p C.ct_process_desc_t
+	desc C.ct_process_desc_t
+	handle C.ct_process_t
 
 	// Stdin specifies the process's standard input. If Stdin is
 	// nil, the process reads from the null device (os.DevNull).
@@ -123,7 +124,7 @@ func (p *ProcessDesc) closeDescriptors(closers []io.Closer) {
 }
 
 func (p *ProcessDesc) SetCaps(mask uint64, apply_to int) error {
-	ret := C.libct_process_desc_set_caps(p.p, C.ulong(mask), C.uint(apply_to))
+	ret := C.libct_process_desc_set_caps(p.desc, C.ulong(mask), C.uint(apply_to))
 	if ret != 0 {
 		return LibctError{int(ret)}
 	}
@@ -132,7 +133,7 @@ func (p *ProcessDesc) SetCaps(mask uint64, apply_to int) error {
 }
 
 func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
-	if ret := C.libct_process_desc_set_pdeathsig(p.p, C.int(sig)); ret != 0 {
+	if ret := C.libct_process_desc_set_pdeathsig(p.desc, C.int(sig)); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
@@ -140,9 +141,19 @@ func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
 }
 
 func (p *ProcessDesc) SetLSMLabel(label string) error {
-	if ret := C.libct_process_desc_set_lsm_label(p.p, C.CString(label)); ret != 0 {
+	if ret := C.libct_process_desc_set_lsm_label(p.desc, C.CString(label)); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
 	return nil
+}
+
+func (p *ProcessDesc) Wait() (int, error) {
+	var status C.int
+
+	if ret := C.libct_process_wait(p.handle, &status); ret != 0 {
+		return -1, LibctError{int(ret)}
+	}
+
+	return int(status), nil
 }

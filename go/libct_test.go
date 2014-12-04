@@ -24,7 +24,7 @@ func TestSpawnExecv(t *testing.T) {
 
 	ct.SetNsMask(syscall.CLONE_NEWNS | syscall.CLONE_NEWPID)
 
-	_, err = ct.SpawnExecve(p, "true",
+	err = ct.SpawnExecve(p, "true",
 		[]string{"true"},
 		[]string{"PATH=/bin:/usr/bin"})
 	if err != nil {
@@ -61,7 +61,7 @@ func TestSpawnExecvStdout(t *testing.T) {
 		t.Fail()
 	}
 
-	_, err = ct.SpawnExecve(p, "bash",
+	err = ct.SpawnExecve(p, "bash",
 		[]string{"sh", "-c", "echo ok; cat; cat <&3 >&2"},
 		[]string{"PATH=/bin:/usr/bin"})
 	if err != nil {

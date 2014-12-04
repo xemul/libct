@@ -34,7 +34,7 @@ static ct_process_desc_t local_process_create_desc(libct_session_t s)
 	if (p == NULL)
 		return NULL;
 
-	local_process_init(p);
+	local_process_desc_init(p);
 
 	return &p->h;
 }
@@ -45,7 +45,7 @@ static void update_local_ct_state(libct_session_t s, pid_t pid)
 
 	list_for_each_entry(h, &s->s_cts, s_lh) {
 		struct container *ct = cth2ct(h);
-		if (ct->root_pid != pid)
+		if (ct->p.pid != pid)
 			continue;
 
 		h->ops->wait(h);

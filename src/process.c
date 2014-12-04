@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "process.h"
 #include "xmalloc.h"
@@ -152,7 +154,7 @@ int local_desc_set_fds(ct_process_desc_t h, int *fds, int fdn)
 	return 0;
 }
 
-static const struct process_desc_ops local_process_ops = {
+static const struct process_desc_ops local_process_desc_ops = {
 	.copy		= local_desc_copy,
 	.destroy	= local_desc_destroy,
 	.setuid		= local_desc_setuid,
@@ -164,9 +166,9 @@ static const struct process_desc_ops local_process_ops = {
 	.set_fds	= local_desc_set_fds,
 };
 
-void local_process_init(struct process_desc *p)
+void local_process_desc_init(struct process_desc *p)
 {
-	p->h.ops	= &local_process_ops;
+	p->h.ops	= &local_process_desc_ops;
 	p->uid		= 0;
 	p->gid		= 0;
 	p->cap_caps	= 0;
@@ -177,4 +179,42 @@ void local_process_init(struct process_desc *p)
 	p->lsm_label	= NULL;
 	p->fds		= NULL;
 	p->fdn		= 0;
+}
+
+static int local_process_wait(ct_process_t h, int *status)
+{
+	struct process *p = ph2p(h);
+	int s;
+
+	if (p->pid < 0)
+		return -LCTERR_BADCTSTATE;
+
+	if (waitpid(p->pid, &s, 0) == -1) {
+		pr_perror("Unable to wait %d\n", p->pid);
+		return -1;
+	}
+	p->pid = -1;
+	p->status = s;
+	if (status)
+		*status = s;
+
+	return 0;
+}
+
+static void local_process_destroy(ct_process_t h)
+{
+	struct process *p = ph2p(h);
+
+	xfree(p);
+}
+
+static const struct process_ops local_process_ops = {
+	.wait		= local_process_wait,
+	.destroy	= local_process_destroy,
+};
+
+void local_process_init(struct process *p)
+{
+	p->h.ops	= &local_process_ops;
+	p->pid		= -1;
 }

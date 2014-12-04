@@ -56,7 +56,8 @@ int main(int argc, char **argv)
 	int p[2], p2[2];
 	libct_session_t s;
 	ct_handler_t ct;
-	ct_process_desc_t pr;
+	ct_process_desc_t pd;
+	ct_process_t pr;
 	int cg_ok = 0;
 	char c;
 
@@ -70,13 +71,14 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test-s");
-	pr = libct_process_desc_create(s);
+	pd = libct_process_desc_create(s);
 	if (libct_container_set_option(ct, LIBCT_OPT_KILLABLE, NULL)) {
 		tst_err("can't set killable");
 		return 2;
 	}
 
-	if (libct_container_spawn_cb(ct, pr, set_ct_alive, &cta) < 0) {
+	pr = libct_container_spawn_cb(ct, pd, set_ct_alive, &cta);
+	if (libct_handle_is_err(pr)) {
 		tst_err("can't start CT");
 		return 2;
 	}

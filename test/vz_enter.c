@@ -14,19 +14,19 @@ int main(int argc, char *argv[])
 {
 	libct_session_t s;
 	ct_handler_t ct;
-	ct_process_desc_t p;
+	ct_process_desc_t pd;
+	ct_process_t pr, p;
 	char *sleep_a[] = { "cat", NULL};
 	char *ls_a[] = { "sh", "-c", "echo ok", NULL};
 	int fds[] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO};
 	int pfd[2], tfd[2], status;
 	char buf[10];
-	pid_t pid;
 
 	test_init();
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "1339");
-	p = libct_process_desc_create(s);
+	pd = libct_process_desc_create(s);
 	libct_fs_set_root(ct, FS_ROOT);
 
 	libct_container_set_nsmask(ct,
@@ -41,8 +41,9 @@ int main(int argc, char *argv[])
 
 	fds[0] = pfd[0];
 	fcntl(pfd[1], F_SETFD, FD_CLOEXEC);
-	libct_process_desc_set_fds(p, fds, 3);
-	if (libct_container_spawn_execv(ct, p, "/bin/cat", sleep_a) <= 0)
+	libct_process_desc_set_fds(pd, fds, 3);
+	p = libct_container_spawn_execv(ct, pd, "/bin/cat", sleep_a);
+	if (libct_handle_is_err(p))
 		goto err;
 	close(pfd[0]);
 
@@ -52,16 +53,17 @@ int main(int argc, char *argv[])
 	fds[0] = STDIN_FILENO;
 	fds[1] = tfd[1];
 	fcntl(tfd[0], F_SETFD, FD_CLOEXEC);
-	libct_process_desc_set_fds(p, fds, 3);
-	pid = libct_container_enter_execv(ct, p, "/bin/sh", ls_a);
-	if (pid <= 0)
+	libct_process_desc_set_fds(pd, fds, 3);
+	pr = libct_container_enter_execv(ct, pd, "/bin/sh", ls_a);
+	if (libct_handle_is_err(pr))
 		goto err;
 	close(tfd[1]);
 
 	if (read(tfd[0], buf, sizeof(buf)) != 3)
 		goto err;
 
-	waitpid(pid, &status, 0);
+	if (libct_process_wait(pr, &status))
+		goto err;
 
 	close(pfd[1]);
 
