@@ -42,12 +42,12 @@ endif
 OUTS = $(TESTS:%=%.out)
 OBJS = $(TESTS:%=%.o)
 
+all: $(PIGS) $(TESTS)
+
 local: $(PIGS) $(LOCAL_TESTS)
 common: $(PIGS) $(COMMON_TESTS)
 
 vz: $(VZ_TESTS)
-
-all: $(PIGS) $(TESTS)
 
 cleanouts:
 	rm -f $(OUTS)
