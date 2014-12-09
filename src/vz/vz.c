@@ -126,32 +126,6 @@ static int set_personality32(void)
 	return 0;
 }
 
-static inline int proc_wait(int *pipe)
-{
-	int ret = -1;
-	read(pipe[0], &ret, sizeof(ret));
-	return ret;
-}
-
-static inline int proc_wait_close(int *pipe)
-{
-	int ret = -1;
-	read(pipe[0], &ret, sizeof(ret));
-	close(pipe[0]);
-	return ret;
-}
-
-static inline void proc_wake(int *pipe, int ret)
-{
-	write(pipe[1], &ret, sizeof(ret));
-}
-
-static inline void proc_wake_close(int *pipe, int ret)
-{
-	write(pipe[1], &ret, sizeof(ret));
-	close(pipe[1]);
-}
-
 static void vz_ct_destroy(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
@@ -470,8 +444,8 @@ int pre_setup_env(ct_handler_t h, struct info_pipes *pipes)
 	if (ct->flags & CT_AUTO_PROC)
 		configure_sysctl("/proc/sys/net/ipv6/conf/all/forwarding", "0");
 
-	proc_wake(pipes->parent_wait, 0);
-	ret = proc_wait(pipes->child_wait);
+	spawn_wake(pipes->parent_wait, 0);
+	ret = spawn_wait(pipes->child_wait);
 	if (ret)
 		return -1;
 
@@ -480,11 +454,6 @@ int pre_setup_env(ct_handler_t h, struct info_pipes *pipes)
 		pr_err("vz_cgroup_resource_set failed");
 		_exit(1);
 	}
-
-	proc_wake_close(pipes->parent_wait, 0);
-	ret = proc_wait_close(pipes->child_wait);
-	if (ret)
-		return -1;
 
 	return 0;
 }
@@ -622,7 +591,7 @@ static int exec_init(struct execv_args *ea)
 	return -1;
 }
 
-static int env_exec_create_data_ioctl(ct_handler_t h, struct info_pipes *pipes)
+static int env_exec_create_data_ioctl(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
 	int ret, eno;
@@ -675,8 +644,6 @@ try:
 			pr_perror("VZCTL_ENV_CREATE_DATA");
 			break;
 		}
-		if (write(pipes->parent_wait[1], &eno, sizeof(eno)) == -1)
-			pr_perror("Unable to write to status_p");
 		ret = -1;
 		return ret;
 	}
@@ -684,19 +651,19 @@ try:
 	return 0;
 }
 
-static int env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_args *ea)
+static int env_create(ct_handler_t h, struct info_pipes *pipes)
 {
 	int ret;
 	struct container *ct = cth2ct(h);
 
 	if (ct->nsmask) {
-		if ((ret = env_exec_create_data_ioctl(h, pipes)))
+		if ((ret = env_exec_create_data_ioctl(h)))
 			return ret;
 	}
 	if ((ret = pre_setup_env(h, pipes)))
 		return ret;
 
-	return exec_init(ea);
+	return 0;
 }
 
 static int vz_resources_create(struct container *ct)
@@ -750,9 +717,15 @@ static int ct_clone(void *arg)
 	struct ct_clone_arg *ca = arg;
 	int ret;
 
-	ret = env_create(ca->h, ca->pipes, ca->ea);
+	ret = env_create(ca->h, ca->pipes);
+	if (ret)
+		goto err;
 
-	write(ca->pipes->parent_wait[1], &ret, sizeof(ret));
+	spawn_wake_and_cloexec(ca->pipes->parent_wait, 0);
+
+	exec_init(ca->ea);
+err:
+	spawn_wake_and_close(ca->pipes->parent_wait, -1);
 	_exit(ret);
 }
 
@@ -877,7 +850,8 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 	close(child_wait[0]);
 	child_wait[0] = -1;
 
-	if (read(parent_wait[0], &root_pid, sizeof(root_pid)) == -1) {
+	root_pid = spawn_wait(parent_wait);
+	if (root_pid < 0) {
 		pr_perror("Unable to read parent_wait pipe");
 		env_wait(pid, 0, NULL);
 		ret = -1;
@@ -887,7 +861,7 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 
 	env_wait(pid, 0, NULL);
 
-	if (proc_wait(parent_wait) == -1) {
+	if (spawn_wait(parent_wait) == -1) {
 		ret = -1;
 		goto err_res;
 	}
@@ -910,14 +884,20 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		goto err_net;
 	}
 
-	proc_wake(child_wait, 0);
+	spawn_wake_and_close(child_wait, 0);
 
 	/* Wait while network would be configured inside container */
-	if (proc_wait_close(parent_wait)) {
+	if (spawn_wait(parent_wait)) {
 		ret = -1;
 		goto err_wait;
 	}
-	proc_wake_close(child_wait, 0);
+
+	/* Wait while network would be configured inside container */
+	if (spawn_wait_and_close(parent_wait) != INT_MIN) {
+		ret = -1;
+		goto err_wait;
+	}
+
 	ct->state = CT_RUNNING;
 	return &ct->p.h;
 
@@ -925,7 +905,7 @@ err_wait:
 	net_stop(ct);
 err_net:
 err_res:
-	proc_wake_close(child_wait, -1);
+	spawn_wake_and_close(child_wait, -1);
 	libct_process_wait(&ct->p.h, NULL);
 err_fork:
 	fs_umount(ct);
@@ -1107,9 +1087,10 @@ static int ct_enter(void *arg)
 		pr_err("vz_resourse_create");
 		_exit(1);
 	}
-	proc_wake_close(ca->pipes->parent_wait, 0);
+	spawn_wake(ca->pipes->parent_wait, 0);
 	exec_init(ca->ea);
 	pr_perror("Unable to execve");
+	spawn_wake_and_close(ca->pipes->parent_wait, -1);
 	_exit(-1);
 	return -1;
 }
@@ -1211,7 +1192,8 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *p
 	close(parent_wait[1]);
 	parent_wait[1] = -1;
 
-	if (read(parent_wait[0], &child_pid, sizeof(child_pid)) == -1) {
+	child_pid = spawn_wait(parent_wait);
+	if (child_pid < 0) {
 		pr_perror("Unable to read parent_wait pipe");
 		env_wait(pid, 0, NULL);
 		ret = -1;
@@ -1219,7 +1201,12 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *p
 	}
 	env_wait(pid, 0, NULL);
 
-	if (proc_wait_close(parent_wait) == -1) {
+	if (spawn_wait(parent_wait)) {
+		ret = -1;
+		goto err_wait;
+	}
+
+	if (spawn_wait_and_close(parent_wait) != INT_MIN) {
 		ret = -1;
 		goto err_wait;
 	}

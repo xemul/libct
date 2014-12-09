@@ -274,6 +274,11 @@ int spawn_wait_and_close(int *pipe)
 	return ret;
 }
 
+void spawn_wake(int *pipe, int ret)
+{
+	write(pipe[1], &ret, sizeof(ret));
+}
+
 void spawn_wake_and_close(int *pipe, int ret)
 {
 	write(pipe[1], &ret, sizeof(ret));
