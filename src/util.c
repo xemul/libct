@@ -168,3 +168,32 @@ int stat_file(const char *file)
 	}
 	return 1;
 }
+
+int spawn_wait(int *pipe)
+{
+	int ret = INT_MIN;
+	read(pipe[0], &ret, sizeof(ret));
+	return ret;
+}
+
+int spawn_wait_and_close(int *pipe)
+{
+	int ret = spawn_wait(pipe);
+	close(pipe[0]);
+	return ret;
+}
+
+void spawn_wake_and_close(int *pipe, int ret)
+{
+	write(pipe[1], &ret, sizeof(ret));
+	close(pipe[1]);
+}
+
+void spawn_wake_and_cloexec(int *pipe, int ret)
+{
+	if (fcntl(pipe[1], F_SETFD, FD_CLOEXEC))
+		close(pipe[1]);
+
+	write(pipe[1], &ret, sizeof(ret));
+}
+

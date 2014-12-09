@@ -98,34 +98,6 @@ struct ct_clone_arg {
 	bool is_exec;
 };
 
-static inline int spawn_wait(int *pipe)
-{
-	int ret = INT_MIN;
-	read(pipe[0], &ret, sizeof(ret));
-	return ret;
-}
-
-static inline int spawn_wait_and_close(int *pipe)
-{
-	int ret = spawn_wait(pipe);
-	close(pipe[0]);
-	return ret;
-}
-
-static inline void spawn_wake(int *pipe, int ret)
-{
-	write(pipe[1], &ret, sizeof(ret));
-	close(pipe[1]);
-}
-
-static inline void spawn_wake_and_cloexec(int *pipe, int ret)
-{
-	if (fcntl(pipe[1], F_SETFD, FD_CLOEXEC))
-		close(pipe[1]);
-
-	write(pipe[1], &ret, sizeof(ret));
-}
-
 static int re_mount_proc(struct container *ct)
 {
 	if (!ct->root_path) {
@@ -297,13 +269,13 @@ static int ct_clone(void *arg)
 		goto err;
 
 	if (ca->is_exec)
-		spawn_wake_and_cloexec(ca->parent_wait_pipe, 0); // FIXME
+		spawn_wake_and_cloexec(ca->parent_wait_pipe, 0);
 	else
-		spawn_wake(ca->parent_wait_pipe, 0);
+		spawn_wake_and_close(ca->parent_wait_pipe, 0);
 
 	ret = ca->cb(ca->arg);
 	if (ca->is_exec)
-		spawn_wake(ca->parent_wait_pipe, ret);
+		goto err;
 
 	return ret;
 
@@ -311,7 +283,7 @@ err_um:
 	if (ct->root_path)
 		fs_umount_ext(ct);
 err:
-	spawn_wake(ca->parent_wait_pipe, ret);
+	spawn_wake_and_close(ca->parent_wait_pipe, ret);
 	exit(ret);
 }
 
@@ -403,7 +375,7 @@ static int __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void
 	if (net_start(ct))
 		goto err_net;
 
-	spawn_wake(ca.child_wait_pipe, 0);
+	spawn_wake_and_close(ca.child_wait_pipe, 0);
 
 	aux = spawn_wait(ca.parent_wait_pipe);
 	if (aux != 0) {
@@ -423,7 +395,7 @@ static int __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void
 err_ch:
 	net_stop(ct);
 err_net:
-	spawn_wake(ca.child_wait_pipe, -1);
+	spawn_wake_and_close(ca.child_wait_pipe, -1);
 	waitpid(pid, NULL, 0);
 err_clone:
 	close(ca.parent_wait_pipe[0]);
@@ -548,12 +520,12 @@ static int __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void
 		if (is_exec)
 			spawn_wake_and_cloexec(wait_pipe, 0);
 		else
-			spawn_wake(wait_pipe, 0);
+			spawn_wake_and_close(wait_pipe, 0);
 
 		aux = cb(arg);
 
 		if (is_exec)
-			spawn_wake(wait_pipe, -1);
+			spawn_wake_and_close(wait_pipe, -1);
 		exit(aux);
 	}
 
