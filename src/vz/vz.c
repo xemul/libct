@@ -95,31 +95,6 @@ DIR *open_fds_proc(pid_t pid)
 	return opendir(dn);
 }
 
-int close_all_fds(DIR *dir)
-{
-	struct dirent *de;
-	int fd, ret;
-
-	while ((de = readdir(dir))) {
-		if (!strcmp(de->d_name, ".") ||
-			!strcmp(de->d_name, "..") ||
-			!strcmp(de->d_name, "0") ||
-			!strcmp(de->d_name, "1") ||
-			!strcmp(de->d_name, "2"))
-			continue;
-
-		ret = sscanf(de->d_name, "%d", &fd);
-		if (ret != 1) {
-			pr_err("Can't parse %s\n", de->d_name);
-			return -1;
-		}
-		close(fd);
-	}
-
-	closedir(dir);
-
-	return 0;
-}
 static int configure_sysctl(const char *var, const char *val)
 {
 	int fd = -1, len = -1, ret = -1;
@@ -783,6 +758,7 @@ struct ct_clone_arg {
 	ct_handler_t h;
 	struct info_pipes *pipes;
 	struct execv_args *ea;
+	unsigned int veid;
 };
 
 static int ct_clone(void *arg)
@@ -840,11 +816,6 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	}
 	if (write(pipes->parent_wait[1], &pid, sizeof(pid)) == -1) {
 		pr_perror("Unable to write to parent_wait pipe");
-		goto err;
-	}
-
-	if (close_all_fds(dir)) {
-		pr_perror("Unable to close fds!\n");
 		goto err;
 	}
 
@@ -1141,8 +1112,34 @@ static int vz_set_nsmask(ct_handler_t h, unsigned long nsmask)
 	return 0;
 }
 
+static int ct_enter(void *arg)
+{
+	struct ct_clone_arg *ca = arg;
+	struct container *ct = cth2ct(ca->h);
+	int ret;
+
+	if (ct->nsmask) {
+		ret = vzctl_env_create_ioctl(ca->veid, VE_ENTER);
+		if (ret < 0) {
+			pr_perror("ioctl failed");
+			_exit(1);
+		}
+	}
+	ret = vz_cgroup_resources_set(ct);
+	if (ret) {
+		pr_err("vz_resourse_create");
+		_exit(1);
+	}
+	proc_wake_close(ca->pipes->parent_wait, 0);
+	exec_init(ca->ea);
+	pr_perror("Unable to execve");
+	_exit(-1);
+	return -1;
+}
+
 static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
 {
+	struct ct_clone_arg ca;
 	struct container *ct = NULL;
 	unsigned int veid = -1;
 	int pid, child_pid, ret = 0;
@@ -1151,6 +1148,10 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		.argv = argv,
 		.env = env,
 		.fds = fds
+	};
+	int parent_wait[2];
+	struct info_pipes pipes = {
+		.parent_wait = parent_wait,
 	};
 
 	if (!h)
@@ -1166,25 +1167,25 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		return -1;
 	}
 
+	ret = pipe(parent_wait);
+	if (ret == -1) {
+		pr_perror("Cannot create parent wait pipe");
+		return -1;
+	}
+
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Cannot fork");
-		return -1;
+		goto err;
 	} else if (pid == 0) {
 		int i;
 		int fd_flags[2];
-		DIR *dir = NULL;
 		for (i = 0; i < 2; i++) {
 			fd_flags[i] = fcntl(i, F_GETFL);
 			if (fd_flags[i] < 0) {
 				pr_perror("Unable to get fd%d flags", i);
 				_exit(-1);
 			}
-		}
-		dir = open_fds_proc(getpid());
-		if (dir == NULL) {
-			pr_perror("Unable to open /proc/%d/fd", getpid());
-			_exit(-1);
 		}
 
 		ret = vz_resources_create(ct);
@@ -1202,43 +1203,50 @@ static int vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char
 		if (ret)
 			_exit(ret);
 
+		fcntl(parent_wait[1], F_SETFD, FD_CLOEXEC);
+		close(parent_wait[0]);
+
+		ca.ea = &ea;
+		ca.h = h;
+		ca.veid = veid;
+		ca.pipes = &pipes;
+
 		pr_info("Entering the Container %ld", veid);
-		child_pid = fork();
+		child_pid = clone(ct_enter, &ca.stack_ptr, SIGCHLD | CLONE_PARENT, &ca);
 		if (child_pid < 0) {
 			pr_perror("Unable to stop Container, fork failed");
 			_exit(1);
-		} else if (child_pid == 0) {
-			if (ct->nsmask) {
-				ret = vzctl_env_create_ioctl(veid, VE_ENTER);
-				if (ret < 0) {
-					pr_perror("ioctl failed");
-					_exit(1);
-				}
-			}
-			ret = vz_cgroup_resources_set(ct);
-			if (ret) {
-				pr_err("vz_resourse_create");
-				_exit(1);
-			}
-			exec_init(&ea);
-			pr_perror("Unable to execve");
-			_exit(-1);
 		}
 
-		if (close_all_fds(dir)) {
-			pr_perror("Unable to close fds!");
-			_exit(-1);
+		if (write(pipes.parent_wait[1], &child_pid, sizeof(child_pid)) == -1) {
+			pr_perror("Unable to write to parent_wait pipe");
+			_exit(1);
 		}
-		if (env_wait(child_pid, 0, NULL)) {
-			pr_err("Execution failed");
-			ret = -1;
-			return -1;
-		}
-
 		_exit(0);
 	}
+	close(parent_wait[1]);
+	parent_wait[1] = -1;
 
-	return pid;
+	if (read(parent_wait[0], &child_pid, sizeof(child_pid)) == -1) {
+		pr_perror("Unable to read parent_wait pipe");
+		env_wait(pid, 0, NULL);
+		ret = -1;
+		goto err;
+	}
+	env_wait(pid, 0, NULL);
+
+	if (proc_wait_close(parent_wait) == -1) {
+		ret = -1;
+		goto err_wait;
+	}
+
+	return child_pid;
+err_wait:
+	env_wait(child_pid, 0, NULL);
+err:
+	close(parent_wait[0]);
+	close(parent_wait[1]);
+	return -1;
 }
 
 static int vz_enter_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
