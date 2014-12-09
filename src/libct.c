@@ -55,61 +55,41 @@ enum ct_state libct_container_state(ct_handler_t h)
 	return h->ops->get_state(h);
 }
 
-int libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*cb)(void *), void *arg)
+ct_process_t libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*cb)(void *), void *arg)
 {
 	/* This one is optional -- only local ops support */
 	if (!ct->ops->spawn_cb)
-		return -LCTERR_OPNOTSUPP;
+		return ERR_PTR(-LCTERR_OPNOTSUPP);
 
 	return ct->ops->spawn_cb(ct, pr, cb, arg);
 }
 
-int libct_container_spawn_execv(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv)
+ct_process_t libct_container_spawn_execv(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv)
 {
 	return libct_container_spawn_execve(ct, pr, path, argv, NULL);
 }
 
-int libct_container_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env)
+ct_process_t libct_container_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env)
 {
-	return ct->ops->spawn_execve(ct, pr, path, argv, env, NULL);
+	return ct->ops->spawn_execve(ct, pr, path, argv, env);
 }
 
-int libct_container_spawn_execvfds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, int *fds)
-{
-	return libct_container_spawn_execvefds(ct, pr, path, argv, NULL, fds);
-}
-
-int libct_container_spawn_execvefds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds)
-{
-	return ct->ops->spawn_execve(ct, pr, path, argv, env, fds);
-}
-
-int libct_container_enter_cb(ct_handler_t ct, ct_process_desc_t p, int (*cb)(void *), void *arg)
+ct_process_t libct_container_enter_cb(ct_handler_t ct, ct_process_desc_t p, int (*cb)(void *), void *arg)
 {
 	if (!ct->ops->enter_cb)
-		return -LCTERR_OPNOTSUPP;
+		return ERR_PTR(-LCTERR_OPNOTSUPP);
 
 	return ct->ops->enter_cb(ct, p, cb, arg);
 }
 
-int libct_container_enter_execvfds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, int *fds)
-{
-	return libct_container_enter_execvefds(ct, p, path, argv, NULL, fds);
-}
-
-int libct_container_enter_execvefds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env, int *fds)
-{
-	return ct->ops->enter_execve(ct, p, path, argv, env, fds);
-}
-
-int libct_container_enter_execv(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv)
+ct_process_t libct_container_enter_execv(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv)
 {
 	return libct_container_enter_execve(ct, p, path, argv, NULL);
 }
 
-int libct_container_enter_execve(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env)
+ct_process_t libct_container_enter_execve(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env)
 {
-	return ct->ops->enter_execve(ct, p, path, argv, env, NULL);
+	return ct->ops->enter_execve(ct, p, path, argv, env);
 }
 
 
@@ -216,4 +196,19 @@ void libct_process_desc_destroy(ct_process_desc_t p)
 int libct_process_desc_set_lsm_label(ct_process_desc_t p, char *label)
 {
 	return p->ops->set_lsm_label(p, label);
+}
+
+int libct_process_desc_set_fds(ct_process_desc_t p, int *fds, int n)
+{
+	return p->ops->set_fds(p, fds, n);
+}
+
+int libct_process_wait(ct_process_t p, int *status)
+{
+	return p->ops->wait(p, status);
+}
+
+void libct_process_destroy(ct_process_t p)
+{
+	return p->ops->destroy(p);
 }

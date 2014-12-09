@@ -29,6 +29,9 @@ typedef struct ct_handler *ct_handler_t;
 struct ct_process_desc;
 typedef struct ct_process_desc *ct_process_desc_t;
 
+struct ct_process;
+typedef struct ct_process *ct_process_t;
+
 enum ct_state {
 	CT_ERROR = -1,
 	CT_STOPPED,
@@ -40,16 +43,12 @@ extern ct_handler_t libct_container_open(libct_session_t ses, char *name);
 extern void libct_container_close(ct_handler_t ct);
 
 enum ct_state libct_container_state(ct_handler_t ct);
-extern int libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*ct_fn)(void *), void *arg);
-extern int libct_container_spawn_execvfds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, int *fds);
-extern int libct_container_spawn_execvefds(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env, int *fds);
-extern int libct_container_spawn_execv(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv);
-extern int libct_container_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env);
-extern int libct_container_enter_cb(ct_handler_t ct, ct_process_desc_t p, int (*ct_fn)(void *), void *arg);
-extern int libct_container_enter_execvfds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, int *fds);
-extern int libct_container_enter_execvefds(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env, int *fds);
-extern int libct_container_enter_execv(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv);
-extern int libct_container_enter_execve(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env);
+extern ct_process_t libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*ct_fn)(void *), void *arg);
+extern ct_process_t libct_container_spawn_execv(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv);
+extern ct_process_t libct_container_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env);
+extern ct_process_t libct_container_enter_cb(ct_handler_t ct, ct_process_desc_t p, int (*ct_fn)(void *), void *arg);
+extern ct_process_t libct_container_enter_execv(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv);
+extern ct_process_t libct_container_enter_execve(ct_handler_t ct, ct_process_desc_t p, char *path, char **argv, char **env);
 extern int libct_container_kill(ct_handler_t ct);
 extern int libct_container_wait(ct_handler_t ct);
 extern void libct_container_destroy(ct_handler_t ct);
@@ -193,5 +192,9 @@ extern int libct_process_desc_set_lsm_label(ct_process_desc_t p, char *label);
 extern int libct_process_desc_set_caps(ct_process_desc_t ct, unsigned long mask, unsigned int apply_to);
 
 extern int libct_process_desc_set_pdeathsig(ct_process_desc_t ct, int sig);
+extern int libct_process_desc_set_fds(ct_process_desc_t p, int *fds, int n);
+
+extern int libct_process_wait(ct_process_t p, int *status);
+extern void libct_process_destroy(ct_process_t p);
 
 #endif /* __UAPI_LIBCT_H__ */

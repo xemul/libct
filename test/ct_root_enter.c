@@ -58,11 +58,12 @@ static int ct_enter_fn(void *a)
 
 int main(int argc, char **argv)
 {
-	int fd, pid, p[2];
+	int fd, p[2], status;
 	struct ct_arg cta;
 	libct_session_t s;
 	ct_handler_t ct;
-	ct_process_desc_t pr;
+	ct_process_desc_t pd;
+	ct_process_t pr;
 
 	pipe(p);
 
@@ -84,11 +85,13 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
-	pr = libct_process_desc_create(s);
+	pd = libct_process_desc_create(s);
 	libct_fs_set_root(ct, FS_ROOT);
-	libct_container_spawn_cb(ct, pr, ct_main_fn, &cta);
-	pid = libct_container_enter_cb(ct, pr, ct_enter_fn, &cta);
-	waitpid(pid, NULL, 0);
+	libct_container_spawn_cb(ct, pd, ct_main_fn, &cta);
+	pr = libct_container_enter_cb(ct, pd, ct_enter_fn, &cta);
+	if (libct_handle_is_err(pr))
+		fail("Unable to enter into CT");
+	libct_process_wait(pr, &status);
 	write(p[1], "a", 1);
 	libct_container_wait(ct);
 	libct_container_destroy(ct);

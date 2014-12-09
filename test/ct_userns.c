@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 	ct = libct_container_create(s, "test");
 	p = libct_process_desc_create(s);
 	if (libct_container_set_nsmask(ct, CLONE_NEWPID | CLONE_NEWUSER | CLONE_NEWNS))
-		return 1;
+		return fail("Unable to set nsmask");
 
 	unshare(CLONE_NEWNS);
 	mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL);
@@ -69,9 +69,11 @@ int main(int argc, char **argv)
 	    libct_userns_add_uid_map(ct, 1100, 130000, 1200) ||
 	    libct_userns_add_gid_map(ct, 0, 140000, 1200) ||
 	    libct_userns_add_gid_map(ct, 1200, 150000, 1100))
-		return 1;
-	libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive);
-	libct_container_wait(ct);
+		return fail("Unable to set {u,g}id mappings");
+	if (libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive))
+		return fail("Unable to start CT");
+	if (libct_container_wait(ct))
+		return fail("Unable to wait CT");
 	libct_container_destroy(ct);
 	libct_session_close(s);
 

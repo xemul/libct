@@ -8,7 +8,6 @@ import "C"
 import "fmt"
 import "os"
 import "unsafe"
-import "syscall"
 
 const (
 	LIBCT_OPT_AUTO_PROC_MOUNT = C.LIBCT_OPT_AUTO_PROC_MOUNT
@@ -23,10 +22,6 @@ type Session struct {
 
 type Container struct {
 	ct C.ct_handler_t
-}
-
-type ProcessDesc struct {
-	p C.ct_process_desc_t
 }
 
 type NetDev struct {
@@ -50,11 +45,13 @@ func (e LibctError) Error() string {
 }
 
 func (s *Session) OpenLocal() error {
-	s.s = C.libct_session_open_local()
+	h := C.libct_session_open_local()
 
-	if s.s == nil {
-		return LibctError{-1}
+	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {
+		return LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
 	}
+
+	s.s = h
 
 	return nil
 }
@@ -62,8 +59,8 @@ func (s *Session) OpenLocal() error {
 func (s *Session) ContainerCreate(name string) (*Container, error) {
 	ct := C.libct_container_create(s.s, C.CString(name))
 
-	if ct == nil {
-		return nil, LibctError{-1}
+	if C.libct_handle_is_err(unsafe.Pointer(ct)) != 0 {
+		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(ct)))}
 	}
 
 	return &Container{ct}, nil
@@ -72,8 +69,8 @@ func (s *Session) ContainerCreate(name string) (*Container, error) {
 func (s *Session) ContainerOpen(name string) (*Container, error) {
 	ct := C.libct_container_open(s.s, C.CString(name))
 
-	if ct == nil {
-		return nil, LibctError{-1}
+	if C.libct_handle_is_err(unsafe.Pointer(ct)) != 0 {
+		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(ct)))}
 	}
 
 	return &Container{ct}, nil
@@ -81,11 +78,11 @@ func (s *Session) ContainerOpen(name string) (*Container, error) {
 
 func (s *Session) ProcessCreateDesc() (*ProcessDesc, error) {
 	p := C.libct_process_desc_create(s.s)
-	if p == nil {
-		return nil, LibctError{-1}
+	if C.libct_handle_is_err(unsafe.Pointer(p)) != 0 {
+		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(p)))}
 	}
 
-	return &ProcessDesc{p}, nil
+	return &ProcessDesc{desc: p}, nil
 }
 
 func (ct *Container) SetNsMask(nsmask uint64) error {
@@ -118,18 +115,39 @@ func (ct *Container) SetConsoleFd(f *os.File) error {
 	return nil
 }
 
-func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
-	return ct.execve(p, path, argv, env, fds, true)
-}
-
-func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr) (int, error) {
-	return ct.execve(p, path, argv, env, fds, false)
-}
-
-func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, fds *[3]uintptr, spawn bool) (int, error) {
+func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
 	var (
-		cfdsp *C.int
-		ret int
+		i   int = 0
+	)
+
+	type F func(*ProcessDesc) (*os.File, error)
+	for _, setupFd := range []F{(*ProcessDesc).stdin, (*ProcessDesc).stdout, (*ProcessDesc).stderr} {
+		fd, err := setupFd(p)
+		if err != nil {
+			p.closeDescriptors(p.closeAfterStart)
+			p.closeDescriptors(p.closeAfterWait)
+			return err
+		}
+		p.childFiles = append(p.childFiles, fd)
+		i = i + 1
+	}
+
+	p.childFiles = append(p.childFiles, p.ExtraFiles...)
+
+	err := ct.execve(p, path, argv, env, true)
+
+	return err
+}
+
+func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
+	err := ct.execve(p, path, argv, env, false)
+	p.closeDescriptors(p.closeAfterStart)
+	return err
+}
+
+func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) (error) {
+	var (
+		h     C.ct_process_t
 	)
 
 	cargv := make([]*C.char, len(argv)+1)
@@ -142,24 +160,26 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 		cenv[i] = C.CString(e)
 	}
 
-	if fds != nil {
-		cfds := make([]C.int, 3)
-		for i, fd := range fds {
-			cfds[i] = C.int(fd)
-		}
-		cfdsp = &cfds[0]
+	cfds := make([]C.int, len(p.childFiles))
+	for i, fd := range p.childFiles {
+		cfds[i] = C.int(fd.Fd())
 	}
+
+	C.libct_process_desc_set_fds(p.desc, &cfds[0], C.int(len(p.childFiles)))
 
 	if spawn {
-		ret = int(C.libct_container_spawn_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
+		h = C.libct_container_spawn_execve(ct.ct, p.desc, C.CString(path), &cargv[0], &cenv[0])
 	} else {
-		ret = int(C.libct_container_enter_execvefds(ct.ct, p.p, C.CString(path), &cargv[0], &cenv[0], cfdsp))
-	}
-	if ret < 0 {
-		return -1, LibctError{int(ret)}
+		h = C.libct_container_enter_execve(ct.ct, p.desc, C.CString(path), &cargv[0], &cenv[0])
 	}
 
-	return ret, nil
+	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {
+		return  LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
+	}
+
+	p.handle = h
+
+	return nil
 }
 
 func (ct *Container) Wait() error {
@@ -231,31 +251,6 @@ func (ct *Container) AddMount(src string, dst string, flags int, fstype string, 
 
 func (ct *Container) SetOption(opt int32) error {
 	if ret := C.libct_container_set_option(ct.ct, C.int(opt), nil); ret != 0 {
-		return LibctError{int(ret)}
-	}
-
-	return nil
-}
-
-func (p *ProcessDesc) SetCaps(mask uint64, apply_to int) error {
-	ret := C.libct_process_desc_set_caps(p.p, C.ulong(mask), C.uint(apply_to))
-	if ret != 0 {
-		return LibctError{int(ret)}
-	}
-
-	return nil
-}
-
-func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
-	if ret := C.libct_process_desc_set_pdeathsig(p.p, C.int(sig)); ret != 0 {
-		return LibctError{int(ret)}
-	}
-
-	return nil
-}
-
-func (p *ProcessDesc) SetLSMLabel(label string) error {
-	if ret := C.libct_process_desc_set_lsm_label(p.p, C.CString(label)); ret != 0 {
 		return LibctError{int(ret)}
 	}
 

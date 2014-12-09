@@ -36,4 +36,4 @@ things, e.g.
 For more details, see [Documentation/libct.txt](Documentation/libct.txt).
 For usage examples, see [test](test/) directory.
 All the API calls, types and constants are collected in
-[include/uapi/libct.h](include/uapi/libct.h).
+[src/include/uapi/libct.h](src/include/uapi/libct.h).

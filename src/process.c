@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "process.h"
 #include "xmalloc.h"
@@ -73,6 +75,7 @@ static void local_desc_destroy(ct_process_desc_t h)
 
 	xfree(p->lsm_label);
 	xfree(p->groups);
+	xfree(p->fds);
 	xfree(p);
 }
 
@@ -88,11 +91,21 @@ ct_process_desc_t local_desc_copy(ct_process_desc_t h)
 	memcpy(c, p, sizeof(struct process_desc));
 	c->groups = NULL;
 	c->lsm_label = NULL;
+	c->fds = NULL;
 
 	if (p->ngroups) {
-		p->groups = xmalloc(sizeof(p->ngroups * sizeof(c->groups[0])));
+		c->groups = xmalloc(p->ngroups * sizeof(c->groups[0]));
 		if (c->groups == NULL)
 			goto err;
+		memcpy(c->groups, p->groups, p->ngroups * sizeof(c->groups[0]));
+	}
+
+	if (p->fds) {
+		/* reserve space for wait_pipe */
+		c->fds = xmalloc((p->fdn + 1) * sizeof(c->fds[0]));
+		if (c->fds == NULL)
+			goto err;
+		memcpy(c->fds, p->fds, p->fdn * sizeof(c->fds[0]));
 	}
 
 	if (p->lsm_label) {
@@ -120,7 +133,28 @@ int local_desc_set_lsm_label(ct_process_desc_t h, char *label)
 	return 0;
 }
 
-static const struct process_desc_ops local_process_ops = {
+int local_desc_set_fds(ct_process_desc_t h, int *fds, int fdn)
+{
+	struct process_desc *p = prh2pr(h);
+	int *t = NULL;
+
+	if (fds) {
+		/* reserve space for wait_pipe */
+		t = xmalloc(sizeof(int) * (fdn + 1));
+		if (t == NULL)
+			return -1;
+
+		memcpy(t, fds, sizeof(int) * fdn);
+	}
+
+	xfree(p->fds);
+	p->fds = t;
+	p->fdn = fdn;
+
+	return 0;
+}
+
+static const struct process_desc_ops local_process_desc_ops = {
 	.copy		= local_desc_copy,
 	.destroy	= local_desc_destroy,
 	.setuid		= local_desc_setuid,
@@ -129,11 +163,12 @@ static const struct process_desc_ops local_process_ops = {
 	.set_caps	= local_desc_set_caps,
 	.set_pdeathsig	= local_desc_set_pdeathsig,
 	.set_lsm_label	= local_desc_set_lsm_label,
+	.set_fds	= local_desc_set_fds,
 };
 
-void local_process_init(struct process_desc *p)
+void local_process_desc_init(struct process_desc *p)
 {
-	p->h.ops	= &local_process_ops;
+	p->h.ops	= &local_process_desc_ops;
 	p->uid		= 0;
 	p->gid		= 0;
 	p->cap_caps	= 0;
@@ -142,4 +177,44 @@ void local_process_init(struct process_desc *p)
 	p->groups	= NULL;
 	p->ngroups	= 0;
 	p->lsm_label	= NULL;
+	p->fds		= NULL;
+	p->fdn		= 0;
+}
+
+static int local_process_wait(ct_process_t h, int *status)
+{
+	struct process *p = ph2p(h);
+	int s;
+
+	if (p->pid < 0)
+		return -LCTERR_BADCTSTATE;
+
+	if (waitpid(p->pid, &s, 0) == -1) {
+		pr_perror("Unable to wait %d\n", p->pid);
+		return -1;
+	}
+	p->pid = -1;
+	p->status = s;
+	if (status)
+		*status = s;
+
+	return 0;
+}
+
+static void local_process_destroy(ct_process_t h)
+{
+	struct process *p = ph2p(h);
+
+	xfree(p);
+}
+
+static const struct process_ops local_process_ops = {
+	.wait		= local_process_wait,
+	.destroy	= local_process_destroy,
+};
+
+void local_process_init(struct process *p)
+{
+	p->h.ops	= &local_process_ops;
+	p->pid		= -1;
 }

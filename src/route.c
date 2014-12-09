@@ -156,7 +156,7 @@ int net_route_setup(struct container *ct)
 	if (list_empty(&ct->ct_net_routes))
 		return 0;
 
-	if (switch_ns(ct->root_pid, &net_ns, &rst))
+	if (switch_ns(ct->p.pid, &net_ns, &rst))
 		return -1;
 
 	sk = net_sock_open();
