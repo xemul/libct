@@ -174,12 +174,6 @@ static int close_fds(DIR *d, int n)
 {
 	struct dirent *de;
 
-	d = opendir("/proc/self/fd");
-	if (d == NULL) {
-		pr_perror("Unable to open /proc/self/fd");
-		return -1;
-	}
-
 	while ((de = readdir(d))) {
 		int fd;
 
@@ -264,4 +258,34 @@ int setup_fds(int *fds, int n)
 	}
 
 	return setup_fds_at(d, fds, n);
+}
+
+int spawn_wait(int *pipe)
+{
+	int ret = INT_MIN;
+	read(pipe[0], &ret, sizeof(ret));
+	return ret;
+}
+
+int spawn_wait_and_close(int *pipe)
+{
+	int ret = spawn_wait(pipe);
+	close(pipe[0]);
+	return ret;
+}
+
+void spawn_wake_and_close(int *pipe, int ret)
+{
+	write(pipe[1], &ret, sizeof(ret));
+	close(pipe[1]);
+}
+
+void spawn_wake_and_cloexec(int *pipe, int ret)
+{
+	if (fcntl(pipe[1], F_SETFD, FD_CLOEXEC)) {
+		close(pipe[1]);
+		return;
+	}
+
+	write(pipe[1], &ret, sizeof(ret));
 }
