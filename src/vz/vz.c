@@ -59,10 +59,6 @@ struct info_pipes {
 	int *parent_wait;
 };
 
-struct vz_private {
-	int exec_waiting_pid;
-};
-
 static int __vzctlfd = -1;
 
 void vzctl_close(void)
@@ -198,7 +194,6 @@ static void vz_ct_destroy(ct_handler_t h)
 	xfree(ct->hostname);
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
-	xfree(ct->private);
 	xfree(ct);
 }
 
@@ -826,7 +821,7 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	ca.pipes = pipes;
 	ca.ea = ea;
 	ca.h = h;
-	pid = clone(ct_clone, &ca.stack_ptr, SIGCHLD, &ca);
+	pid = clone(ct_clone, &ca.stack_ptr, SIGCHLD | CLONE_PARENT, &ca);
 	if (pid < 0) {
 		pr_perror("Can not fork");
 		ret = -1;
@@ -842,10 +837,6 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 		goto err;
 	}
 
-	if (env_wait(pid, 0, NULL)) {
-		pr_perror("Execution failed");
-		goto err;
-	}
 	return 0;
 
 err:
@@ -876,7 +867,6 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		.parent_wait = parent_wait,
 	};
 	struct sigaction act;
-	struct vz_private *priv = ct->private;
 	int pid = -1;
 	int root_pid = -1;
 
@@ -930,14 +920,17 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 
 	if (read(parent_wait[0], &root_pid, sizeof(root_pid)) == -1) {
 		pr_perror("Unable to read parent_wait pipe");
+		env_wait(pid, 0, NULL);
 		ret = -1;
-		goto err_wait;
+		goto err_fork;
 	}
 	ct->p.pid = root_pid;
 
+	env_wait(pid, 0, NULL);
+
 	if (proc_wait(parent_wait) == -1) {
 		ret = -1;
-		goto err_net;
+		goto err_res;
 	}
 
 	ret = vz_resources_create(ct);
@@ -966,7 +959,6 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		goto err_wait;
 	}
 	proc_wake_close(child_wait, 0);
-	priv->exec_waiting_pid = pid;
 	ct->state = CT_RUNNING;
 	return &ct->p.h;
 
@@ -975,6 +967,7 @@ err_wait:
 err_net:
 err_res:
 	proc_wake_close(child_wait, -1);
+	env_wait(root_pid, 0, NULL);
 err_fork:
 	fs_umount(ct);
 	close(parent_wait[0]);
@@ -1031,14 +1024,12 @@ static int vz_ct_kill(ct_handler_t h)
 static int vz_ct_wait(ct_handler_t h)
 {
 	struct container *ct = NULL;
-	struct vz_private *priv = NULL;
 	unsigned int veid = -1;
 
 	if (!h)
 		return -LCTERR_BADARG;
 
 	ct = cth2ct(h);
-	priv = ct->private;
 	if (parse_uint(ct->name, &veid) < 0) {
 		pr_err("Unable to parse container's ID");
 		return -1;
@@ -1047,7 +1038,8 @@ static int vz_ct_wait(ct_handler_t h)
 	if (ct->state != CT_RUNNING)
 		return -LCTERR_BADCTSTATE;
 
-	env_wait(priv->exec_waiting_pid, 0, NULL);
+	if (ct->p.pid > 0)
+		libct_process_wait(&ct->p.h, NULL);
 	if (!env_is_run(veid)) {
 		pr_info("Container was stopped");
 		return 0;
@@ -1302,7 +1294,6 @@ ct_handler_t vz_ct_create(char *name)
 		ct->state = CT_STOPPED;
 		ct->name = xstrdup(name);
 		ct->tty_fd = -1;
-		ct->private = xmalloc(sizeof(struct vz_private));
 		INIT_LIST_HEAD(&ct->cgroups);
 		INIT_LIST_HEAD(&ct->cg_configs);
 		INIT_LIST_HEAD(&ct->ct_nets);
