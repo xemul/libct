@@ -19,6 +19,7 @@ extern int stat_file(const char *file);
 
 extern int spawn_wait(int *pipe);
 extern int spawn_wait_and_close(int *pipe);
+extern void spawn_wake(int *pipe, int ret);
 extern void spawn_wake_and_close(int *pipe, int ret);
 extern void spawn_wake_and_cloexec(int *pipe, int ret);
 
