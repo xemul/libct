@@ -770,8 +770,29 @@ static int vz_resources_create(struct container *ct)
 	return 0;
 }
 
+
+struct ct_clone_arg {
+	char stack[PAGE_SIZE] __attribute__((aligned (8)));
+	char stack_ptr[0];
+	ct_handler_t h;
+	struct info_pipes *pipes;
+	struct execv_args *ea;
+};
+
+static int ct_clone(void *arg)
+{
+	struct ct_clone_arg *ca = arg;
+	int ret;
+
+	ret = env_create(ca->h, ca->pipes, ca->ea);
+
+	write(ca->pipes->parent_wait[1], &ret, sizeof(ret));
+	_exit(ret);
+}
+
 static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_args *ea)
 {
+	struct ct_clone_arg ca;
 	int ret, pid;
 	struct container *ct = cth2ct(h);
 	unsigned int veid;
@@ -802,16 +823,14 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	if (ret)
 		goto err;
 
-	pid = fork();
+	ca.pipes = pipes;
+	ca.ea = ea;
+	ca.h = h;
+	pid = clone(ct_clone, &ca.stack_ptr, SIGCHLD, &ca);
 	if (pid < 0) {
 		pr_perror("Can not fork");
 		ret = -1;
 		goto err;
-	} else if (pid == 0) {
-		ret = env_create(h, pipes, ea);
-
-		write(pipes->parent_wait[1], &ret, sizeof(ret));
-		_exit(ret);
 	}
 	if (write(pipes->parent_wait[1], &pid, sizeof(pid)) == -1) {
 		pr_perror("Unable to write to parent_wait pipe");
