@@ -98,8 +98,6 @@ struct container {
 	 */
 	int			tty_fd;
 
-	void			*private;	/* driver-specific */
-
 	struct list_head	uid_map;
 	struct list_head	gid_map;
 };
