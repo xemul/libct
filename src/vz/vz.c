@@ -1278,6 +1278,7 @@ ct_handler_t vz_ct_create(char *name)
 	ct = xzalloc(sizeof(*ct));
 	if (ct) {
 		ct_handler_init(&ct->h);
+		local_process_init(&ct->p);
 		ct->h.ops = get_vz_ct_ops();
 		ct->state = CT_STOPPED;
 		ct->name = xstrdup(name);
