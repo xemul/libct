@@ -223,13 +223,13 @@ static int vz_set_memory_param(struct container *ct, char *param, char *value)
 	unsigned int veid = 0;;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
 	if (strcmp(param, "limit_in_bytes") == 0) {
 		if (parse_uint(value, (unsigned int *)&ram) < 0) {
-			pr_err("Unable to parse container's RAM");
+			pr_err("Unable to parse container's RAM\n");
 			return -1;
 		}
 		ram /= getpagesize();
@@ -270,7 +270,7 @@ static int vz_set_memory_param(struct container *ct, char *param, char *value)
 		return 0;
 	}
 
-	pr_err("Unsupported param for CTL_MEMORY: %s", param);
+	pr_err("Unsupported param for CTL_MEMORY: %s\n", param);
 	return -1;
 }
 
@@ -285,16 +285,16 @@ static int vzctl2_set_iopslimit(unsigned veid, int limit)
 	io.speed = limit;
 	io.burst = limit * 3;
 	io.latency = 10*1000;
-	pr_info("Set up iopslimit: %d", limit);
+	pr_info("Set up iopslimit: %d\n", limit);
 	ret = ioctl(get_vzctlfd(), VZCTL_SET_IOPSLIMIT, &io);
 	if (ret) {
 		if (errno == ESRCH) {
-			pr_err("Container is not running");
+			pr_err("Container is not running\n");
 			return -LCTERR_BADCTSTATE;
 		}
 		else if (errno == ENOTTY) {
 			pr_warn("iopslimit feature is not supported"
-				" by the kernel; iopslimit configuration is skipped");
+				" by the kernel; iopslimit configuration is skipped\n");
 			return -LCTERR_OPNOTSUPP;
 		}
 		pr_perror("Unable to set iopslimit");
@@ -310,17 +310,17 @@ static int vzctl2_set_ioprio(unsigned veid, int prio)
 	if (prio < 0)
 		return -LCTERR_BADARG;
 
-	pr_info("Set up ioprio: %d", prio);
+	pr_info("Set up ioprio: %d\n", prio);
 	ret = syscall(__NR_ioprio_set, IOPRIO_WHO_UBC, veid,
 			prio | IOPRIO_CLASS_BE << IOPRIO_CLASS_SHIFT);
 	if (ret) {
 		if (errno == ESRCH) {
-			pr_err("Container is not running");
+			pr_err("Container is not running\n");
 			return -LCTERR_BADCTSTATE;
 		}
 		else if (errno == EINVAL) {
 			pr_warn("ioprio feature is not supported"
-				" by the kernel: ioprio configuration is skippe");
+				" by the kernel: ioprio configuration is skippe\n");
 			return -LCTERR_OPNOTSUPP;
 		}
 		pr_perror("Unable to set ioprio");
@@ -334,14 +334,14 @@ static int vz_set_io_param(struct container *ct, char *param, char *value)
 	unsigned int veid = 0;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
 	if (strcmp(param, "weight") == 0) {
 		int prio = -1;
 		if (parse_int(value, &prio)) {
-			pr_err("Unable to parse priority from '%s'", value);
+			pr_err("Unable to parse priority from '%s'\n", value);
 			return -1;
 		}
 		return vzctl2_set_ioprio(veid, prio);
@@ -349,13 +349,13 @@ static int vz_set_io_param(struct container *ct, char *param, char *value)
 			strcmp(param, "throttle.read_iops_device") == 0) {
 		int limit = -1;
 		if (parse_int(value, &limit)) {
-			pr_err("Unable to parse limit from '%s'", value);
+			pr_err("Unable to parse limit from '%s'\n", value);
 			return -1;
 		}
 		return vzctl2_set_iopslimit(veid, limit);
 	}
 
-	pr_err("Unsupported param for CTL_BLKIO: %s", param);
+	pr_err("Unsupported param for CTL_BLKIO: %s\n", param);
 	return -1;
 }
 
@@ -381,7 +381,7 @@ static int vz_bc_resources_set(struct container *ct)
 		case CTL_CPUSET:
 			ret = config_controller(ct, cfg->ctype, cfg->param, cfg->value);
 			if (ret) {
-				pr_err("local_config_controller failed %d", ret);
+				pr_err("local_config_controller failed %d\n", ret);
 				return -LCTERR_CGCONFIG;
 			}
 			break;
@@ -472,9 +472,9 @@ static int env_wait(int pid, int timeout, int *retcode)
 			ret = 0;
 		}
 	} else if (WIFSIGNALED(status)) {
-		pr_info("Got signal %d", WTERMSIG(status));
+		pr_info("Got signal %d\n", WTERMSIG(status));
 		if (timeout) {
-			pr_err("Timeout while waiting");
+			pr_err("Timeout while waiting\n");
 			return -1;
 		}
 	}
@@ -557,7 +557,7 @@ static int exec_init(struct execv_args *ea)
 	if (ea == NULL)
 		return -LCTERR_BADARG;
 
-	pr_info("executing command %s", ea->path);
+	pr_info("executing command %s\n", ea->path);
 
 	execve(ea->path, ea->argv, ea->env);
 	return -1;
@@ -572,7 +572,7 @@ static int env_exec_create_data_ioctl(ct_handler_t h)
 	struct env_create_param3 create_param;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
@@ -607,10 +607,10 @@ try:
 			}
 			break;
 		case EACCES:
-			pr_err("License is not loaded");
+			pr_err("License is not loaded\n");
 			break;
 		case ENOTTY:
-			pr_err("Some vz modules are not present ");
+			pr_err("Some vz modules are not present\n");
 			break;
 		default:
 			pr_perror("VZCTL_ENV_CREATE_DATA");
@@ -645,7 +645,7 @@ static int vz_resources_create(struct container *ct)
 	unsigned int veid;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
@@ -720,18 +720,18 @@ static int vz_env_create(ct_handler_t h, ct_process_desc_t ph, struct info_pipes
 	unsigned int veid;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
 	ca.proc_fd = open("/proc/", O_DIRECTORY | O_RDONLY);
 	if (ca.proc_fd == -1) {
-		pr_err("Unable to open /proc/self/fd");
+		pr_perror("Unable to open /proc");
 		return -1;
 	}
 
 	if (!ct->root_path) {
-		pr_err("Container %s root_path is empty!", ct->name);
+		pr_err("Container %s root_path is empty!\n", ct->name);
 		return -1;
 	}
 	if ((ret = vzctl_chroot(ct->root_path)))
@@ -767,7 +767,7 @@ err:
 
 static ct_process_t vz_spawn_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
 {
-	pr_err("Spawn with callback is not supported");
+	pr_err("Spawn with callback is not supported\n");
 	return ERR_PTR(-1);
 }
 
@@ -808,7 +808,7 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 
 	ret = fs_mount(ct);
 	if (ret) {
-		pr_err("Unable to mount fs");
+		pr_err("Unable to mount fs\n");
 		goto err_pipe;
 	}
 
@@ -856,13 +856,13 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 
 	ret = vz_bc_resources_set(ct);
 	if (ret) {
-		pr_err("vz_bc_resource_set");
+		pr_err("vz_bc_resource_set\n");
 		goto err_res;
 	}
 
 	ret = net_start(ct);
 	if (ret) {
-		pr_err("Unable to start network");
+		pr_err("Unable to start network\n");
 		goto err_net;
 	}
 
@@ -952,7 +952,7 @@ static int vz_ct_wait(ct_handler_t h)
 
 	ct = cth2ct(h);
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
@@ -962,16 +962,16 @@ static int vz_ct_wait(ct_handler_t h)
 	if (ct->p.pid > 0)
 		libct_process_wait(&ct->p.h, NULL);
 	if (!env_is_run(veid)) {
-		pr_info("Container was stopped");
+		pr_info("Container was stopped\n");
 		return 0;
 	}
 	fs_umount(ct);
 	cgroups_destroy(ct);
 	net_stop(ct);
 
-	pr_info("Forcibly kill the Container...");
+	pr_info("Forcibly kill the Container...\n");
 	if (env_kill(veid)) {
-		pr_err("Unable to stop Container: operation timed out");
+		pr_err("Unable to stop Container: operation timed out\n");
 		return -1;
 	}
 	ct->state = CT_STOPPED;
@@ -1044,7 +1044,7 @@ static int vz_set_nsmask(ct_handler_t h, unsigned long nsmask)
 	      nsmask & CLONE_NEWNS &&
 	      nsmask & CLONE_NEWPID &&
 	      nsmask & CLONE_NEWUTS)) {
-		pr_err("Only full nsmask is supported in VZ containers");
+		pr_err("Only full nsmask is supported in VZ containers\n");
 		return -LCTERR_NONS;
 	}
 	ct->nsmask = nsmask;
@@ -1109,7 +1109,7 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t ph, char *
 		return ERR_PTR(-LCTERR_BADCTSTATE);
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return ERR_PTR(-LCTERR_BADARG);
 	}
 
@@ -1165,7 +1165,7 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t ph, char *
 		ca.fds = p->fds;
 		ca.fdn = p->fdn;
 
-		pr_info("Entering the Container %ld", veid);
+		pr_info("Entering the Container %ld\n", veid);
 		child_pid = clone(ct_enter, &ca.stack_ptr, SIGCHLD | CLONE_PARENT, &ca);
 		if (child_pid < 0) {
 			pr_perror("Unable to stop Container, fork failed");
@@ -1214,7 +1214,7 @@ err:
 
 static ct_process_t vz_enter_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
 {
-	pr_err("Enter with callback is not supported");
+	pr_err("Enter with callback is not supported\n");
 	return ERR_PTR(-1);
 }
 
