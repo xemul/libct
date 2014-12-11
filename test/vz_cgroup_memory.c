@@ -57,6 +57,8 @@ int main(int argc, char *argv[])
 	ct_process_t pr;
 	char *run_a[3] = { "sleep", "2", NULL};
 
+	test_init(argc, argv);
+
 	s = libct_session_open_local();
 	ct = libct_container_create(s, CT_NAME);
 	p = libct_process_desc_create(s);

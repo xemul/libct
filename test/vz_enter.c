@@ -17,9 +17,9 @@ int main(int argc, char *argv[])
 	ct_process_desc_t pd;
 	ct_process_t pr, p;
 	char *sleep_a[] = { "cat", NULL};
-	char *ls_a[] = { "sh", "-c", "echo ok", NULL};
+	char *ls_a[] = { "sh", "-c", "cat; echo ok", NULL};
 	int fds[] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO};
-	int pfd[2], tfd[2], status;
+	int pfd[2], tfd[2], ifd[2], status;
 	char buf[10];
 
 	test_init();
@@ -49,8 +49,10 @@ int main(int argc, char *argv[])
 
 	if (pipe(tfd))
 		goto err;
+	if (pipe(ifd))
+		goto err;
 
-	fds[0] = STDIN_FILENO;
+	fds[0] = ifd[0];
 	fds[1] = tfd[1];
 	fcntl(tfd[0], F_SETFD, FD_CLOEXEC);
 	libct_process_desc_set_fds(pd, fds, 3);
@@ -58,6 +60,8 @@ int main(int argc, char *argv[])
 	if (libct_handle_is_err(pr))
 		goto err;
 	close(tfd[1]);
+	close(ifd[0]);
+	close(ifd[1]);
 
 	if (read(tfd[0], buf, sizeof(buf)) != 3)
 		goto err;

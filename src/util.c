@@ -170,13 +170,22 @@ int stat_file(const char *file)
 }
 
 /* Close all file descriptors, which are not less than n */
-static int close_fds(DIR *d, int n)
+static int close_fds(int proc_fd, int n)
 {
 	struct dirent *de;
+	DIR *d;
+	int fd;
 
-	d = opendir("/proc/self/fd");
+	fd = openat(proc_fd, "self/fd", O_DIRECTORY | O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Unable to open /proc/self/fd");
+		return -1;
+	}
+
+	d = fdopendir(proc_fd);
 	if (d == NULL) {
 		pr_perror("Unable to open /proc/self/fd");
+		close(fd);
 		return -1;
 	}
 
@@ -205,7 +214,7 @@ static int close_fds(DIR *d, int n)
  *
  * proc_self_d has to point on /proc/self/fd
  */
-int setup_fds_at(DIR *proc_self_d, int *fds, int n)
+int setup_fds_at(int proc_fd, int *fds, int n)
 {
 	int i;
 
@@ -250,18 +259,53 @@ int setup_fds_at(DIR *proc_self_d, int *fds, int n)
 		fds[i] = i;
 	}
 
-	return close_fds(proc_self_d, n);
+	return close_fds(proc_fd, n);
 }
 
 int setup_fds(int *fds, int n)
 {
-	DIR *d;
+	int fd;
 
-	d = opendir("/proc/self/fd");
-	if (d == NULL) {
-		pr_perror("Unable to open /proc/self/fd");
+	fd = open("/proc/", O_DIRECTORY | O_RDONLY);
+	if (fd == -1) {
+		pr_perror("Unable to open /proc");
 		return -1;
 	}
 
-	return setup_fds_at(d, fds, n);
+	return setup_fds_at(fd, fds, n);
+}
+
+int spawn_wait(int *pipe)
+{
+	int ret = INT_MIN;
+	read(pipe[0], &ret, sizeof(ret));
+	return ret;
+}
+
+int spawn_wait_and_close(int *pipe)
+{
+	int ret = spawn_wait(pipe);
+	close(pipe[0]);
+	return ret;
+}
+
+void spawn_wake(int *pipe, int ret)
+{
+	write(pipe[1], &ret, sizeof(ret));
+}
+
+void spawn_wake_and_close(int *pipe, int ret)
+{
+	write(pipe[1], &ret, sizeof(ret));
+	close(pipe[1]);
+}
+
+void spawn_wake_and_cloexec(int *pipe, int ret)
+{
+	if (fcntl(pipe[1], F_SETFD, FD_CLOEXEC)) {
+		close(pipe[1]);
+		return;
+	}
+
+	write(pipe[1], &ret, sizeof(ret));
 }

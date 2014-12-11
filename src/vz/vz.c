@@ -59,10 +59,6 @@ struct info_pipes {
 	int *parent_wait;
 };
 
-struct vz_private {
-	int exec_waiting_pid;
-};
-
 static int __vzctlfd = -1;
 
 void vzctl_close(void)
@@ -93,36 +89,6 @@ int get_vzctlfd(void)
 	return __vzctlfd;
 }
 
-DIR *open_fds_proc(void)
-{
-	return opendir("/proc/self/fd");
-}
-
-int close_all_fds(DIR *dir)
-{
-	struct dirent *de;
-	int fd, ret;
-
-	while ((de = readdir(dir))) {
-		if (!strcmp(de->d_name, ".") ||
-			!strcmp(de->d_name, "..") ||
-			!strcmp(de->d_name, "0") ||
-			!strcmp(de->d_name, "1") ||
-			!strcmp(de->d_name, "2"))
-			continue;
-
-		ret = sscanf(de->d_name, "%d", &fd);
-		if (ret != 1) {
-			pr_err("Can't parse %s\n", de->d_name);
-			return -1;
-		}
-		close(fd);
-	}
-
-	closedir(dir);
-
-	return 0;
-}
 static int configure_sysctl(const char *var, const char *val)
 {
 	int fd = -1, len = -1, ret = -1;
@@ -160,32 +126,6 @@ static int set_personality32(void)
 	return 0;
 }
 
-static inline int proc_wait(int *pipe)
-{
-	int ret = -1;
-	read(pipe[0], &ret, sizeof(ret));
-	return ret;
-}
-
-static inline int proc_wait_close(int *pipe)
-{
-	int ret = -1;
-	read(pipe[0], &ret, sizeof(ret));
-	close(pipe[0]);
-	return ret;
-}
-
-static inline void proc_wake(int *pipe, int ret)
-{
-	write(pipe[1], &ret, sizeof(ret));
-}
-
-static inline void proc_wake_close(int *pipe, int ret)
-{
-	write(pipe[1], &ret, sizeof(ret));
-	close(pipe[1]);
-}
-
 static void vz_ct_destroy(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
@@ -198,7 +138,6 @@ static void vz_ct_destroy(ct_handler_t h)
 	xfree(ct->hostname);
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
-	xfree(ct->private);
 	xfree(ct);
 }
 
@@ -284,13 +223,13 @@ static int vz_set_memory_param(struct container *ct, char *param, char *value)
 	unsigned int veid = 0;;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
 	if (strcmp(param, "limit_in_bytes") == 0) {
 		if (parse_uint(value, (unsigned int *)&ram) < 0) {
-			pr_err("Unable to parse container's RAM");
+			pr_err("Unable to parse container's RAM\n");
 			return -1;
 		}
 		ram /= getpagesize();
@@ -331,7 +270,7 @@ static int vz_set_memory_param(struct container *ct, char *param, char *value)
 		return 0;
 	}
 
-	pr_err("Unsupported param for CTL_MEMORY: %s", param);
+	pr_err("Unsupported param for CTL_MEMORY: %s\n", param);
 	return -1;
 }
 
@@ -346,16 +285,16 @@ static int vzctl2_set_iopslimit(unsigned veid, int limit)
 	io.speed = limit;
 	io.burst = limit * 3;
 	io.latency = 10*1000;
-	pr_info("Set up iopslimit: %d", limit);
+	pr_info("Set up iopslimit: %d\n", limit);
 	ret = ioctl(get_vzctlfd(), VZCTL_SET_IOPSLIMIT, &io);
 	if (ret) {
 		if (errno == ESRCH) {
-			pr_err("Container is not running");
+			pr_err("Container is not running\n");
 			return -LCTERR_BADCTSTATE;
 		}
 		else if (errno == ENOTTY) {
 			pr_warn("iopslimit feature is not supported"
-				" by the kernel; iopslimit configuration is skipped");
+				" by the kernel; iopslimit configuration is skipped\n");
 			return -LCTERR_OPNOTSUPP;
 		}
 		pr_perror("Unable to set iopslimit");
@@ -371,17 +310,17 @@ static int vzctl2_set_ioprio(unsigned veid, int prio)
 	if (prio < 0)
 		return -LCTERR_BADARG;
 
-	pr_info("Set up ioprio: %d", prio);
+	pr_info("Set up ioprio: %d\n", prio);
 	ret = syscall(__NR_ioprio_set, IOPRIO_WHO_UBC, veid,
 			prio | IOPRIO_CLASS_BE << IOPRIO_CLASS_SHIFT);
 	if (ret) {
 		if (errno == ESRCH) {
-			pr_err("Container is not running");
+			pr_err("Container is not running\n");
 			return -LCTERR_BADCTSTATE;
 		}
 		else if (errno == EINVAL) {
 			pr_warn("ioprio feature is not supported"
-				" by the kernel: ioprio configuration is skippe");
+				" by the kernel: ioprio configuration is skippe\n");
 			return -LCTERR_OPNOTSUPP;
 		}
 		pr_perror("Unable to set ioprio");
@@ -395,14 +334,14 @@ static int vz_set_io_param(struct container *ct, char *param, char *value)
 	unsigned int veid = 0;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
 	if (strcmp(param, "weight") == 0) {
 		int prio = -1;
 		if (parse_int(value, &prio)) {
-			pr_err("Unable to parse priority from '%s'", value);
+			pr_err("Unable to parse priority from '%s'\n", value);
 			return -1;
 		}
 		return vzctl2_set_ioprio(veid, prio);
@@ -410,43 +349,16 @@ static int vz_set_io_param(struct container *ct, char *param, char *value)
 			strcmp(param, "throttle.read_iops_device") == 0) {
 		int limit = -1;
 		if (parse_int(value, &limit)) {
-			pr_err("Unable to parse limit from '%s'", value);
+			pr_err("Unable to parse limit from '%s'\n", value);
 			return -1;
 		}
 		return vzctl2_set_iopslimit(veid, limit);
 	}
 
-	pr_err("Unsupported param for CTL_BLKIO: %s", param);
+	pr_err("Unsupported param for CTL_BLKIO: %s\n", param);
 	return -1;
 }
 
-
-static int vz_cgroup_resources_set(struct container *ct)
-{
-	struct cg_config *cfg;
-	int ret = 0;
-
-	list_for_each_entry(cfg, &ct->cg_configs, l) {
-		switch (cfg->ctype) {
-		case CTL_MEMORY:
-		case CTL_BLKIO:
-			break;
-		case CTL_CPU:
-		case CTL_CPUSET:
-			ret = config_controller(ct, cfg->ctype, cfg->param, cfg->value);
-			if (ret) {
-				pr_err("local_config_controller failed %d", ret);
-				return -LCTERR_CGCONFIG;
-			}
-			break;
-		default:
-			return -LCTERR_OPNOTSUPP;
-			break;
-		}
-	}
-
-	return 0;
-}
 
 static int vz_bc_resources_set(struct container *ct)
 {
@@ -467,6 +379,11 @@ static int vz_bc_resources_set(struct container *ct)
 			break;
 		case CTL_CPU:
 		case CTL_CPUSET:
+			ret = config_controller(ct, cfg->ctype, cfg->param, cfg->value);
+			if (ret) {
+				pr_err("local_config_controller failed %d\n", ret);
+				return -LCTERR_CGCONFIG;
+			}
 			break;
 		default:
 			return -LCTERR_OPNOTSUPP;
@@ -505,19 +422,8 @@ int pre_setup_env(ct_handler_t h, struct info_pipes *pipes)
 	if (ct->flags & CT_AUTO_PROC)
 		configure_sysctl("/proc/sys/net/ipv6/conf/all/forwarding", "0");
 
-	proc_wake(pipes->parent_wait, 0);
-	ret = proc_wait(pipes->child_wait);
-	if (ret)
-		return -1;
-
-	ret = vz_cgroup_resources_set(ct);
-	if (ret) {
-		pr_err("vz_cgroup_resource_set failed");
-		_exit(1);
-	}
-
-	proc_wake_close(pipes->parent_wait, 0);
-	ret = proc_wait_close(pipes->child_wait);
+	spawn_wake(pipes->parent_wait, 0);
+	ret = spawn_wait(pipes->child_wait);
 	if (ret)
 		return -1;
 
@@ -566,9 +472,9 @@ static int env_wait(int pid, int timeout, int *retcode)
 			ret = 0;
 		}
 	} else if (WIFSIGNALED(status)) {
-		pr_info("Got signal %d", WTERMSIG(status));
+		pr_info("Got signal %d\n", WTERMSIG(status));
 		if (timeout) {
-			pr_err("Timeout while waiting");
+			pr_err("Timeout while waiting\n");
 			return -1;
 		}
 	}
@@ -651,13 +557,13 @@ static int exec_init(struct execv_args *ea)
 	if (ea == NULL)
 		return -LCTERR_BADARG;
 
-	pr_info("executing command %s", ea->path);
+	pr_info("executing command %s\n", ea->path);
 
 	execve(ea->path, ea->argv, ea->env);
 	return -1;
 }
 
-static int env_exec_create_data_ioctl(ct_handler_t h, struct info_pipes *pipes)
+static int env_exec_create_data_ioctl(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
 	int ret, eno;
@@ -666,7 +572,7 @@ static int env_exec_create_data_ioctl(ct_handler_t h, struct info_pipes *pipes)
 	struct env_create_param3 create_param;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
@@ -701,17 +607,15 @@ try:
 			}
 			break;
 		case EACCES:
-			pr_err("License is not loaded");
+			pr_err("License is not loaded\n");
 			break;
 		case ENOTTY:
-			pr_err("Some vz modules are not present ");
+			pr_err("Some vz modules are not present\n");
 			break;
 		default:
 			pr_perror("VZCTL_ENV_CREATE_DATA");
 			break;
 		}
-		if (write(pipes->parent_wait[1], &eno, sizeof(eno)) == -1)
-			pr_perror("Unable to write to status_p");
 		ret = -1;
 		return ret;
 	}
@@ -719,19 +623,19 @@ try:
 	return 0;
 }
 
-static int env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_args *ea)
+static int env_create(ct_handler_t h, struct info_pipes *pipes)
 {
 	int ret;
 	struct container *ct = cth2ct(h);
 
 	if (ct->nsmask) {
-		if ((ret = env_exec_create_data_ioctl(h, pipes)))
+		if ((ret = env_exec_create_data_ioctl(h)))
 			return ret;
 	}
 	if ((ret = pre_setup_env(h, pipes)))
 		return ret;
 
-	return exec_init(ea);
+	return 0;
 }
 
 static int vz_resources_create(struct container *ct)
@@ -741,7 +645,7 @@ static int vz_resources_create(struct container *ct)
 	unsigned int veid;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
@@ -770,26 +674,64 @@ static int vz_resources_create(struct container *ct)
 	return 0;
 }
 
-static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_args *ea)
+
+struct ct_clone_arg {
+	char stack[PAGE_SIZE] __attribute__((aligned (8)));
+	char stack_ptr[0];
+	ct_handler_t h;
+	struct info_pipes *pipes;
+	struct execv_args *ea;
+	unsigned int veid;
+	int proc_fd;
+	int *fds;
+	int fdn;
+};
+
+static int ct_clone(void *arg)
 {
+	struct ct_clone_arg *ca = arg;
+	int ret;
+
+	ret = env_create(ca->h, ca->pipes);
+	if (ret)
+		goto err;
+
+	if (ca->fds) {
+		ca->fds[ca->fdn] = ca->pipes->parent_wait[1];
+		if (setup_fds_at(ca->proc_fd, ca->fds, ca->fdn + 1))
+			goto err;
+		ca->pipes->parent_wait[1] = ca->fdn;
+	}
+
+	spawn_wake_and_cloexec(ca->pipes->parent_wait, 0);
+
+	exec_init(ca->ea);
+err:
+	spawn_wake_and_close(ca->pipes->parent_wait, -1);
+	_exit(ret);
+}
+
+static int vz_env_create(ct_handler_t h, ct_process_desc_t ph, struct info_pipes *pipes, struct execv_args *ea)
+{
+	struct ct_clone_arg ca;
 	int ret, pid;
 	struct container *ct = cth2ct(h);
+	struct process_desc *p = prh2pr(ph);
 	unsigned int veid;
-	DIR *dir = NULL;
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
-	dir = open_fds_proc();
-	if (dir == NULL) {
-		pr_err("Unable to open /proc/%d/fd", getpid());
+	ca.proc_fd = open("/proc/", O_DIRECTORY | O_RDONLY);
+	if (ca.proc_fd == -1) {
+		pr_perror("Unable to open /proc");
 		return -1;
 	}
 
 	if (!ct->root_path) {
-		pr_err("Container %s root_path is empty!", ct->name);
+		pr_err("Container %s root_path is empty!\n", ct->name);
 		return -1;
 	}
 	if ((ret = vzctl_chroot(ct->root_path)))
@@ -798,35 +740,23 @@ static int vz_env_create(ct_handler_t h, struct info_pipes *pipes, struct execv_
 	ret = vz_resources_create(ct);
 	if (ret)
 		goto err;
-	ret = vz_bc_resources_set(ct);
-	if (ret)
-		goto err;
 
-	pid = fork();
+	ca.pipes = pipes;
+	ca.ea = ea;
+	ca.h = h;
+	ca.fds = p->fds;
+	ca.fdn = p->fdn;
+	pid = clone(ct_clone, &ca.stack_ptr, SIGCHLD | CLONE_PARENT, &ca);
 	if (pid < 0) {
 		pr_perror("Can not fork");
 		ret = -1;
 		goto err;
-	} else if (pid == 0) {
-		ret = env_create(h, pipes, ea);
-
-		write(pipes->parent_wait[1], &ret, sizeof(ret));
-		_exit(ret);
 	}
 	if (write(pipes->parent_wait[1], &pid, sizeof(pid)) == -1) {
 		pr_perror("Unable to write to parent_wait pipe");
 		goto err;
 	}
 
-	if (close_all_fds(dir)) {
-		pr_perror("Unable to close fds!\n");
-		goto err;
-	}
-
-	if (env_wait(pid, 0, NULL)) {
-		pr_perror("Execution failed");
-		goto err;
-	}
 	return 0;
 
 err:
@@ -837,7 +767,7 @@ err:
 
 static ct_process_t vz_spawn_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
 {
-	pr_err("Spawn with callback is not supported");
+	pr_err("Spawn with callback is not supported\n");
 	return ERR_PTR(-1);
 }
 
@@ -857,7 +787,6 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		.parent_wait = parent_wait,
 	};
 	struct sigaction act;
-	struct vz_private *priv = ct->private;
 	int pid = -1;
 	int root_pid = -1;
 
@@ -879,7 +808,7 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 
 	ret = fs_mount(ct);
 	if (ret) {
-		pr_err("Unable to mount fs");
+		pr_err("Unable to mount fs\n");
 		goto err_pipe;
 	}
 
@@ -900,7 +829,7 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		fcntl(child_wait[0], F_SETFD, FD_CLOEXEC);
 		close(child_wait[1]);
 
-		ret = vz_env_create(h, &pipes, &ea);
+		ret = vz_env_create(h, p, &pipes, &ea);
 
 		_exit(ret);
 	}
@@ -909,45 +838,48 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 	close(child_wait[0]);
 	child_wait[0] = -1;
 
-	if (read(parent_wait[0], &root_pid, sizeof(root_pid)) == -1) {
+	root_pid = spawn_wait(parent_wait);
+	if (root_pid < 0) {
 		pr_perror("Unable to read parent_wait pipe");
+		env_wait(pid, 0, NULL);
 		ret = -1;
-		goto err_wait;
+		goto err_fork;
 	}
 	ct->p.pid = root_pid;
 
-	if (proc_wait(parent_wait) == -1) {
-		ret = -1;
-		goto err_net;
-	}
+	env_wait(pid, 0, NULL);
 
-	ret = vz_resources_create(ct);
-	if (ret) {
-		pr_err("vz_resource_create");
+	if (spawn_wait(parent_wait) == -1) {
+		ret = -1;
 		goto err_res;
 	}
 
 	ret = vz_bc_resources_set(ct);
 	if (ret) {
-		pr_err("vz_bc_resource_set");
+		pr_err("vz_bc_resource_set\n");
 		goto err_res;
 	}
 
 	ret = net_start(ct);
 	if (ret) {
-		pr_err("Unable to start network");
+		pr_err("Unable to start network\n");
 		goto err_net;
 	}
 
-	proc_wake(child_wait, 0);
+	spawn_wake_and_close(child_wait, 0);
 
 	/* Wait while network would be configured inside container */
-	if (proc_wait_close(parent_wait)) {
+	if (spawn_wait(parent_wait)) {
 		ret = -1;
 		goto err_wait;
 	}
-	proc_wake_close(child_wait, 0);
-	priv->exec_waiting_pid = pid;
+
+	/* Wait while network would be configured inside container */
+	if (spawn_wait_and_close(parent_wait) != INT_MIN) {
+		ret = -1;
+		goto err_wait;
+	}
+
 	ct->state = CT_RUNNING;
 	return &ct->p.h;
 
@@ -955,7 +887,8 @@ err_wait:
 	net_stop(ct);
 err_net:
 err_res:
-	proc_wake_close(child_wait, -1);
+	spawn_wake_and_close(child_wait, -1);
+	libct_process_wait(&ct->p.h, NULL);
 err_fork:
 	fs_umount(ct);
 	close(parent_wait[0]);
@@ -1012,34 +945,33 @@ static int vz_ct_kill(ct_handler_t h)
 static int vz_ct_wait(ct_handler_t h)
 {
 	struct container *ct = NULL;
-	struct vz_private *priv = NULL;
 	unsigned int veid = -1;
 
 	if (!h)
 		return -LCTERR_BADARG;
 
 	ct = cth2ct(h);
-	priv = ct->private;
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return -1;
 	}
 
 	if (ct->state != CT_RUNNING)
 		return -LCTERR_BADCTSTATE;
 
-	env_wait(priv->exec_waiting_pid, 0, NULL);
+	if (ct->p.pid > 0)
+		libct_process_wait(&ct->p.h, NULL);
 	if (!env_is_run(veid)) {
-		pr_info("Container was stopped");
+		pr_info("Container was stopped\n");
 		return 0;
 	}
 	fs_umount(ct);
 	cgroups_destroy(ct);
 	net_stop(ct);
 
-	pr_info("Forcibly kill the Container...");
+	pr_info("Forcibly kill the Container...\n");
 	if (env_kill(veid)) {
-		pr_err("Unable to stop Container: operation timed out");
+		pr_err("Unable to stop Container: operation timed out\n");
 		return -1;
 	}
 	ct->state = CT_STOPPED;
@@ -1112,16 +1044,49 @@ static int vz_set_nsmask(ct_handler_t h, unsigned long nsmask)
 	      nsmask & CLONE_NEWNS &&
 	      nsmask & CLONE_NEWPID &&
 	      nsmask & CLONE_NEWUTS)) {
-		pr_err("Only full nsmask is supported in VZ containers");
+		pr_err("Only full nsmask is supported in VZ containers\n");
 		return -LCTERR_NONS;
 	}
 	ct->nsmask = nsmask;
 	return 0;
 }
 
-static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env)
+static int ct_enter(void *arg)
 {
+	struct ct_clone_arg *ca = arg;
+	struct container *ct = cth2ct(ca->h);
+	int ret;
+
+	if (ct->nsmask) {
+		ret = vzctl_env_create_ioctl(ca->veid, VE_ENTER);
+		if (ret < 0) {
+			pr_perror("ioctl failed");
+			_exit(1);
+		}
+	}
+
+	if (ca->fds) {
+		ca->fds[ca->fdn] = ca->pipes->parent_wait[1];
+		if (setup_fds_at(ca->proc_fd, ca->fds, ca->fdn + 1))
+			goto err;
+		ca->pipes->parent_wait[1] = ca->fdn;
+	}
+
+	spawn_wake_and_cloexec(ca->pipes->parent_wait, 0);
+
+	exec_init(ca->ea);
+	pr_perror("Unable to execve");
+err:
+	spawn_wake_and_close(ca->pipes->parent_wait, -1);
+	_exit(-1);
+	return -1;
+}
+
+static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t ph, char *path, char **argv, char **env)
+{
+	struct ct_clone_arg ca;
 	struct container *ct = NULL;
+	struct process_desc *p = prh2pr(ph);
 	struct process *pr;
 	unsigned int veid = -1;
 	int pid, child_pid, ret = 0;
@@ -1129,6 +1094,10 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		.path = path,
 		.argv = argv,
 		.env = env,
+	};
+	int parent_wait[2];
+	struct info_pipes pipes = {
+		.parent_wait = parent_wait,
 	};
 
 	if (!h)
@@ -1140,7 +1109,7 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		return ERR_PTR(-LCTERR_BADCTSTATE);
 
 	if (parse_uint(ct->name, &veid) < 0) {
-		pr_err("Unable to parse container's ID");
+		pr_err("Unable to parse container's ID\n");
 		return ERR_PTR(-LCTERR_BADARG);
 	}
 
@@ -1150,15 +1119,20 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *p
 
 	local_process_init(pr);
 
+	ret = pipe(parent_wait);
+	if (ret == -1) {
+		xfree(pr);
+		pr_perror("Cannot create parent wait pipe");
+		return ERR_PTR(-1);
+	}
+
 	pid = fork();
 	if (pid < 0) {
-		xfree(pr);
 		pr_perror("Cannot fork");
-		return ERR_PTR(-1);
+		goto err;
 	} else if (pid == 0) {
 		int i;
 		int fd_flags[2];
-		DIR *dir = NULL;
 		for (i = 0; i < 2; i++) {
 			fd_flags[i] = fcntl(i, F_GETFL);
 			if (fd_flags[i] < 0) {
@@ -1166,20 +1140,14 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *p
 				_exit(-1);
 			}
 		}
-		dir = open_fds_proc();
-		if (dir == NULL) {
-			pr_perror("Unable to open /proc/%d/fd", getpid());
+
+		ca.proc_fd = open("/proc/", O_DIRECTORY | O_RDONLY);
+		if (ca.proc_fd == -1)
 			_exit(-1);
-		}
 
 		ret = vz_resources_create(ct);
 		if (ret) {
 			pr_perror("Unable to create resources for container %ld", veid);
-			_exit(ret);
-		}
-		ret = vz_bc_resources_set(ct);
-		if (ret) {
-			pr_perror("Unable to set bc resources for container %ld", veid);
 			_exit(ret);
 		}
 
@@ -1187,55 +1155,66 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		if (ret)
 			_exit(ret);
 
-		pr_info("Entering the Container %ld", veid);
-		child_pid = fork();
+		fcntl(parent_wait[1], F_SETFD, FD_CLOEXEC);
+		close(parent_wait[0]);
+
+		ca.ea = &ea;
+		ca.h = h;
+		ca.veid = veid;
+		ca.pipes = &pipes;
+		ca.fds = p->fds;
+		ca.fdn = p->fdn;
+
+		pr_info("Entering the Container %ld\n", veid);
+		child_pid = clone(ct_enter, &ca.stack_ptr, SIGCHLD | CLONE_PARENT, &ca);
 		if (child_pid < 0) {
 			pr_perror("Unable to stop Container, fork failed");
 			_exit(1);
-		} else if (child_pid == 0) {
-			if (ct->nsmask) {
-				ret = vzctl_env_create_ioctl(veid, VE_ENTER);
-				if (ret < 0) {
-					pr_perror("ioctl failed");
-					_exit(1);
-				}
-			}
-			ret = vz_cgroup_resources_set(ct);
-			if (ret) {
-				pr_err("vz_resourse_create");
-				_exit(1);
-			}
-			exec_init(&ea);
-			pr_perror("Unable to execve");
-			_exit(-1);
 		}
 
-		if (close_all_fds(dir)) {
-			pr_perror("Unable to close fds!");
-			_exit(-1);
+		if (write(pipes.parent_wait[1], &child_pid, sizeof(child_pid)) == -1) {
+			pr_perror("Unable to write to parent_wait pipe");
+			_exit(1);
 		}
-		if (env_wait(child_pid, 0, NULL)) {
-			pr_err("Execution failed");
-			ret = -1;
-			_exit(-1);
-		}
-
 		_exit(0);
 	}
+	close(parent_wait[1]);
+	parent_wait[1] = -1;
 
-	if (pid > 0)
-		pr->pid = pid;
-	else {
-		xfree(pr);
-		pr = NULL;
+	child_pid = spawn_wait(parent_wait);
+	if (child_pid < 0) {
+		pr_perror("Unable to read parent_wait pipe");
+		env_wait(pid, 0, NULL);
+		ret = -1;
+		goto err;
+	}
+	env_wait(pid, 0, NULL);
+
+	if (spawn_wait(parent_wait)) {
+		ret = -1;
+		goto err_wait;
 	}
 
+	if (spawn_wait_and_close(parent_wait) != INT_MIN) {
+		ret = -1;
+		goto err_wait;
+	}
+
+	pr->pid = child_pid;
+
 	return &pr->h;
+err_wait:
+	env_wait(child_pid, 0, NULL);
+err:
+	close(parent_wait[0]);
+	close(parent_wait[1]);
+	xfree(pr);
+	return ERR_PTR(-1);
 }
 
 static ct_process_t vz_enter_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg)
 {
-	pr_err("Enter with callback is not supported");
+	pr_err("Enter with callback is not supported\n");
 	return ERR_PTR(-1);
 }
 
@@ -1278,11 +1257,11 @@ ct_handler_t vz_ct_create(char *name)
 	ct = xzalloc(sizeof(*ct));
 	if (ct) {
 		ct_handler_init(&ct->h);
+		local_process_init(&ct->p);
 		ct->h.ops = get_vz_ct_ops();
 		ct->state = CT_STOPPED;
 		ct->name = xstrdup(name);
 		ct->tty_fd = -1;
-		ct->private = xmalloc(sizeof(struct vz_private));
 		INIT_LIST_HEAD(&ct->cgroups);
 		INIT_LIST_HEAD(&ct->cg_configs);
 		INIT_LIST_HEAD(&ct->ct_nets);
