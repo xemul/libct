@@ -251,7 +251,7 @@ int cgroups_create(struct container *ct)
 	}
 
 	list_for_each_entry(cfg, &ct->cg_configs, l) {
-		ret = local_config_controller(&ct->h, cfg->ctype, cfg->param, cfg->value);
+		ret = config_controller(ct, cfg->ctype, cfg->param, cfg->value);
 		if (ret)
 			return -LCTERR_CGCONFIG;
 	}
