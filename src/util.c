@@ -182,7 +182,7 @@ static int close_fds(int proc_fd, int n)
 		return -1;
 	}
 
-	d = fdopendir(proc_fd);
+	d = fdopendir(fd);
 	if (d == NULL) {
 		pr_perror("Unable to open /proc/self/fd");
 		close(fd);
