@@ -36,6 +36,7 @@ int main(int argc, char **argv)
 	libct_session_t s;
 	ct_handler_t ct;
 	ct_process_desc_t p;
+	ct_process_t pr;
 
 	mkdir(FS_ROOT, 0600);
 	fd = open(FS_ROOT "/" FS_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -56,7 +57,8 @@ int main(int argc, char **argv)
 	p = libct_process_desc_create(s);
 	if (libct_fs_set_root(ct, FS_ROOT))
 		return fail("Unable to set root");
-	if (libct_container_spawn_cb(ct, p, check_fs_data, fs_data))
+	pr = libct_container_spawn_cb(ct, p, check_fs_data, fs_data);
+	if (libct_handle_is_err(pr))
 		return fail("Unable to start CT");
 	if (libct_container_wait(ct))
 		return fail("Unable to wait CT");

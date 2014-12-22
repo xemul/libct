@@ -51,7 +51,8 @@ int main(int argc, char **argv)
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
 	pd = libct_process_desc_create(s);
-	if (libct_container_spawn_cb(ct, pd, set_ct_alive, &cta)) {
+	pr = libct_container_spawn_cb(ct, pd, set_ct_alive, &cta);
+	if (libct_handle_is_err(pr)) {
 		return fail("Unable to start CT");
 	}
 
