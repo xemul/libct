@@ -40,6 +40,8 @@ int main(int argc, char **argv)
 	ct_process_desc_t pd;
 	ct_process_t pr;
 
+	test_init();
+
 	if (pipe(p))
 		return tst_perr("Unable to create pipe");
 	cta.mark = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
@@ -50,6 +52,7 @@ int main(int argc, char **argv)
 
 	s = libct_session_open_local();
 	ct = libct_container_create(s, "test");
+	libct_container_set_option(ct, LIBCT_OPT_KILLABLE, NULL);
 	pd = libct_process_desc_create(s);
 	pr = libct_container_spawn_cb(ct, pd, set_ct_alive, &cta);
 	if (libct_handle_is_err(pr)) {

@@ -43,6 +43,8 @@ int main(int argc, char **argv)
 	ct_process_desc_t p;
 	int fs_err = 0;
 
+	test_init();
+
 	mkdir(FS_ROOT, 0600);
 	mkdir(FS_PRIVATE, 0600);
 	mkdir(FS_PRIVATE "/" FS_CG, 0600);
