@@ -1,3 +1,5 @@
+/* A part of this code was copied from the golang sources src/os/exec/exec.go */
+
 package libct
 
 // #cgo CFLAGS: -DCONFIG_X86_64 -DARCH="x86" -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE

@@ -27,6 +27,7 @@ int main(int argc, char **argv)
 	libct_session_t s;
 	ct_handler_t ct;
 	ct_process_desc_t p;
+	ct_process_t pr;
 
 	ct_alive = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
@@ -49,7 +50,8 @@ int main(int argc, char **argv)
 	libct_process_desc_setuid(p, UID);
 	libct_process_desc_setgid(p, GID);
 
-	if (libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive))
+	pr = libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive);
+	if (libct_handle_is_err(pr))
 		return fail("Unable to start CT");
 
 	libct_container_wait(ct);
