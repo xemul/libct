@@ -39,6 +39,8 @@ int main(int argc, char **argv)
 	ct_handler_t ct;
 	ct_process_desc_t p;
 
+	test_init();
+
 	ct_root_pids = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
 	ct_root_pids[0] = 0;
