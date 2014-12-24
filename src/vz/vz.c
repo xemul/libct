@@ -19,6 +19,7 @@
 #include <sched.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <sys/socket.h>
 
 #include "beancounter.h"
 #include "vzcalluser.h"
@@ -55,8 +56,7 @@ struct info_pipes {
 	int *in;
 	int *out;
 	int *err;
-	int *child_wait;
-	int *parent_wait;
+	int wait_sock;
 };
 
 static int __vzctlfd = -1;
@@ -422,8 +422,8 @@ int pre_setup_env(ct_handler_t h, struct info_pipes *pipes)
 	if (ct->flags & CT_AUTO_PROC)
 		configure_sysctl("/proc/sys/net/ipv6/conf/all/forwarding", "0");
 
-	spawn_wake(pipes->parent_wait, 0);
-	ret = spawn_wait(pipes->child_wait);
+	spawn_sock_wake(pipes->wait_sock, 0);
+	ret = spawn_sock_wait(pipes->wait_sock);
 	if (ret)
 		return -1;
 
@@ -697,17 +697,19 @@ static int ct_clone(void *arg)
 		goto err;
 
 	if (ca->fds) {
-		ca->fds[ca->fdn] = ca->pipes->parent_wait[1];
+		ca->fds[ca->fdn] = ca->pipes->wait_sock;
 		if (setup_fds_at(ca->proc_fd, ca->fds, ca->fdn + 1))
 			goto err;
-		ca->pipes->parent_wait[1] = ca->fdn;
+		ca->pipes->wait_sock = ca->fdn;
+		if (fcntl(ca->pipes->wait_sock, F_SETFD, FD_CLOEXEC))
+			goto err;
 	}
 
-	spawn_wake_and_cloexec(ca->pipes->parent_wait, 0);
+	spawn_sock_wake(ca->pipes->wait_sock, 0);
 
 	exec_init(ca->ea);
 err:
-	spawn_wake_and_close(ca->pipes->parent_wait, -1);
+	spawn_sock_wake_and_close(ca->pipes->wait_sock, -1);
 	_exit(ret);
 }
 
@@ -752,7 +754,7 @@ static int vz_env_create(ct_handler_t h, ct_process_desc_t ph, struct info_pipes
 		ret = -1;
 		goto err;
 	}
-	if (write(pipes->parent_wait[1], &pid, sizeof(pid)) == -1) {
+	if (write(pipes->wait_sock, &pid, sizeof(pid)) == -1) {
 		pr_perror("Unable to write to parent_wait pipe");
 		goto err;
 	}
@@ -760,7 +762,7 @@ static int vz_env_create(ct_handler_t h, ct_process_desc_t ph, struct info_pipes
 	return 0;
 
 err:
-	if (write(pipes->parent_wait[1], &ret, sizeof(ret)) == -1)
+	if (write(pipes->wait_sock, &ret, sizeof(ret)) == -1)
 		pr_perror("Failed write() pipes->parent_wait[1] vz_env_create");
 	return ret;
 }
@@ -774,8 +776,6 @@ static ct_process_t vz_spawn_cb(ct_handler_t h, ct_process_desc_t p, int (*cb)(v
 static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env)
 {
 	int ret = -1;
-	int child_wait[2];
-	int parent_wait[2];
 	struct container *ct = cth2ct(h);
 	struct execv_args ea = {
 		.path = path,
@@ -783,28 +783,26 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		.env = env,
 	};
 	struct info_pipes pipes = {
-		.child_wait = child_wait,
-		.parent_wait = parent_wait,
+		.wait_sock = -1,
 	};
 	struct sigaction act;
 	int pid = -1;
 	int root_pid = -1;
+	int wait_socks[2];
+	int wait_sock = -1;
 
 	if (ct->state != CT_STOPPED) {
 		ret = -LCTERR_BADCTSTATE;
 		goto err;
 	}
 
-	ret = pipe(child_wait);
-	if (ret == -1) {
-		pr_perror("Cannot create child wait pipe");
+	if (socketpair(AF_FILE, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, wait_socks)) {
+		pr_perror("Unable to create a socket pair");
 		goto err;
 	}
-	ret = pipe(parent_wait);
-	if (ret == -1) {
-		pr_perror("Cannot create parent wait pipe");
-		goto err_pipe;
-	}
+
+	wait_sock = wait_socks[0];
+	pipes.wait_sock = wait_socks[1];
 
 	ret = fs_mount(ct);
 	if (ret) {
@@ -819,26 +817,20 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Cannot fork");
+		close(pipes.wait_sock);
 		ret = -1;
 		goto err_fork;
 	} else if (pid == 0) {
+		close(wait_sock);
 		sigaction(SIGCHLD, &act, NULL);
-
-		fcntl(parent_wait[1], F_SETFD, FD_CLOEXEC);
-		close(parent_wait[0]);
-		fcntl(child_wait[0], F_SETFD, FD_CLOEXEC);
-		close(child_wait[1]);
 
 		ret = vz_env_create(h, p, &pipes, &ea);
 
 		_exit(ret);
 	}
-	close(parent_wait[1]);
-	parent_wait[1] = -1;
-	close(child_wait[0]);
-	child_wait[0] = -1;
+	close(pipes.wait_sock);
 
-	root_pid = spawn_wait(parent_wait);
+	root_pid = spawn_sock_wait(wait_sock);
 	if (root_pid < 0) {
 		pr_perror("Unable to read parent_wait pipe");
 		env_wait(pid, 0, NULL);
@@ -849,7 +841,7 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 
 	env_wait(pid, 0, NULL);
 
-	if (spawn_wait(parent_wait) == -1) {
+	if (spawn_sock_wait(wait_sock) == -1) {
 		ret = -1;
 		goto err_res;
 	}
@@ -866,19 +858,21 @@ static ct_process_t vz_spawn_execve(ct_handler_t h, ct_process_desc_t p, char *p
 		goto err_net;
 	}
 
-	spawn_wake_and_close(child_wait, 0);
+	spawn_sock_wake_and_close(wait_sock, 0);
 
 	/* Wait while network would be configured inside container */
-	if (spawn_wait(parent_wait)) {
+	if (spawn_sock_wait(wait_sock)) {
 		ret = -1;
 		goto err_wait;
 	}
 
 	/* Wait while network would be configured inside container */
-	if (spawn_wait_and_close(parent_wait) != INT_MIN) {
+	if (spawn_sock_wait_and_close(wait_sock) != INT_MIN) {
 		ret = -1;
 		goto err_wait;
 	}
+
+	close(wait_sock);
 
 	ct->state = CT_RUNNING;
 	return &ct->p.h;
@@ -887,15 +881,12 @@ err_wait:
 	net_stop(ct);
 err_net:
 err_res:
-	spawn_wake_and_close(child_wait, -1);
+	spawn_sock_wake_and_close(wait_sock, -1);
 	libct_process_wait(&ct->p.h, NULL);
 err_fork:
 	fs_umount(ct);
-	close(parent_wait[0]);
-	close(parent_wait[1]);
 err_pipe:
-	close(child_wait[0]);
-	close(child_wait[1]);
+	close(wait_sock);
 err:
 	return ERR_PTR(ret);
 }
@@ -1066,18 +1057,20 @@ static int ct_enter(void *arg)
 	}
 
 	if (ca->fds) {
-		ca->fds[ca->fdn] = ca->pipes->parent_wait[1];
+		ca->fds[ca->fdn] = ca->pipes->wait_sock;
 		if (setup_fds_at(ca->proc_fd, ca->fds, ca->fdn + 1))
 			goto err;
-		ca->pipes->parent_wait[1] = ca->fdn;
+		ca->pipes->wait_sock = ca->fdn;
+		if (fcntl(ca->pipes->wait_sock, F_SETFD, FD_CLOEXEC))
+			goto err;
 	}
 
-	spawn_wake_and_cloexec(ca->pipes->parent_wait, 0);
+	spawn_sock_wake(ca->pipes->wait_sock, 0);
 
 	exec_init(ca->ea);
 	pr_perror("Unable to execve");
 err:
-	spawn_wake_and_close(ca->pipes->parent_wait, -1);
+	spawn_sock_wake_and_close(ca->pipes->wait_sock, -1);
 	_exit(-1);
 	return -1;
 }
@@ -1095,9 +1088,9 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t ph, char *
 		.argv = argv,
 		.env = env,
 	};
-	int parent_wait[2];
+	int wait_socks[2], wait_sock = -1;
 	struct info_pipes pipes = {
-		.parent_wait = parent_wait,
+		.wait_sock = -1,
 	};
 
 	if (!h)
@@ -1119,27 +1112,20 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t ph, char *
 
 	local_process_init(pr);
 
-	ret = pipe(parent_wait);
-	if (ret == -1) {
-		xfree(pr);
-		pr_perror("Cannot create parent wait pipe");
-		return ERR_PTR(-1);
+	if (socketpair(AF_FILE, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, wait_socks)) {
+		pr_perror("Unable to create a socket pair");
+		goto err;
 	}
+	wait_sock = wait_socks[0];
+	pipes.wait_sock = wait_socks[1];
 
 	pid = fork();
 	if (pid < 0) {
+		close(pipes.wait_sock);
 		pr_perror("Cannot fork");
 		goto err;
 	} else if (pid == 0) {
-		int i;
-		int fd_flags[2];
-		for (i = 0; i < 2; i++) {
-			fd_flags[i] = fcntl(i, F_GETFL);
-			if (fd_flags[i] < 0) {
-				pr_perror("Unable to get fd%d flags", i);
-				_exit(-1);
-			}
-		}
+		close(wait_sock);
 
 		ca.proc_fd = open("/proc/", O_DIRECTORY | O_RDONLY);
 		if (ca.proc_fd == -1)
@@ -1155,9 +1141,6 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t ph, char *
 		if (ret)
 			_exit(ret);
 
-		fcntl(parent_wait[1], F_SETFD, FD_CLOEXEC);
-		close(parent_wait[0]);
-
 		ca.ea = &ea;
 		ca.h = h;
 		ca.veid = veid;
@@ -1172,16 +1155,12 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t ph, char *
 			_exit(1);
 		}
 
-		if (write(pipes.parent_wait[1], &child_pid, sizeof(child_pid)) == -1) {
-			pr_perror("Unable to write to parent_wait pipe");
-			_exit(1);
-		}
+		spawn_sock_wake(pipes.wait_sock, child_pid);
 		_exit(0);
 	}
-	close(parent_wait[1]);
-	parent_wait[1] = -1;
+	close(pipes.wait_sock);
 
-	child_pid = spawn_wait(parent_wait);
+	child_pid = spawn_sock_wait(wait_sock);
 	if (child_pid < 0) {
 		pr_perror("Unable to read parent_wait pipe");
 		env_wait(pid, 0, NULL);
@@ -1190,12 +1169,12 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t ph, char *
 	}
 	env_wait(pid, 0, NULL);
 
-	if (spawn_wait(parent_wait)) {
+	if (spawn_sock_wait(wait_sock)) {
 		ret = -1;
 		goto err_wait;
 	}
 
-	if (spawn_wait_and_close(parent_wait) != INT_MIN) {
+	if (spawn_sock_wait_and_close(wait_sock) != INT_MIN) {
 		ret = -1;
 		goto err_wait;
 	}
@@ -1206,8 +1185,7 @@ static ct_process_t vz_enter_execve(ct_handler_t h, ct_process_desc_t ph, char *
 err_wait:
 	env_wait(child_pid, 0, NULL);
 err:
-	close(parent_wait[0]);
-	close(parent_wait[1]);
+	close(wait_sock);
 	xfree(pr);
 	return ERR_PTR(-1);
 }
