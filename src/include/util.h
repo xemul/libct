@@ -27,4 +27,8 @@ extern void spawn_wake(int *pipe, int ret);
 extern void spawn_wake_and_close(int *pipe, int ret);
 extern void spawn_wake_and_cloexec(int *pipe, int ret);
 
+extern int spawn_sock_wait(int sk);
+extern int spawn_sock_wait_and_close(int sk);
+extern void spawn_sock_wake(int sk, int ret);
+extern void spawn_sock_wake_and_close(int sk, int ret);
 #endif /* __LIBCT_UTIL_H__ */
