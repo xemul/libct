@@ -14,7 +14,7 @@
 #include "list.h"
 #include "ct.h"
 
-static int apply_bset(unsigned long mask)
+static int apply_bset(uint64_t mask)
 {
 	int i, last_cap;
 
@@ -36,7 +36,7 @@ static int apply_bset(unsigned long mask)
 extern int capget(cap_user_header_t header, const cap_user_data_t data);
 extern int capset(cap_user_header_t header, const cap_user_data_t data);
 
-static int apply_all_caps(unsigned long mask)
+static int apply_all_caps(uint64_t mask)
 {
 	struct __user_cap_header_struct header;
 	struct __user_cap_data_struct data[2]; /* as of .._VERSION_3 */
@@ -53,9 +53,15 @@ static int apply_all_caps(unsigned long mask)
 	}
 
 	header.pid = getpid();
+
 	data[0].effective = mask;
 	data[0].permitted = mask;
 	data[0].inheritable = mask;
+
+	mask >>= 32;
+	data[1].effective = mask;
+	data[1].permitted = mask;
+	data[1].inheritable = mask;
 
 	return capset(&header, data);
 }
