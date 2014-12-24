@@ -237,10 +237,6 @@ static int ct_clone(void *arg)
 	if (try_mount_cg(ct))
 		goto err;
 
-	ret = cgroups_attach(ct);
-	if (ret < 0)
-		goto err_um;
-
 	if (ct->root_path) {
 		/*
 		 * Mount external in child, since it may live
@@ -384,6 +380,10 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 			goto err_net;
 	}
 
+	ret = cgroups_attach(ct, pid);
+	if (ret < 0)
+		goto err_net;
+
 	if (net_start(ct))
 		goto err_net;
 
@@ -463,8 +463,8 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	struct container *ct = cth2ct(h);
 	struct process_desc *p = prh2pr(ph);
 	struct process *pr;
-	int aux = -1, pid;
-	int wait_pipe[2];
+	int aux = -1, pid = -1;
+	int wait_pipe[2] = {-1, -1}, child_wait_pipe[2] = {-1, -1};
 
 	if (ct->state != CT_RUNNING)
 		return ERR_PTR(-LCTERR_BADCTSTATE);
@@ -480,16 +480,20 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 
 	local_process_init(pr);
 
-	if (pipe(wait_pipe)) {
-		xfree(pr);
-		return ERR_PTR(-1);
-	}
+	if (pipe(wait_pipe))
+		goto err;
+	if (pipe(child_wait_pipe))
+		goto err;
 
 	pid = fork();
 	if (pid == 0) {
 		struct ns_desc *ns;
 
 		close(wait_pipe[0]);
+		close(child_wait_pipe[1]);
+
+		if (spawn_wait_and_close(child_wait_pipe)) /* wait cgroups */
+			exit(1);
 
 		if (p->fds) {
 			p->fds[p->fdn] = wait_pipe[1];
@@ -511,9 +515,6 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 			if (switch_ns(ct->p.pid, ns, NULL))
 				exit(-1);
 		}
-
-		if (cgroups_attach(ct))
-			exit(-1);
 
 		if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
 			char nroot[128];
@@ -541,11 +542,16 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 			spawn_wake_and_close(wait_pipe, -1);
 		exit(aux);
 	}
-
 	close(wait_pipe[1]);
+	close(child_wait_pipe[0]);
 
 	if (aux >= 0)
 		restore_ns(aux, &pid_ns);
+
+	if (cgroups_attach(ct, pid))
+		goto err;
+
+	spawn_wake_and_close(child_wait_pipe, 0);
 
 	if (spawn_wait(wait_pipe))
 		goto err;
@@ -559,7 +565,11 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 err:
 	xfree(pr);
 	close(wait_pipe[0]);
-	waitpid(pid, NULL, 0);
+	close(wait_pipe[1]);
+	close(child_wait_pipe[0]);
+	close(child_wait_pipe[1]);
+	if (pid > 0)
+		waitpid(pid, NULL, 0);
 	return ERR_PTR(-1);
 }
 

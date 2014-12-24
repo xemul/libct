@@ -264,15 +264,15 @@ static int cgroup_attach_one(struct container *ct, struct controller *ctl, char 
 	return config_controller(ct, ctl->ctype, "tasks", pid) ? -LCTERR_CGATTACH : 0;
 }
 
-int cgroups_attach(struct container *ct)
+int cgroups_attach(struct container *ct, pid_t pid)
 {
-	char pid[12];
+	char spid[12];
 	struct controller *ctl;
 	int ret = 0;
 
-	snprintf(pid, sizeof(pid), "%d", getpid());
+	snprintf(spid, sizeof(spid), "%d", pid);
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
-		ret = cgroup_attach_one(ct, ctl, pid);
+		ret = cgroup_attach_one(ct, ctl, spid);
 		if (ret)
 			break;
 	}
