@@ -292,6 +292,8 @@ err_um:
 	if (ct->root_path)
 		fs_umount_ext(ct);
 err:
+	if (ret >= 0)
+		ret = -1;
 	spawn_sock_wake(wait_sock, ret);
 	close(wait_sock);
 	exit(ret);
