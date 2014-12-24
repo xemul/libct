@@ -79,6 +79,6 @@ run: cleanouts $(PIGS) $(OUTS)
 
 root:
 	mkdir root
-	curl http://images.linuxcontainers.org/images/ubuntu/utopic/amd64/default/`date '+%Y%m%d_03:49'`/rootfs.tar.xz | tar -JxC root
+	curl -sSL https://github.com/jpetazzo/docker-busybox/raw/buildroot-2014.02/rootfs.tar | tar -xC root
 
 .PHONY: all local vz clean run run-local run-vz
