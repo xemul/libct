@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include <sys/param.h>
+#include <sys/socket.h>
 
 #include "uapi/libct.h"
 #include "xmalloc.h"
@@ -308,4 +309,29 @@ void spawn_wake_and_cloexec(int *pipe, int ret)
 	}
 
 	write(pipe[1], &ret, sizeof(ret));
+}
+
+int spawn_sock_wait(sk)
+{
+	int ret = INT_MIN;
+	read(sk, &ret, sizeof(ret));
+	return ret;
+}
+
+int spawn_sock_wait_and_close(int sk)
+{
+	int ret = spawn_sock_wait(sk);
+	shutdown(sk, SHUT_RD);
+	return ret;
+}
+
+void spawn_sock_wake(int sk, int ret)
+{
+	write(sk, &ret, sizeof(ret));
+}
+
+void spawn_sock_wake_and_close(int sk, int ret)
+{
+	write(sk, &ret, sizeof(ret));
+	shutdown(sk, SHUT_WR);
 }
