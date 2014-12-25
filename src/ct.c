@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <sys/socket.h>
 
 #include "uapi/libct.h"
 #include "asm/page.h"
@@ -95,8 +96,7 @@ struct ct_clone_arg {
 	void *arg;
 	struct container *ct;
 	struct process_desc *p;
-	int child_wait_pipe[2];
-	int parent_wait_pipe[2];
+	int wait_sock[2];
 	bool is_exec;
 };
 
@@ -193,11 +193,11 @@ static int ct_clone(void *arg)
 	struct ct_clone_arg *ca = arg;
 	struct container *ct = ca->ct;
 	struct process_desc *p = ca->p;
+	int wait_sock = ca->wait_sock[1];
 
-	close(ca->child_wait_pipe[1]);
-	close(ca->parent_wait_pipe[0]);
+	close(ca->wait_sock[0]);
 
-	ret = spawn_wait_and_close(ca->child_wait_pipe);
+	ret = spawn_sock_wait_and_close(wait_sock);
 	if (ret)
 		goto err_um;
 
@@ -216,12 +216,15 @@ static int ct_clone(void *arg)
 		goto err;
 
 	if (p->fds) {
-		p->fds[p->fdn] = ca->parent_wait_pipe[1];
+		p->fds[p->fdn] = wait_sock;
 
 		if (setup_fds(p->fds, p->fdn + 1))
 			goto err;
 
-		ca->parent_wait_pipe[1] = p->fdn;
+		wait_sock = p->fdn;
+		if (fcntl(wait_sock, F_SETFD, FD_CLOEXEC)) {
+			goto err;
+		}
 	}
 
 	if (ct->nsmask & CLONE_NEWNS) {
@@ -236,10 +239,6 @@ static int ct_clone(void *arg)
 
 	if (try_mount_cg(ct))
 		goto err;
-
-	ret = cgroups_attach(ct);
-	if (ret < 0)
-		goto err_um;
 
 	if (ct->root_path) {
 		/*
@@ -279,10 +278,9 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err;
 
-	if (ca->is_exec)
-		spawn_wake_and_cloexec(ca->parent_wait_pipe, 0);
-	else
-		spawn_wake_and_close(ca->parent_wait_pipe, 0);
+	spawn_sock_wake(wait_sock, 0);
+	if (!ca->is_exec)
+		close(wait_sock);
 
 	ret = ca->cb(ca->arg);
 	if (ca->is_exec)
@@ -294,7 +292,10 @@ err_um:
 	if (ct->root_path)
 		fs_umount_ext(ct);
 err:
-	spawn_wake_and_close(ca->parent_wait_pipe, ret);
+	if (ret >= 0)
+		ret = -1;
+	spawn_sock_wake(wait_sock, ret);
+	close(wait_sock);
 	exit(ret);
 }
 
@@ -339,6 +340,7 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	struct process_desc *p = prh2pr(ph);
 	int ret = -1, pid, aux;
 	struct ct_clone_arg ca;
+	int wait_sock;
 
 	if (ct->state != CT_STOPPED)
 		return ERR_PTR(-LCTERR_BADCTSTATE);
@@ -357,10 +359,11 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		goto err_cg;
 
 	ret = -1;
-	if (pipe(ca.child_wait_pipe))
-		goto err_pipe;
-	if (pipe(ca.parent_wait_pipe))
-		goto err_pipe2;
+	if (socketpair(AF_FILE, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, ca.wait_sock)) {
+		pr_perror("Unable to create a socket pair");
+		goto err_sock;
+	}
+	wait_sock = ca.wait_sock[0];
 
 	ca.cb = cb;
 	ca.arg = arg;
@@ -368,13 +371,11 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	ca.p = p;
 	ca.is_exec = is_exec;
 	pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD, &ca);
+	close(ca.wait_sock[1]);
 	if (pid < 0)
 		goto err_clone;
 
 	ct->p.pid = pid;
-
-	close(ca.child_wait_pipe[0]);
-	close(ca.parent_wait_pipe[1]);
 
 	if (ct->nsmask & CLONE_NEWUSER) {
 		if (write_id_mappings(pid, &ct->uid_map, "uid_map"))
@@ -384,22 +385,27 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 			goto err_net;
 	}
 
+	ret = cgroups_attach(ct, pid);
+	if (ret < 0)
+		goto err_net;
+
 	if (net_start(ct))
 		goto err_net;
 
-	spawn_wake_and_close(ca.child_wait_pipe, 0);
+	spawn_sock_wake_and_close(wait_sock, 0);
 
-	aux = spawn_wait(ca.parent_wait_pipe);
+	aux = spawn_sock_wait(wait_sock);
 	if (aux != 0) {
 		ret = aux;
 		goto err_ch;
 	}
 
-	aux = spawn_wait_and_close(ca.parent_wait_pipe);
+	aux = spawn_sock_wait(wait_sock);
 	if (aux != INT_MIN) {
 		ret = -1;
 		goto err_ch;
 	}
+	close(wait_sock);
 
 	ct->state = CT_RUNNING;
 	return &ct->p.h;
@@ -407,15 +413,11 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 err_ch:
 	net_stop(ct);
 err_net:
-	spawn_wake_and_close(ca.child_wait_pipe, -1);
+	spawn_sock_wake_and_close(wait_sock, -1);
 	libct_process_wait(&ct->p.h, NULL);
 err_clone:
-	close(ca.parent_wait_pipe[0]);
-	close(ca.parent_wait_pipe[1]);
-err_pipe2:
-	close(ca.child_wait_pipe[0]);
-	close(ca.child_wait_pipe[1]);
-err_pipe:
+	close(wait_sock);
+err_sock:
 	cgroups_destroy(ct);
 err_cg:
 	fs_umount(ct);
@@ -463,8 +465,9 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	struct container *ct = cth2ct(h);
 	struct process_desc *p = prh2pr(ph);
 	struct process *pr;
-	int aux = -1, pid;
-	int wait_pipe[2];
+	int aux = -1, pid = -1;
+	int wait_socks[2];
+	int wait_sock = -1;
 
 	if (ct->state != CT_RUNNING)
 		return ERR_PTR(-LCTERR_BADCTSTATE);
@@ -480,24 +483,32 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 
 	local_process_init(pr);
 
-	if (pipe(wait_pipe)) {
-		xfree(pr);
-		return ERR_PTR(-1);
+	if (socketpair(AF_FILE, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, wait_socks)) {
+		pr_perror("Unable to create a socket pair");
+		goto err;
 	}
+	wait_sock = wait_socks[0];
 
 	pid = fork();
 	if (pid == 0) {
 		struct ns_desc *ns;
+		wait_sock = wait_socks[1];
 
-		close(wait_pipe[0]);
+		close(wait_socks[0]);
+
+		if (spawn_sock_wait_and_close(wait_sock)) /* wait cgroups */
+			exit(1);
 
 		if (p->fds) {
-			p->fds[p->fdn] = wait_pipe[1];
+			p->fds[p->fdn] = wait_sock;
 
 			if (setup_fds(p->fds, p->fdn + 1))
 				exit(-1);
 
-			wait_pipe[1] = p->fdn;
+			wait_sock = p->fdn;
+			if (fcntl(wait_sock, F_SETFD, FD_CLOEXEC)) {
+				goto err;
+			}
 		}
 
 		for (aux = 0; namespaces[aux]; aux++) {
@@ -511,9 +522,6 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 			if (switch_ns(ct->p.pid, ns, NULL))
 				exit(-1);
 		}
-
-		if (cgroups_attach(ct))
-			exit(-1);
 
 		if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
 			char nroot[128];
@@ -530,27 +538,32 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		if (apply_creds(p))
 			exit(-1);
 
-		if (is_exec)
-			spawn_wake_and_cloexec(wait_pipe, 0);
-		else
-			spawn_wake_and_close(wait_pipe, 0);
+		spawn_sock_wake(wait_sock, 0);
+		if (!is_exec)
+			close(wait_sock);
 
 		aux = cb(arg);
 
 		if (is_exec)
-			spawn_wake_and_close(wait_pipe, -1);
+			spawn_sock_wake_and_close(wait_sock, -1);
 		exit(aux);
 	}
-
-	close(wait_pipe[1]);
+	close(wait_socks[1]);
+	if (pid < 0)
+		goto err;
 
 	if (aux >= 0)
 		restore_ns(aux, &pid_ns);
 
-	if (spawn_wait(wait_pipe))
+	if (cgroups_attach(ct, pid))
 		goto err;
 
-	if (spawn_wait_and_close(wait_pipe) != INT_MIN)
+	spawn_sock_wake_and_close(wait_sock, 0);
+
+	if (spawn_sock_wait(wait_sock))
+		goto err;
+
+	if (spawn_sock_wait_and_close(wait_sock) != INT_MIN)
 		goto err;
 
 	pr->pid = pid;
@@ -558,8 +571,9 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	return &pr->h;
 err:
 	xfree(pr);
-	close(wait_pipe[0]);
-	waitpid(pid, NULL, 0);
+	close(wait_sock);
+	if (pid > 0)
+		waitpid(pid, NULL, 0);
 	return ERR_PTR(-1);
 }
 

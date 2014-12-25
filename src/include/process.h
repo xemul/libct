@@ -1,6 +1,8 @@
 #ifndef __LIBCT_PROCESS_H__
 #define __LIBCT_PROCESS_H__
 
+#include <stdint.h>
+
 #include "uapi/libct.h"
 
 #include "compiler.h"
@@ -44,8 +46,8 @@ struct process_desc {
 	unsigned int		*groups;
 
 	unsigned int		cap_mask;
-	unsigned long		cap_bset;
-	unsigned long		cap_caps;
+	uint64_t		cap_bset;
+	uint64_t		cap_caps;
 
 	int			pdeathsig;
 

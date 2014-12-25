@@ -36,6 +36,9 @@ int main(int argc, char **argv)
 	libct_session_t s;
 	ct_handler_t ct;
 	ct_process_desc_t p;
+	ct_process_t pr;
+
+	test_init();
 
 	ct_alive = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
@@ -45,7 +48,9 @@ int main(int argc, char **argv)
 	ct = libct_container_create(s, "test");
 	p = libct_process_desc_create(s);
 	libct_process_desc_set_caps(p, TEST_CAPS, CAPS_ALLCAPS);
-	libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive);
+	pr = libct_container_spawn_cb(ct, p, set_ct_alive, ct_alive);
+	if (libct_handle_is_err(pr))
+		return fail("Unable to execute the init process");
 	libct_container_wait(ct);
 	libct_container_destroy(ct);
 	libct_session_close(s);

@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include <sys/param.h>
+#include <sys/socket.h>
 
 #include "uapi/libct.h"
 #include "xmalloc.h"
@@ -275,37 +276,27 @@ int setup_fds(int *fds, int n)
 	return setup_fds_at(fd, fds, n);
 }
 
-int spawn_wait(int *pipe)
+int spawn_sock_wait(sk)
 {
 	int ret = INT_MIN;
-	read(pipe[0], &ret, sizeof(ret));
+	read(sk, &ret, sizeof(ret));
 	return ret;
 }
 
-int spawn_wait_and_close(int *pipe)
+int spawn_sock_wait_and_close(int sk)
 {
-	int ret = spawn_wait(pipe);
-	close(pipe[0]);
+	int ret = spawn_sock_wait(sk);
+	shutdown(sk, SHUT_RD);
 	return ret;
 }
 
-void spawn_wake(int *pipe, int ret)
+void spawn_sock_wake(int sk, int ret)
 {
-	write(pipe[1], &ret, sizeof(ret));
+	write(sk, &ret, sizeof(ret));
 }
 
-void spawn_wake_and_close(int *pipe, int ret)
+void spawn_sock_wake_and_close(int sk, int ret)
 {
-	write(pipe[1], &ret, sizeof(ret));
-	close(pipe[1]);
-}
-
-void spawn_wake_and_cloexec(int *pipe, int ret)
-{
-	if (fcntl(pipe[1], F_SETFD, FD_CLOEXEC)) {
-		close(pipe[1]);
-		return;
-	}
-
-	write(pipe[1], &ret, sizeof(ret));
+	write(sk, &ret, sizeof(ret));
+	shutdown(sk, SHUT_WR);
 }
