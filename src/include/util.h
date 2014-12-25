@@ -21,12 +21,6 @@ extern int stat_file(const char *file);
 extern int setup_fds_at(int proc_fd, int *fds, int n);
 extern int setup_fds(int *fds, int n);
 
-extern int spawn_wait(int *pipe);
-extern int spawn_wait_and_close(int *pipe);
-extern void spawn_wake(int *pipe, int ret);
-extern void spawn_wake_and_close(int *pipe, int ret);
-extern void spawn_wake_and_cloexec(int *pipe, int ret);
-
 extern int spawn_sock_wait(int sk);
 extern int spawn_sock_wait_and_close(int sk);
 extern void spawn_sock_wake(int sk, int ret);
