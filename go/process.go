@@ -159,3 +159,13 @@ func (p *ProcessDesc) Wait() (int, error) {
 
 	return int(status), nil
 }
+
+func (p *ProcessDesc) GetPid() (int, error) {
+
+	ret := C.libct_process_get_pid(p.handle)
+	if ret < 0 {
+		return -1, LibctError{int(ret)}
+	}
+
+	return int(ret), nil
+}
