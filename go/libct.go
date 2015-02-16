@@ -6,7 +6,6 @@ package libct
 // #include "../src/include/uapi/libct-errors.h"
 import "C"
 import "fmt"
-import "os"
 import "unsafe"
 
 const (
@@ -15,6 +14,34 @@ const (
 	CAPS_ALLCAPS              = C.CAPS_ALLCAPS
 	CAPS_ALL                  = C.CAPS_ALL
 )
+
+type file interface {
+	Fd() uintptr
+	Close() error
+	Read(p []byte) (n int, err error)
+	Write(p []byte) (n int, err error)
+}
+
+type console struct {
+}
+
+var Console console
+
+func (c console) Fd() uintptr {
+	return ^uintptr(0)
+}
+
+func (c console) Close() error {
+	return nil
+}
+
+func (c console) Read(p []byte) (n int, err error) {
+	return 0, nil
+}
+
+func (c console) Write(p []byte) (n int, err error) {
+	return 0, nil
+}
 
 type Session struct {
 	s C.libct_session_t
@@ -105,8 +132,16 @@ func (ct *Container) Kill() error {
 	return nil
 }
 
-func (ct *Container) SetConsoleFd(f *os.File) error {
-	ret := C.libct_container_set_console_fd(ct.ct, C.int(f.Fd()))
+func getFd(f file) C.int {
+	if _, ok := f.(console); ok {
+		return C.LIBCT_CONSOLE_FD
+	}
+
+	return C.int(f.Fd())
+}
+
+func (ct *Container) SetConsoleFd(f file) error {
+	ret := C.libct_container_set_console_fd(ct.ct, getFd(f))
 
 	if ret != 0 {
 		return LibctError{int(ret)}
@@ -120,7 +155,7 @@ func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env
 		i   int = 0
 	)
 
-	type F func(*ProcessDesc) (*os.File, error)
+	type F func(*ProcessDesc) (file, error)
 	for _, setupFd := range []F{(*ProcessDesc).stdin, (*ProcessDesc).stdout, (*ProcessDesc).stderr} {
 		fd, err := setupFd(p)
 		if err != nil {
@@ -162,7 +197,7 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 
 	cfds := make([]C.int, len(p.childFiles))
 	for i, fd := range p.childFiles {
-		cfds[i] = C.int(fd.Fd())
+		cfds[i] = C.int(getFd(fd))
 	}
 
 	C.libct_process_desc_set_fds(p.desc, &cfds[0], C.int(len(p.childFiles)))

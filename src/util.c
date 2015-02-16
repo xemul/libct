@@ -219,6 +219,16 @@ int setup_fds_at(int proc_fd, int *fds, int n)
 {
 	int i;
 
+	for (i = 0; i < n; i++) {
+		if (fds[i] == LIBCT_CONSOLE_FD) {
+			fds[i] = open("/dev/console", O_RDWR);
+			if (fds[i] == -1) {
+				pr_perror("Unable to open /dev/console");
+				return -1;
+			}
+		}
+	}
+
 	/* skip used file descriptors and fill all unused descriptors  */
 	for (i = 0; i < n; i++) {
 		if (fcntl(i, F_GETFD) != -1 || errno != EBADF)
