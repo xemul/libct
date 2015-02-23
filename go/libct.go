@@ -151,7 +151,19 @@ func (ct *Container) SetConsoleFd(f file) error {
 }
 
 func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
+	err := ct.execve(p, path, argv, env, true)
+
+	return err
+}
+
+func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
+	err := ct.execve(p, path, argv, env, false)
+	return err
+}
+
+func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) (error) {
 	var (
+		h     C.ct_process_t
 		i   int = 0
 	)
 
@@ -169,21 +181,6 @@ func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env
 
 	p.childFiles = append(p.childFiles, p.ExtraFiles...)
 
-	err := ct.execve(p, path, argv, env, true)
-
-	return err
-}
-
-func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
-	err := ct.execve(p, path, argv, env, false)
-	p.closeDescriptors(p.closeAfterStart)
-	return err
-}
-
-func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) (error) {
-	var (
-		h     C.ct_process_t
-	)
 
 	cargv := make([]*C.char, len(argv)+1)
 	for i, arg := range argv {
