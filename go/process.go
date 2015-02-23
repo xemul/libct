@@ -38,6 +38,8 @@ type ProcessDesc struct {
 	closeAfterStart []io.Closer
 	closeAfterWait  []io.Closer
 	goroutine       []func() error
+
+	errch           chan error // one send per goroutine
 }
 
 // interfaceEqual protects against panics from doing equality tests on
@@ -165,6 +167,15 @@ func (p *ProcessDesc) Wait() (int, error) {
 	if ret := C.libct_process_wait(p.handle, &status); ret != 0 {
 		return -1, LibctError{int(ret)}
 	}
+
+        var copyError error
+        for range p.goroutine {
+                if err := <-p.errch; err != nil && copyError == nil {
+                        copyError = err
+                }
+        }
+
+	p.closeDescriptors(p.closeAfterWait)
 
 	return int(status), nil
 }

@@ -206,7 +206,18 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 	}
 
 	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {
+		p.closeDescriptors(p.closeAfterStart)
+		p.closeDescriptors(p.closeAfterWait)
 		return  LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
+	}
+
+	p.closeDescriptors(p.closeAfterStart)
+
+	p.errch = make(chan error, len(p.goroutine))
+	for _, fn := range p.goroutine {
+		go func(fn func() error) {
+			p.errch <- fn()
+		}(fn)
 	}
 
 	p.handle = h
