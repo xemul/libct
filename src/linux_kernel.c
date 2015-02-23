@@ -8,6 +8,7 @@
 
 #include "linux-kernel.h"
 #include "cgroups.h"
+#include "log.h"
 
 unsigned long kernel_ns_mask;
 
@@ -70,13 +71,18 @@ int linux_get_last_capability(void)
 {
 	FILE *f;
 	static int last_cap = -1;
+	int ret;
 
 	if (last_cap > 0)
 		return last_cap;
 
 	f = fopen("/proc/sys/kernel/cap_last_cap", "r");
-	if (fscanf(f, "%d", &last_cap) != 1)
+	ret = fscanf(f, "%d", &last_cap);
+	fclose(f);
+	if (ret != 1) {
+		pr_err("Unable to parse /proc/sys/kernel/cap_last_cap");
 		return -1;
+	}
 
 	return last_cap;
 }
