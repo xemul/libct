@@ -10,6 +10,7 @@
 struct process_ops {
 	int (*wait)(ct_process_t p, int *status);
 	void (*destroy)(ct_process_t p);
+	int (*get_pid)(ct_process_t p);
 };
 
 struct ct_process {

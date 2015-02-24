@@ -68,6 +68,11 @@ int main(int argc, char **argv)
 	if (libct_net_dev_set_mac_addr(nd, "00:11:22:33:44:55"))
 		return tst_err("Can't set mac");
 
+         if (libct_net_dev_add_ip_addr(nd, "VETH_CT_ADDR"))
+ 
+                 return tst_err("Can't set addr");
+
+
 	pr = libct_container_spawn_cb(ct, pd, check_ct_net, &ca);
 	if (libct_handle_is_err(pr))
 		return tst_err("Can't spawn CT");

@@ -212,3 +212,8 @@ void libct_process_destroy(ct_process_t p)
 {
 	return p->ops->destroy(p);
 }
+
+int libct_process_get_pid(ct_process_t p)
+{
+	return p->ops->get_pid(p);
+}

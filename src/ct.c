@@ -212,6 +212,14 @@ static int ct_clone(void *arg)
 	if (!(ct->flags & CT_NOSETSID) && setsid() == -1)
 		goto err;
 
+	if (ct->tty_fd == LIBCT_CONSOLE_FD) {
+		ct->tty_fd = open("/dev/console", O_RDWR);
+		if (ct->tty_fd == -1) {
+			pr_perror("Unable to open /dev/console");
+			return -1;
+		}
+	}
+
 	if (ct->tty_fd >= 0 && ioctl(ct->tty_fd, TIOCSCTTY, 0) == -1)
 		goto err;
 

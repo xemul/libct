@@ -32,12 +32,14 @@ type ProcessDesc struct {
 	// ExtraFiles specifies additional open files to be inherited by the
 	// new process. It does not include standard input, standard output, or
 	// standard error. If non-nil, entry i becomes file descriptor 3+i.
-	ExtraFiles []*os.File
+	ExtraFiles []file
 
-	childFiles      []*os.File
+	childFiles      []file
 	closeAfterStart []io.Closer
 	closeAfterWait  []io.Closer
 	goroutine       []func() error
+
+	errch           chan error // one send per goroutine
 }
 
 // interfaceEqual protects against panics from doing equality tests on
@@ -77,18 +79,24 @@ func (p *ProcessDesc) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	return pw, nil
 }
 
-func (p *ProcessDesc) stdout() (f *os.File, err error) {
+func (p *ProcessDesc) stdout() (f file, err error) {
+	if f, ok := p.Stdout.(console); ok {
+		return f, nil
+	}
 	return p.writerDescriptor(p.Stdout)
 }
 
-func (p *ProcessDesc) stderr() (f *os.File, err error) {
+func (p *ProcessDesc) stderr() (f file, err error) {
+	if f, ok := p.Stderr.(console); ok {
+		return f, nil
+	}
 	if p.Stderr != nil && interfaceEqual(p.Stderr, p.Stdout) {
 		return p.childFiles[1], nil
 	}
 	return p.writerDescriptor(p.Stderr)
 }
 
-func (c *ProcessDesc) stdin() (f *os.File, err error) {
+func (c *ProcessDesc) stdin() (f file, err error) {
 	if c.Stdin == nil {
 		f, err = os.Open(os.DevNull)
 		if err != nil {
@@ -98,6 +106,9 @@ func (c *ProcessDesc) stdin() (f *os.File, err error) {
 		return
 	}
 
+	if f, ok := c.Stdin.(console); ok {
+		return f, nil
+	}
 	if f, ok := c.Stdin.(*os.File); ok {
 		return f, nil
 	}
@@ -157,5 +168,24 @@ func (p *ProcessDesc) Wait() (int, error) {
 		return -1, LibctError{int(ret)}
 	}
 
+        var copyError error
+        for range p.goroutine {
+                if err := <-p.errch; err != nil && copyError == nil {
+                        copyError = err
+                }
+        }
+
+	p.closeDescriptors(p.closeAfterWait)
+
 	return int(status), nil
+}
+
+func (p *ProcessDesc) GetPid() (int, error) {
+
+	ret := C.libct_process_get_pid(p.handle)
+	if ret < 0 {
+		return -1, LibctError{int(ret)}
+	}
+
+	return int(ret), nil
 }

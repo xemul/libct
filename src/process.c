@@ -181,6 +181,12 @@ void local_process_desc_init(struct process_desc *p)
 	p->fdn		= 0;
 }
 
+static int local_process_get_pid(ct_process_t h)
+{
+	struct process *p = ph2p(h);
+	return p->pid;
+}
+
 static int local_process_wait(ct_process_t h, int *status)
 {
 	struct process *p = ph2p(h);
@@ -211,6 +217,7 @@ static void local_process_destroy(ct_process_t h)
 static const struct process_ops local_process_ops = {
 	.wait		= local_process_wait,
 	.destroy	= local_process_destroy,
+	.get_pid	= local_process_get_pid,
 };
 
 void local_process_init(struct process *p)
