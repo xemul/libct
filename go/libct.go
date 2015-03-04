@@ -292,6 +292,26 @@ func (ct *Container) AddMount(src string, dst string, flags int, fstype string, 
 	return nil
 }
 
+const (
+	CTL_BLKIO	= C.CTL_BLKIO
+	CTL_CPU		= C.CTL_CPU
+	CTL_CPUACCT	= C.CTL_CPUACCT
+	CTL_CPUSET	= C.CTL_CPUSET
+	CTL_DEVICES	= C.CTL_DEVICES
+	CTL_FREEZER	= C.CTL_FREEZER
+	CTL_HUGETLB	= C.CTL_HUGETLB
+	CTL_MEMORY	= C.CTL_MEMORY
+	CTL_NETCLS	= C.CTL_NETCLS
+)
+
+func (ct *Container) AddController(ctype int) error {
+	if ret := C.libct_controller_add(ct.ct, C.enum_ct_controller(ctype)); ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
 func (ct *Container) SetOption(opt int32) error {
 	if ret := C.libct_container_set_option(ct.ct, C.int(opt), nil); ret != 0 {
 		return LibctError{int(ret)}
