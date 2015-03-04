@@ -200,4 +200,18 @@ extern int libct_process_wait(ct_process_t p, int *status);
 extern void libct_process_destroy(ct_process_t p);
 extern int libct_process_get_pid(ct_process_t p);
 
+struct libct_processes {
+	int nproc;
+	int array[];
+};
+
+extern struct libct_processes *libct_container_processes(ct_handler_t h);
+
+static inline int libct_processes_get(struct libct_processes *p, int i)
+{
+	return p->array[i];
+}
+
+void libct_processes_free(struct libct_processes *p);
+
 #endif /* __UAPI_LIBCT_H__ */

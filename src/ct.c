@@ -773,6 +773,7 @@ static const struct container_ops local_ct_ops = {
 	.uname			= local_uname,
 	.add_uid_map		= local_add_uid_map,
 	.add_gid_map		= local_add_gid_map,
+	.get_processes		= local_controller_tasks,
 };
 
 ct_handler_t ct_create(char *name)

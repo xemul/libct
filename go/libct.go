@@ -312,6 +312,21 @@ func (ct *Container) AddController(ctype int) error {
 	return nil
 }
 
+func (ct *Container) Processes() ([]int, error) {
+	ctasks := C.libct_container_processes(ct.ct);
+	if C.libct_handle_is_err(unsafe.Pointer(ctasks)) != 0 {
+		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(ctasks)))}
+	}
+	defer C.libct_processes_free(ctasks)
+
+	tasks := make([]int, int(ctasks.nproc))
+	for i := 0; i < int(ctasks.nproc); i++ {
+		tasks[i] = int(C.libct_processes_get(ctasks, C.int(i)))
+	}
+
+	return tasks, nil
+}
+
 func (ct *Container) SetOption(opt int32) error {
 	if ret := C.libct_container_set_option(ct.ct, C.int(opt), nil); ret != 0 {
 		return LibctError{int(ret)}

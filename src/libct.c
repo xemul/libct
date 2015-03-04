@@ -6,6 +6,7 @@
 #include "uapi/libct.h"
 
 #include "linux-kernel.h"
+#include "xmalloc.h"
 #include "process.h"
 #include "libct.h"
 #include "list.h"
@@ -216,4 +217,13 @@ void libct_process_destroy(ct_process_t p)
 int libct_process_get_pid(ct_process_t p)
 {
 	return p->ops->get_pid(p);
+}
+
+struct libct_processes *libct_container_processes(ct_handler_t ct) {
+	return ct->ops->get_processes(ct);
+}
+
+void libct_processes_free(struct libct_processes *p)
+{
+	xfree(p);
 }

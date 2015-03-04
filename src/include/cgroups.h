@@ -50,6 +50,8 @@ extern int cgroups_create_service(void);
 extern int add_service_controller(struct container *ct);
 extern int service_ctl_killall(struct container *ct);
 
+extern struct libct_processes *local_controller_tasks(ct_handler_t h);
+
 #define DEFAULT_CGROUPS_PATH	"/sys/fs/cgroup"
 
 #endif /* __LIBCT_CGROUP_H__ */
