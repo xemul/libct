@@ -9,17 +9,17 @@ func TestSpawnExecv(t *testing.T) {
 
 	err := s.OpenLocal()
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 
 	p, err := s.ProcessCreateDesc()
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 
 	ct, err := s.ContainerCreate("test")
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 
 	ct.SetNsMask(syscall.CLONE_NEWNS | syscall.CLONE_NEWPID)
@@ -28,7 +28,7 @@ func TestSpawnExecv(t *testing.T) {
 		[]string{"true"},
 		[]string{"PATH=/bin:/usr/bin"})
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 	ct.Wait()
 }
@@ -38,12 +38,12 @@ func TestSpawnExecvStdout(t *testing.T) {
 
 	err := s.OpenLocal()
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 
 	p, err := s.ProcessCreateDesc()
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 
 	pr, pw, err := os.Pipe()
@@ -58,14 +58,14 @@ func TestSpawnExecvStdout(t *testing.T) {
 
 	ct, err := s.ContainerCreate("test")
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 
 	err = ct.SpawnExecve(p, "bash",
 		[]string{"sh", "-c", "echo ok; cat; cat <&3 >&2"},
 		[]string{"PATH=/bin:/usr/bin"})
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 	pw.Close()
 	ir.Close()
@@ -80,15 +80,15 @@ func TestSpawnExecvStdout(t *testing.T) {
 	data := make([]byte, 100)
 	count, err := pr.Read(data)
 	if count != 3 {
-		t.Fail()
+		t.Fatal(err)
 	}
 	count, err = pr.Read(data)
 	if count != 3 {
-		t.Fail()
+		t.Fatal(err)
 	}
 	count, err = er.Read(data)
 	if count != 4 {
-		t.Fail()
+		t.Fatal(count, string(data), data)
 	}
 	ct.Wait()
 }
