@@ -161,11 +161,21 @@ func (p *ProcessDesc) SetLSMLabel(label string) error {
 	return nil
 }
 
-func (p *ProcessDesc) Wait() (int, error) {
-	var status C.int
+func (p *ProcessDesc) Wait() (*os.ProcessState, error) {
 
-	if ret := C.libct_process_wait(p.handle, &status); ret != 0 {
-		return -1, LibctError{int(ret)}
+	pid, err := p.GetPid()
+	if err != nil {
+		return nil, err
+	}
+
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return nil, err
+	}
+
+	ps, err := process.Wait()
+	if err != nil {
+		return nil, err
 	}
 
         var copyError error
@@ -177,7 +187,7 @@ func (p *ProcessDesc) Wait() (int, error) {
 
 	p.closeDescriptors(p.closeAfterWait)
 
-	return int(status), nil
+	return ps, nil
 }
 
 func (p *ProcessDesc) GetPid() (int, error) {
