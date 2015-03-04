@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -190,12 +191,12 @@ static int local_process_get_pid(ct_process_t h)
 static int local_process_wait(ct_process_t h, int *status)
 {
 	struct process *p = ph2p(h);
-	int s;
+	int s = -1;
 
 	if (p->pid < 0)
 		return -LCTERR_BADCTSTATE;
 
-	if (waitpid(p->pid, &s, 0) == -1) {
+	if (waitpid(p->pid, &s, 0) == -1 && errno != ECHILD) {
 		pr_perror("Unable to wait %d\n", p->pid);
 		return -1;
 	}
