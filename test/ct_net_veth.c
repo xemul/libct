@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 	ct_process_desc_t pd;
 	ct_process_t pr;
 	struct ct_net_veth_arg va;
-	ct_net_t nd;
+	ct_net_t nd, nd_peer;
 
 	ca.mark = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
@@ -65,13 +65,18 @@ int main(int argc, char **argv)
 	if (libct_handle_is_err(nd))
 		return tst_err("Can't add hostnic");
 
+	nd_peer = libct_net_dev_get_peer(nd);
+	if (libct_handle_is_err(nd_peer))
+		return tst_err("Can't get a veth peer");
+
+	if (libct_net_dev_set_mac_addr(nd_peer, "00:11:22:33:44:66"))
+		return tst_err("Can't set mac");
+
 	if (libct_net_dev_set_mac_addr(nd, "00:11:22:33:44:55"))
 		return tst_err("Can't set mac");
 
-         if (libct_net_dev_add_ip_addr(nd, "VETH_CT_ADDR"))
- 
-                 return tst_err("Can't set addr");
-
+	if (libct_net_dev_add_ip_addr(nd, "192.168.123.123/32"))
+		return tst_err("Can't set addr");
 
 	pr = libct_container_spawn_cb(ct, pd, check_ct_net, &ca);
 	if (libct_handle_is_err(pr))
