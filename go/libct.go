@@ -312,6 +312,15 @@ func (ct *Container) AddController(ctype int) error {
 	return nil
 }
 
+func (ct *Container) ConfigureController(ctype int, param string, value string) error {
+	if ret := C.libct_controller_configure(ct.ct, C.enum_ct_controller(ctype),
+					C.CString(param), C.CString(value)); ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
 func (ct *Container) Processes() ([]int, error) {
 	ctasks := C.libct_container_processes(ct.ct);
 	if C.libct_handle_is_err(unsafe.Pointer(ctasks)) != 0 {
