@@ -1,5 +1,3 @@
-include Makefile.config
-
 MAKEFLAGS 	:= -r -R --no-print-directory
 
 ifeq ($(strip $(V)),)
@@ -72,6 +70,12 @@ VERSION_MINOR		:= 1
 VERSION_SUBLEVEL	:= 0
 VERSION_EXTRA		:=
 VERSION_NAME		:=
+CONFIG_SELINUX		:=
+CONFIG_APPARMOR		:=
+
+# FAKE_LIBS is required for go bindings,
+# because LDFLAGS can not be customized there
+FAKE_LIBS		:=
 
 export VERSION_MAJOR VERSION_MINOR VERSION_SUBLEVEL VERSION_EXTRA VERSION_NAME
 
@@ -96,17 +100,22 @@ else
 	CFLAGS	+= -O2
 endif
 
-ifdef CONFIG_APPARMOR
+ifeq ($(CONFIG_APPARMOR),y)
 	DEFINES += -DHAVE_APPARMOR
+else
+	FAKE_LIBS += libapparmor.a
 endif
 
-ifdef CONFIG_SELINUX
+ifeq ($(CONFIG_SELINUX),y)
 	DEFINES += -DHAVE_SELINUX
+else
+	FAKE_LIBS += libselinux.a
 endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
 
 export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
+export CONFIG_SELINUX CONFIG_APPARMOR
 export SH RM OBJCOPY LDARCH LD CP MKDIR CD LN
 export ESED SED CAT
 
@@ -145,10 +154,19 @@ $(LIBCT).so: src/$(LIBCT).so
 	$(E) "  LN      " $@
 	$(Q) $(LN) -sf $^ $@
 
+libselinux.a: src/$(LIBCT).a
+	$(Q) $(LN) -sf $^ $@
+
+libapparmor.a: src/$(LIBCT).a
+	$(Q) $(LN) -sf $^ $@
+
 src/$(LIBCT).so: src/$(LIBCT).a
 
-all: $(LIBCT).so $(LIBCT).a
+all: $(LIBCT).so $(LIBCT).a $(FAKE_LIBS)
 	@true
+
+test-build:
+	$(Q) $(MAKE) -C test all
 
 docs:
 	$(Q) $(MAKE) -s -C Documentation all
@@ -168,5 +186,6 @@ clean:
 	$(Q) $(RM) $(LIBCT).so $(LIBCT).a
 	$(Q) $(RM) $(CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
+	$(Q) $(RM) libapparmor.a libselinux.a
 
 .DEFAULT_GOAL := all
