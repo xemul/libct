@@ -153,21 +153,21 @@ func (ct *Container) SetConsoleFd(f file) error {
 	return nil
 }
 
-func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
+func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) error {
 	err := ct.execve(p, path, argv, env, true)
 
 	return err
 }
 
-func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
+func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) error {
 	err := ct.execve(p, path, argv, env, false)
 	return err
 }
 
-func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) (error) {
+func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) error {
 	var (
-		h     C.ct_process_t
-		i   int = 0
+		h C.ct_process_t
+		i int = 0
 	)
 
 	type F func(*ProcessDesc) (file, error)
@@ -183,7 +183,6 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 	}
 
 	p.childFiles = append(p.childFiles, p.ExtraFiles...)
-
 
 	cargv := make([]*C.char, len(argv)+1)
 	for i, arg := range argv {
@@ -211,7 +210,7 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {
 		p.closeDescriptors(p.closeAfterStart)
 		p.closeDescriptors(p.closeAfterWait)
-		return  LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
+		return LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
 	}
 
 	p.closeDescriptors(p.closeAfterStart)
@@ -296,15 +295,15 @@ func (ct *Container) AddMount(src string, dst string, flags int, fstype string, 
 }
 
 const (
-	CTL_BLKIO	= C.CTL_BLKIO
-	CTL_CPU		= C.CTL_CPU
-	CTL_CPUACCT	= C.CTL_CPUACCT
-	CTL_CPUSET	= C.CTL_CPUSET
-	CTL_DEVICES	= C.CTL_DEVICES
-	CTL_FREEZER	= C.CTL_FREEZER
-	CTL_HUGETLB	= C.CTL_HUGETLB
-	CTL_MEMORY	= C.CTL_MEMORY
-	CTL_NETCLS	= C.CTL_NETCLS
+	CTL_BLKIO   = C.CTL_BLKIO
+	CTL_CPU     = C.CTL_CPU
+	CTL_CPUACCT = C.CTL_CPUACCT
+	CTL_CPUSET  = C.CTL_CPUSET
+	CTL_DEVICES = C.CTL_DEVICES
+	CTL_FREEZER = C.CTL_FREEZER
+	CTL_HUGETLB = C.CTL_HUGETLB
+	CTL_MEMORY  = C.CTL_MEMORY
+	CTL_NETCLS  = C.CTL_NETCLS
 )
 
 func (ct *Container) AddController(ctype int) error {
@@ -317,7 +316,7 @@ func (ct *Container) AddController(ctype int) error {
 
 func (ct *Container) ConfigureController(ctype int, param string, value string) error {
 	if ret := C.libct_controller_configure(ct.ct, C.enum_ct_controller(ctype),
-					C.CString(param), C.CString(value)); ret != 0 {
+		C.CString(param), C.CString(value)); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
@@ -325,7 +324,7 @@ func (ct *Container) ConfigureController(ctype int, param string, value string) 
 }
 
 func (ct *Container) Processes() ([]int, error) {
-	ctasks := C.libct_container_processes(ct.ct);
+	ctasks := C.libct_container_processes(ct.ct)
 	if C.libct_handle_is_err(unsafe.Pointer(ctasks)) != 0 {
 		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(ctasks)))}
 	}
@@ -477,10 +476,10 @@ func (nh *NetRouteNextHop) SetDev(dev string) error {
 }
 
 const (
-	LOG_MSG = C.LOG_MSG
+	LOG_MSG   = C.LOG_MSG
 	LOG_ERROR = C.LOG_ERROR
-	LOG_WARN = C.LOG_WARN
-	LOG_INFO = C.LOG_INFO
+	LOG_WARN  = C.LOG_WARN
+	LOG_INFO  = C.LOG_INFO
 	LOG_DEBUG = C.LOG_DEBUG
 )
 

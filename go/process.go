@@ -12,7 +12,7 @@ import "io"
 import "syscall"
 
 type ProcessDesc struct {
-	desc C.ct_process_desc_t
+	desc   C.ct_process_desc_t
 	handle C.ct_process_t
 
 	// Stdin specifies the process's standard input. If Stdin is
@@ -39,7 +39,7 @@ type ProcessDesc struct {
 	closeAfterWait  []io.Closer
 	goroutine       []func() error
 
-	errch           chan error // one send per goroutine
+	errch chan error // one send per goroutine
 }
 
 // interfaceEqual protects against panics from doing equality tests on
@@ -178,12 +178,12 @@ func (p *ProcessDesc) Wait() (*os.ProcessState, error) {
 		return nil, err
 	}
 
-        var copyError error
-        for range p.goroutine {
-                if err := <-p.errch; err != nil && copyError == nil {
-                        copyError = err
-                }
-        }
+	var copyError error
+	for range p.goroutine {
+		if err := <-p.errch; err != nil && copyError == nil {
+			copyError = err
+		}
+	}
 
 	p.closeDescriptors(p.closeAfterWait)
 

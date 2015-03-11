@@ -66,7 +66,7 @@ func TestSpawnExecvStdout(t *testing.T) {
 	}
 
 	if err = ct.AddController(CTL_CPU); err != nil {
-		t.Fatal(err);
+		t.Fatal(err)
 	}
 
 	err = ct.SpawnExecve(p, "sh",
