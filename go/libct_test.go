@@ -4,6 +4,10 @@ import "testing"
 import "syscall"
 import "os"
 
+func init() {
+	LogInit(os.Stderr, LOG_MSG)
+}
+
 func TestSpawnExecv(t *testing.T) {
 	s := &Session{}
 

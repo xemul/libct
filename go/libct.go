@@ -4,7 +4,10 @@ package libct
 // #cgo LDFLAGS: -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -l:libapparmor.a -l:libselinux.a -lm
 // #include "../src/include/uapi/libct.h"
 // #include "../src/include/uapi/libct-errors.h"
+// #include "../src/include/uapi/libct-log-levels.h"
 import "C"
+
+import "os"
 import "fmt"
 import "unsafe"
 
@@ -471,4 +474,16 @@ func (nh *NetRouteNextHop) SetDev(dev string) error {
 	}
 
 	return nil
+}
+
+const (
+	LOG_MSG = C.LOG_MSG
+	LOG_ERROR = C.LOG_ERROR
+	LOG_WARN = C.LOG_WARN
+	LOG_INFO = C.LOG_INFO
+	LOG_DEBUG = C.LOG_DEBUG
+)
+
+func LogInit(fd *os.File, level uint) {
+	C.libct_log_init(C.int(fd.Fd()), C.uint(level))
 }
