@@ -156,7 +156,10 @@ func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
 }
 
 func (p *ProcessDesc) SetLSMLabel(label string) error {
-	if ret := C.libct_process_desc_set_lsm_label(p.desc, C.CString(label)); ret != 0 {
+	clabel := C.CString(label)
+	defer C.free(unsafe.Pointer(clabel))
+
+	if ret := C.libct_process_desc_set_lsm_label(p.desc, clabel); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
