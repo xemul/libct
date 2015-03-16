@@ -179,7 +179,7 @@ func (p *ProcessDesc) Wait() (*os.ProcessState, error) {
 	}
 
 	var copyError error
-	for range p.goroutine {
+	for _ = range p.goroutine {
 		if err := <-p.errch; err != nil && copyError == nil {
 			copyError = err
 		}
