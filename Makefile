@@ -63,6 +63,7 @@ cflags-y	+= -iquote src/lsm
 cflags-y	+= -iquote src
 cflags-y	+= -fno-strict-aliasing
 cflags-y	+= -I/usr/include
+cflags-y	+= -I/usr/include/libnl3
 export cflags-y
 
 VERSION_MAJOR		:= 0
