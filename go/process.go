@@ -6,10 +6,12 @@ package libct
 // #cgo LDFLAGS: -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -l:libapparmor.a -l:libselinux.a -lm
 // #include "../src/include/uapi/libct.h"
 // #include "../src/include/uapi/libct-errors.h"
+// #include <stdlib.h>
 import "C"
 import "os"
 import "io"
 import "syscall"
+import "unsafe"
 
 type ProcessDesc struct {
 	desc   C.ct_process_desc_t
@@ -188,6 +190,23 @@ func (p *ProcessDesc) Wait() (*os.ProcessState, error) {
 	p.closeDescriptors(p.closeAfterWait)
 
 	return ps, nil
+}
+
+func (p *ProcessDesc) SetEnv(env []string) error {
+	cenv := make([]*C.char, len(env))
+	for i, v := range env {
+		cenv[i] = C.CString(v)
+	}
+
+	ret := C.libct_process_desc_set_env(p.desc, &cenv[0], C.int(len(env)))
+
+	for i := range cenv {
+		C.free(unsafe.Pointer(cenv[i]))
+	}
+	if ret < 0 {
+		return LibctError{int(ret)}
+	}
+	return nil
 }
 
 func (p *ProcessDesc) GetPid() (int, error) {

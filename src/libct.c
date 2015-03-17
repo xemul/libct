@@ -204,6 +204,11 @@ int libct_process_desc_set_fds(ct_process_desc_t p, int *fds, int n)
 	return p->ops->set_fds(p, fds, n);
 }
 
+int libct_process_desc_set_env(ct_process_desc_t p, char **env, int envn)
+{
+	return p->ops->set_env(p, env, envn);
+}
+
 int libct_process_wait(ct_process_t p, int *status)
 {
 	return p->ops->wait(p, status);

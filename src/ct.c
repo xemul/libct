@@ -187,6 +187,29 @@ static int uname_set(struct container *ct)
 	return ret;
 }
 
+static int apply_env(struct process_desc *p)
+{
+	int i;
+
+	if (clearenv()) {
+		pr_perror("Unable to clear the environment");
+	}
+
+	for (i = 0; i < p->envn; i++) {
+		char *c;
+
+		c = strchr(p->env[i], '=');
+		*c = 0;
+		if (setenv(p->env[i], c + 1, 1)) {
+			*c = '=';
+			pr_perror("Unable to set %s", p->env[i]);
+			return -1;
+		}
+		*c = '=';
+	}
+	return 0;
+}
+
 static int ct_clone(void *arg)
 {
 	int ret = -1;
@@ -277,6 +300,10 @@ static int ct_clone(void *arg)
 		goto err_um;
 
 	ret = apply_creds(p);
+	if (ret < 0)
+		goto err_um;
+
+	ret = apply_env(p);
 	if (ret < 0)
 		goto err_um;
 
@@ -544,6 +571,9 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		}
 
 		if (apply_creds(p))
+			exit(-1);
+
+		if (apply_env(p))
 			exit(-1);
 
 		spawn_sock_wake(wait_sock, 0);

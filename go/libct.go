@@ -189,9 +189,14 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 		cargv[i] = C.CString(arg)
 	}
 
-	cenv := make([]*C.char, len(env)+1)
-	for i, e := range env {
-		cenv[i] = C.CString(e)
+	var penv **C.char
+	if env == nil {
+		penv = nil
+	} else {
+		cenv := make([]*C.char, len(env)+1)
+		for i, e := range env {
+			cenv[i] = C.CString(e)
+		}
 	}
 
 	cfds := make([]C.int, len(p.childFiles))
@@ -202,9 +207,9 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 	C.libct_process_desc_set_fds(p.desc, &cfds[0], C.int(len(p.childFiles)))
 
 	if spawn {
-		h = C.libct_container_spawn_execve(ct.ct, p.desc, C.CString(path), &cargv[0], &cenv[0])
+		h = C.libct_container_spawn_execve(ct.ct, p.desc, C.CString(path), &cargv[0], penv)
 	} else {
-		h = C.libct_container_enter_execve(ct.ct, p.desc, C.CString(path), &cargv[0], &cenv[0])
+		h = C.libct_container_enter_execve(ct.ct, p.desc, C.CString(path), &cargv[0], penv)
 	}
 
 	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {

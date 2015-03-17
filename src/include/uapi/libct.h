@@ -196,6 +196,8 @@ extern int libct_process_desc_set_pdeathsig(ct_process_desc_t ct, int sig);
 #define LIBCT_CONSOLE_FD -2
 extern int libct_process_desc_set_fds(ct_process_desc_t p, int *fds, int n);
 
+extern int libct_process_desc_set_env(ct_process_desc_t p, char **env, int envn);
+
 extern int libct_process_wait(ct_process_t p, int *status);
 extern void libct_process_destroy(ct_process_t p);
 extern int libct_process_get_pid(ct_process_t p);

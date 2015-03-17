@@ -31,6 +31,7 @@ struct process_desc_ops {
 	int (*set_pdeathsig)(ct_process_desc_t h, int sig);
 	int (*set_lsm_label)(ct_process_desc_t h, char *label);
 	int (*set_fds)(ct_process_desc_t h, int *fds, int fdn);
+	int (*set_env)(ct_process_desc_t h, char **env, int envn);
 	ct_process_desc_t (*copy)(ct_process_desc_t h);
 	void (*destroy)(ct_process_desc_t p);
 };
@@ -57,6 +58,8 @@ struct process_desc {
 
 	int			*fds;
 	int			fdn;
+	char			**env;
+	int			envn;
 };
 
 static inline struct process_desc *prh2pr(ct_process_desc_t h)

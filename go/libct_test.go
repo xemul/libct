@@ -68,10 +68,12 @@ func TestSpawnExecvStdout(t *testing.T) {
 	if err = ct.AddController(CTL_CPU); err != nil {
 		t.Fatal(err)
 	}
-
+	if err = p.SetEnv([]string{"TEST_LIBCT=hello", "PATH=/bin:/usr/bin"}); err != nil {
+		t.Fatal(err)
+	}
 	err = ct.SpawnExecve(p, "sh",
-		[]string{"sh", "-c", "echo ok; cat; cat <&3 >&2"},
-		[]string{"PATH=/bin:/usr/bin"})
+		[]string{"sh", "-c", "echo ok; cat; cat <&3 >&2; env | grep -q TEST_LIBCT"},
+		nil)
 	defer ct.Wait()
 	pw.Close()
 	ir.Close()
@@ -100,15 +102,22 @@ func TestSpawnExecvStdout(t *testing.T) {
 	tw.WriteString("good")
 	tw.Close()
 
+	status, err := p.Wait()
+	if err != nil {
+		t.Fatal(status)
+	}
 	ct.Wait()
 
-	data := make([]byte, 100)
-	count, err := pr.Read(data)
+	data := make([]byte, 1024)
+	count, err := er.Read(data)
+	if count != 4 {
+		t.Fatal(count, string(data), data)
+	}
+	count, err = pr.Read(data)
 	if count != 6 {
 		t.Fatal(count, string(data), data)
 	}
-	count, err = er.Read(data)
-	if count != 4 {
-		t.Fatal(count, string(data), data)
+	if (!status.Success()) {
+		t.Fatal(status.String())
 	}
 }

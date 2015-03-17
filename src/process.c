@@ -70,10 +70,46 @@ static int local_desc_set_pdeathsig(ct_process_desc_t h, int sig)
 	return 0;
 }
 
+static void local_desc_destroy_env(struct process_desc *p)
+{
+	int i;
+
+	for (i = 0; i < p->envn; i++)
+		xfree(p->env[i]);
+	xfree(p->env);
+	p->env = NULL;
+	p->envn = 0;
+}
+
+static int local_desc_set_env(ct_process_desc_t h, char **env, int n)
+{
+	struct process_desc *p = prh2pr(h);
+	int i;
+
+	if (p->env)
+		return -LCTERR_INVARG;
+
+	p->env = xzalloc(n * sizeof(char *));
+	if (p == NULL)
+		return -1;
+
+	p->envn = n;
+	for (i = 0; i < n; i++) {
+		p->env[i] = xstrdup(env[i]);
+		if (p->env[i] == NULL) {
+			local_desc_destroy_env(p);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static void local_desc_destroy(ct_process_desc_t h)
 {
 	struct process_desc *p = prh2pr(h);
 
+	local_desc_destroy_env(p);
 	xfree(p->lsm_label);
 	xfree(p->groups);
 	xfree(p->fds);
@@ -165,6 +201,7 @@ static const struct process_desc_ops local_process_desc_ops = {
 	.set_pdeathsig	= local_desc_set_pdeathsig,
 	.set_lsm_label	= local_desc_set_lsm_label,
 	.set_fds	= local_desc_set_fds,
+	.set_env	= local_desc_set_env,
 };
 
 void local_process_desc_init(struct process_desc *p)
@@ -180,6 +217,8 @@ void local_process_desc_init(struct process_desc *p)
 	p->lsm_label	= NULL;
 	p->fds		= NULL;
 	p->fdn		= 0;
+	p->env		= NULL;
+	p->envn		= 0;
 }
 
 static int local_process_get_pid(ct_process_t h)
