@@ -27,14 +27,24 @@ func TestSpawnExecv(t *testing.T) {
 	}
 
 	ct.SetNsMask(syscall.CLONE_NEWNS | syscall.CLONE_NEWPID)
+	if err = p.SetEnv([]string{"PATH=/bin:/usr/bin"}); err != nil {
+		t.Fatal(err)
+	}
 
-	err = ct.SpawnExecve(p, "true",
-		[]string{"true"},
-		[]string{"PATH=/bin:/usr/bin"})
+	err = ct.SpawnExecve(p, "sh",
+		[]string{"sh", "-c", "env | grep -q TEST_LIBCT=test_libct"},
+		[]string{"TEST_LIBCT=test_libct"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	status, err := p.Wait()
 	ct.Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.Success() {
+		t.Fatal(status.String())
+	}
 }
 
 func TestSpawnExecvStdout(t *testing.T) {
