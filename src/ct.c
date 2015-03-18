@@ -191,6 +191,9 @@ static int apply_env(struct process_desc *p)
 {
 	int i;
 
+	if (p->env == NULL)
+		return 0;
+
 	if (clearenv()) {
 		pr_perror("Unable to clear the environment");
 	}
