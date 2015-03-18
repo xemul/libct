@@ -216,6 +216,7 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 		for i, e := range env {
 			cenv[i] = C.CString(e)
 		}
+		penv = &cenv[0]
 	}
 
 	cfds := make([]C.int, len(p.childFiles))
