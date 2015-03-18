@@ -416,6 +416,7 @@ struct libct_processes *local_controller_tasks(ct_handler_t h)
 	if (!procs)
 		goto err;
 	size = 0;
+	procs->nproc = 0;
 
 	while (fgets(spid, sizeof(spid), f)) {
 		int pid;
@@ -425,7 +426,7 @@ struct libct_processes *local_controller_tasks(ct_handler_t h)
 		if (procs->nproc + 1 < size) {
 			struct libct_processes *p;
 			size = (size + 1) * 2;
-			p = xrealloc(procs, sizeof(*procs) + sizeof(procs->array[0]));
+			p = xrealloc(procs, sizeof(*procs) + size * sizeof(procs->array[0]));
 			if (p == NULL)
 				goto err;
 			procs = p;
