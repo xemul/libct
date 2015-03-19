@@ -242,6 +242,9 @@ int setup_fds_at(int proc_fd, int *fds, int n)
 		fds[i] = i;
 	}
 
+	if (proc_fd < n)
+		proc_fd = dup(proc_fd);
+
 	/* move target descriptros from target places */
 	for (i = 0; i < n; i++) {
 		int ret;
