@@ -187,6 +187,25 @@ static int uname_set(struct container *ct)
 	return ret;
 }
 
+static int apply_rlimit(struct process_desc *p)
+{
+	int i;
+
+	for (i = 0; i < RLIM_NLIMITS; i++) {
+		/* isn't set */
+		if (p->rlimit[i].rlim_cur == RLIM_INFINITY && p->rlimit[i].rlim_max == 0)
+			continue;
+
+		if (setrlimit(i, &p->rlimit[i])) {
+			pr_perror("Unable to set rlimit %d (%lld, %lld)",
+				i, p->rlimit[i].rlim_cur,  p->rlimit[i].rlim_max);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int apply_env(struct process_desc *p)
 {
 	int i;
@@ -304,6 +323,9 @@ static int ct_clone(void *arg)
 
 	ret = apply_creds(p);
 	if (ret < 0)
+		goto err_um;
+
+	if (apply_rlimit(p))
 		goto err_um;
 
 	ret = apply_env(p);
@@ -574,6 +596,9 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		}
 
 		if (apply_creds(p))
+			exit(-1);
+
+		if (apply_rlimit(p))
 			exit(-1);
 
 		if (apply_env(p))

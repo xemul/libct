@@ -211,6 +211,14 @@ func (p *ProcessDesc) SetEnv(env []string) error {
 	return nil
 }
 
+func (p *ProcessDesc) SetRlimit(resource int, soft uint64, hard uint64) error {
+	ret := C.libct_process_desc_set_rlimit(p.desc, C.int(resource), C.uint64_t(soft), C.uint64_t(hard))
+	if ret < 0 {
+		return LibctError{int(ret)}
+	}
+	return nil
+}
+
 func (p *ProcessDesc) GetPid() (int, error) {
 
 	ret := C.libct_process_get_pid(p.handle)

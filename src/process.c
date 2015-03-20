@@ -191,6 +191,19 @@ int local_desc_set_fds(ct_process_desc_t h, int *fds, int fdn)
 	return 0;
 }
 
+int local_desc_set_rlimit(ct_process_desc_t h, int resource, uint64_t soft, uint64_t hard)
+{
+	struct process_desc *p = prh2pr(h);
+
+	if (resource >= RLIM_NLIMITS)
+		return -1;
+
+	p->rlimit[resource].rlim_cur = soft;
+	p->rlimit[resource].rlim_max = hard;
+
+	return 0;
+}
+
 static const struct process_desc_ops local_process_desc_ops = {
 	.copy		= local_desc_copy,
 	.destroy	= local_desc_destroy,
@@ -202,10 +215,13 @@ static const struct process_desc_ops local_process_desc_ops = {
 	.set_lsm_label	= local_desc_set_lsm_label,
 	.set_fds	= local_desc_set_fds,
 	.set_env	= local_desc_set_env,
+	.set_rlimit	= local_desc_set_rlimit,
 };
 
 void local_process_desc_init(struct process_desc *p)
 {
+	int i;
+
 	p->h.ops	= &local_process_desc_ops;
 	p->uid		= 0;
 	p->gid		= 0;
@@ -219,6 +235,15 @@ void local_process_desc_init(struct process_desc *p)
 	p->fdn		= 0;
 	p->env		= NULL;
 	p->envn		= 0;
+
+	for (i = 0; i < RLIM_NLIMITS; i++) {
+		/*
+		 * Here is an invalid pair of values, which
+		 * means that this type of limits isn't set.
+		 */
+		p->rlimit[i].rlim_cur = RLIM_INFINITY;
+		p->rlimit[i].rlim_max = 0;
+	}
 }
 
 static int local_process_get_pid(ct_process_t h)

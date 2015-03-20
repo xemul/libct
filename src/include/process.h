@@ -2,6 +2,7 @@
 #define __LIBCT_PROCESS_H__
 
 #include <stdint.h>
+#include <sys/resource.h>
 
 #include "uapi/libct.h"
 
@@ -32,6 +33,7 @@ struct process_desc_ops {
 	int (*set_lsm_label)(ct_process_desc_t h, char *label);
 	int (*set_fds)(ct_process_desc_t h, int *fds, int fdn);
 	int (*set_env)(ct_process_desc_t h, char **env, int envn);
+	int (*set_rlimit)(ct_process_desc_t h, int resource, uint64_t soft, uint64_t hard);
 	ct_process_desc_t (*copy)(ct_process_desc_t h);
 	void (*destroy)(ct_process_desc_t p);
 };
@@ -60,6 +62,8 @@ struct process_desc {
 	int			fdn;
 	char			**env;
 	int			envn;
+
+	struct rlimit		rlimit[RLIM_NLIMITS];
 };
 
 static inline struct process_desc *prh2pr(ct_process_desc_t h)
