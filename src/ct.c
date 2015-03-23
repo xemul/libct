@@ -298,6 +298,7 @@ static int apply_env(struct process_desc *p)
 
 	if (clearenv()) {
 		pr_perror("Unable to clear the environment");
+		return -1;
 	}
 
 	for (i = 0; i < p->envn; i++) {
