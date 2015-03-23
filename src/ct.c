@@ -103,13 +103,20 @@ struct ct_clone_arg {
 static int re_mount_proc(struct container *ct)
 {
 	if (!ct->root_path) {
-		if (mount("none", "/proc", "none", MS_PRIVATE|MS_REC, NULL))
+		if (mount("none", "/proc", "none", MS_PRIVATE|MS_REC, NULL)) {
+			pr_perror("Unable to remount /proc");
 			return -1;
+		}
 
 		umount2("/proc", MNT_DETACH);
 	}
 
-	return mount("proc", "/proc", "proc", 0, NULL);
+	if (mount("proc", "/proc", "proc", 0, NULL)) {
+		pr_perror("Unable to mount /proc");
+		return -1;
+	}
+
+	return 0;
 }
 
 static int try_mount_proc(struct container *ct)
@@ -153,16 +160,21 @@ static int set_ct_root(struct container *ct)
 	 * gives us the ability to umount old tree.
 	 */
 
-	if (mount(ct->root_path, ct->root_path, NULL, MS_BIND | MS_REC, NULL) == -1)
+	if (mount(ct->root_path, ct->root_path, NULL, MS_BIND | MS_REC, NULL) == -1) {
+		pr_perror("Unable to mount root %s", ct->root_path);
 		return -1;
+	}
 
-	if (chdir(ct->root_path))
+	if (chdir(ct->root_path)) {
+		pr_perror("Unable to chroot into %s", ct->root_path);
 		return -1;
+	}
 
 	if (mkdtemp(put_root) == NULL)
 		return -1;
 
 	if (pivot_root(".", put_root)) {
+		pr_perror("Unable to change the root filesystem");
 		rmdir(put_root);
 		return -1;
 	}
@@ -170,7 +182,8 @@ static int set_ct_root(struct container *ct)
 	if (umount2(put_root, MNT_DETACH))
 		return -1;
 
-	rmdir(put_root);
+	if (rmdir(put_root))
+		pr_perror("Unable to remove %d", put_root);
 	return 0;
 }
 
@@ -251,11 +264,15 @@ static int ct_clone(void *arg)
 			goto err;
 	}
 
-	if (prctl(PR_SET_PDEATHSIG, p->pdeathsig))
+	if (prctl(PR_SET_PDEATHSIG, p->pdeathsig)) {
+		pr_perror("Unable to set pdeath signal");
 		goto err;
+	}
 
-	if (!(ct->flags & CT_NOSETSID) && setsid() == -1)
+	if (!(ct->flags & CT_NOSETSID) && setsid() == -1) {
+		pr_perror("Unable to create a session");
 		goto err;
+	}
 
 	if (ct->tty_fd == LIBCT_CONSOLE_FD) {
 		ct->tty_fd = open("/dev/console", O_RDWR);
@@ -431,9 +448,12 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	ca.p = p;
 	ca.is_exec = is_exec;
 	pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD, &ca);
-	close(ca.wait_sock[1]);
-	if (pid < 0)
+	if (pid < 0) {
+		pr_perror("Unable to clone a child process");
+		close(ca.wait_sock[1]);
 		goto err_clone;
+	}
+	close(ca.wait_sock[1]);
 
 	ct->p.pid = pid;
 
@@ -550,6 +570,11 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	wait_sock = wait_socks[0];
 
 	pid = fork();
+	if (pid < 0) {
+		pr_perror("Unable to fork a child process");
+		close(wait_socks[1]);
+		goto err;
+	}
 	if (pid == 0) {
 		struct ns_desc *ns;
 		wait_sock = wait_socks[1];
@@ -615,8 +640,6 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		exit(aux);
 	}
 	close(wait_socks[1]);
-	if (pid < 0)
-		goto err;
 
 	if (aux >= 0)
 		restore_ns(aux, &pid_ns);

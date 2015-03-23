@@ -5,6 +5,8 @@
 
 #include "namespaces.h"
 #include "vzsyscalls.h"
+#include "bug.h"
+#include "log.h"
 
 struct ns_desc pid_ns = {
 	.name = "pid",
@@ -49,10 +51,17 @@ int setns(int fd, int nstype) __attribute__((weak));
 
 static int libct_setns(int fd, int nstype)
 {
-	if (setns)
-		return setns(fd, nstype);
+	int ret;
 
-	return syscall(__NR_setns, fd, nstype);
+	if (setns)
+		ret = setns(fd, nstype);
+	else
+		ret = syscall(__NR_setns, fd, nstype);
+
+	if (ret)
+		pr_perror("Unable to switch namespace %d", nstype);
+
+	return ret;
 }
 
 int switch_ns(int pid, struct ns_desc *nd, int *rst)
@@ -91,6 +100,7 @@ err_ns:
 
 void restore_ns(int rst, struct ns_desc *nd)
 {
-	libct_setns(rst, nd->cflag);
+	if (libct_setns(rst, nd->cflag))
+		BUG();
 	close(rst);
 }
