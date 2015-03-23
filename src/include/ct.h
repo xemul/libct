@@ -20,6 +20,7 @@ struct container_ops {
 	int (*wait)(ct_handler_t h);
 	enum ct_state (*get_state)(ct_handler_t h);
 	int (*set_nsmask)(ct_handler_t h, unsigned long nsmask);
+	int (*set_nspath)(ct_handler_t h, unsigned long ns, char *path);
 	int (*add_controller)(ct_handler_t h, enum ct_controller ctype);
 	int (*config_controller)(ct_handler_t h, enum ct_controller ctype, char *param, char *value);
 	int (*fs_set_root)(ct_handler_t h, char *root);
@@ -69,6 +70,9 @@ struct container {
 	 */
 
 	unsigned long		nsmask;		/* namespaces used by container */
+	unsigned long		setnsmask;
+	struct list_head	setns_list;
+
 	unsigned long		cgroups_mask;
 	struct list_head	cgroups;
 	struct list_head	cg_configs;

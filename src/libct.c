@@ -121,6 +121,11 @@ int libct_container_set_nsmask(ct_handler_t ct, unsigned long nsmask)
 	return ct->ops->set_nsmask(ct, nsmask);
 }
 
+int libct_container_set_nspath(ct_handler_t ct, int ns, char *path)
+{
+	return ct->ops->set_nspath(ct, ns, path);
+}
+
 int libct_container_set_option(ct_handler_t ct, int opt, void *args)
 {
 	return ct->ops->set_option(ct, opt, args);

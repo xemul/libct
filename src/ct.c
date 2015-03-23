@@ -50,6 +50,75 @@ static void local_ct_uid_gid_free(struct container *ct)
 		xfree(map);
 }
 
+struct nspath_entry {
+	struct list_head node;
+	unsigned long ns;
+	char path[0];
+};
+
+static int local_set_nspath(ct_handler_t h, unsigned long ns, char *path)
+{
+	struct container *ct = cth2ct(h);
+	struct nspath_entry *e;
+	int len;
+
+	if (ct->state != CT_STOPPED)
+		return -LCTERR_BADCTSTATE;
+
+	/* Are all of these bits supported by kernel? */
+	if (ns & ~kernel_ns_mask)
+		return -LCTERR_NONS;
+
+	if (ns & ct->nsmask)
+		return -LCTERR_BADARG;
+
+	len = strlen(path);
+	e = xmalloc(sizeof(struct nspath_entry) + len + 1);
+	if (e == NULL)
+		return -1;
+
+	memcpy(e->path, path, len);
+	e->path[len] = 0;
+
+	list_add_tail(&e->node, &ct->setns_list);
+
+	return 0;
+}
+
+static int apply_nspath(struct container *ct)
+{
+	struct nspath_entry *e;
+
+	list_for_each_entry(e, &ct->setns_list, node) {
+		int fd;
+		fd = open(e->path, O_RDWR);
+		if (fd < 0) {
+			pr_perror("Unable to open %s", e->path);
+			return -1;
+		}
+
+		if (setns(fd, e->ns) < 0) {
+			pr_perror("Unable to switch namespace %d on %s",
+					e->ns, e->path);
+			close(fd);
+			return -1;
+		}
+		close(fd);
+	}
+
+	return 0;
+}
+
+static void local_free_nspath(struct container *ct)
+{
+	struct nspath_entry *e, *t;
+
+	list_for_each_entry_safe(e, t, &ct->setns_list, node) {
+		xfree(e);
+	}
+}
+
+
 static void local_ct_destroy(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
@@ -62,6 +131,7 @@ static void local_ct_destroy(ct_handler_t h)
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
 	local_ct_uid_gid_free(ct);
+	local_free_nspath(ct);
 	xfree(ct);
 }
 
@@ -258,6 +328,9 @@ static int ct_clone(void *arg)
 	ret = spawn_sock_wait_and_close(wait_sock);
 	if (ret)
 		goto err_um;
+
+	if (apply_nspath(ct))
+		goto err;
 
 	if (ct->nsmask & CLONE_NEWUSER) {
 		if (setuid(0) || setgid(0) || setgroups(0, NULL))
@@ -837,6 +910,7 @@ static const struct container_ops local_ct_ops = {
 	.destroy		= local_ct_destroy,
 	.detach			= local_ct_destroy,
 	.set_nsmask		= local_set_nsmask,
+	.set_nspath		= local_set_nspath,
 	.add_controller		= local_add_controller,
 	.config_controller	= local_config_controller,
 	.fs_set_root		= local_fs_set_root,
@@ -868,6 +942,7 @@ ct_handler_t ct_create(char *name)
 		ct->state = CT_STOPPED;
 		ct->name = xstrdup(name);
 		ct->tty_fd = -1;
+		INIT_LIST_HEAD(&ct->setns_list);
 		INIT_LIST_HEAD(&ct->cgroups);
 		INIT_LIST_HEAD(&ct->cg_configs);
 		INIT_LIST_HEAD(&ct->ct_nets);

@@ -131,6 +131,18 @@ func (ct *Container) SetNsMask(nsmask uint64) error {
 	return nil
 }
 
+func (ct *Container) SetNsPath(ns int, path string) error {
+	cpath := C.CString(path)
+	defer C.free(unsafe.Pointer(cpath))
+
+	ret := C.libct_container_set_setns(ct.ct, C.int(ns), cpath)
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
 func (ct *Container) Kill() error {
 	ret := C.libct_container_kill(ct.ct)
 
