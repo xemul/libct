@@ -127,7 +127,7 @@ func TestSpawnExecvStdout(t *testing.T) {
 	if count != 6 {
 		t.Fatal(count, string(data), data)
 	}
-	if (!status.Success()) {
+	if !status.Success() {
 		t.Fatal(status.String())
 	}
 }
