@@ -135,7 +135,7 @@ func (ct *Container) SetNsPath(ns int, path string) error {
 	cpath := C.CString(path)
 	defer C.free(unsafe.Pointer(cpath))
 
-	ret := C.libct_container_set_setns(ct.ct, C.int(ns), cpath)
+	ret := C.libct_container_set_nspath(ct.ct, C.int(ns), cpath)
 	if ret != 0 {
 		return LibctError{int(ret)}
 	}
