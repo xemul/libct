@@ -366,12 +366,12 @@ static int ct_clone(void *arg)
 
 	ret = spawn_sock_wait_and_close(wait_sock);
 	if (ret)
-		goto err_um;
+		goto err;
 
 	proc_fd = open("/proc/", O_DIRECTORY | O_RDONLY);
 	if (proc_fd == -1) {
 		pr_perror("Unable to open /proc");
-		goto err_um;
+		goto err;
 	}
 
 	if (apply_nspath(ct))
@@ -396,7 +396,7 @@ static int ct_clone(void *arg)
 		ct->tty_fd = open("/dev/console", O_RDWR);
 		if (ct->tty_fd == -1) {
 			pr_perror("Unable to open /dev/console");
-			return -1;
+			goto err;
 		}
 	}
 
@@ -433,7 +433,7 @@ static int ct_clone(void *arg)
 
 		ret = fs_create_devnodes(ct);
 		if (ret < 0)
-			goto err;
+			goto err_um;
 	}
 
 	ret = uname_set(ct);
