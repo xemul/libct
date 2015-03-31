@@ -318,7 +318,7 @@ static int apply_env(struct process_desc *p)
 
 static int ct_clone(void *arg)
 {
-	int ret = -1;
+	int ret = -1, proc_fd;
 	struct ct_clone_arg *ca = arg;
 	struct container *ct = ca->ct;
 	struct process_desc *p = ca->p;
@@ -329,6 +329,12 @@ static int ct_clone(void *arg)
 	ret = spawn_sock_wait_and_close(wait_sock);
 	if (ret)
 		goto err_um;
+
+	proc_fd = open("/proc/", O_DIRECTORY | O_RDONLY);
+	if (proc_fd == -1) {
+		pr_perror("Unable to open /proc");
+		goto err_um;
+	}
 
 	if (apply_nspath(ct))
 		goto err;
@@ -358,18 +364,6 @@ static int ct_clone(void *arg)
 
 	if (ct->tty_fd >= 0 && ioctl(ct->tty_fd, TIOCSCTTY, 0) == -1)
 		goto err;
-
-	if (p->fds) {
-		p->fds[p->fdn] = wait_sock;
-
-		if (setup_fds(p->fds, p->fdn + 1))
-			goto err;
-
-		wait_sock = p->fdn;
-		if (fcntl(wait_sock, F_SETFD, FD_CLOEXEC)) {
-			goto err;
-		}
-	}
 
 	if (ct->nsmask & CLONE_NEWNS) {
 		/*
@@ -428,6 +422,18 @@ static int ct_clone(void *arg)
 	p->lsm_on_exec = 0;
 	if (ret < 0)
 		goto err;
+
+	if (p->fds) {
+		p->fds[p->fdn] = wait_sock;
+
+		if (setup_fds_at(proc_fd, p->fds, p->fdn + 1))
+			goto err;
+
+		wait_sock = p->fdn;
+		if (fcntl(wait_sock, F_SETFD, FD_CLOEXEC)) {
+			goto err;
+		}
+	}
 
 	spawn_sock_wake(wait_sock, 0);
 	if (!ca->is_exec)
@@ -651,6 +657,8 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	}
 	if (pid == 0) {
 		struct ns_desc *ns;
+		int proc_fd;
+
 		wait_sock = wait_socks[1];
 
 		close(wait_socks[0]);
@@ -658,16 +666,10 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		if (spawn_sock_wait_and_close(wait_sock)) /* wait cgroups */
 			exit(1);
 
-		if (p->fds) {
-			p->fds[p->fdn] = wait_sock;
-
-			if (setup_fds(p->fds, p->fdn + 1))
-				exit(-1);
-
-			wait_sock = p->fdn;
-			if (fcntl(wait_sock, F_SETFD, FD_CLOEXEC)) {
-				goto err;
-			}
+		proc_fd = open("/proc/", O_DIRECTORY | O_RDONLY);
+		if (proc_fd == -1) {
+			pr_perror("Unable to open /proc");
+			exit(-1);
 		}
 
 		for (aux = 0; namespaces[aux]; aux++) {
@@ -702,6 +704,18 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 
 		if (apply_env(p))
 			exit(-1);
+
+		if (p->fds) {
+			p->fds[p->fdn] = wait_sock;
+
+			if (setup_fds_at(proc_fd, p->fds, p->fdn + 1))
+				exit(-1);
+
+			wait_sock = p->fdn;
+			if (fcntl(wait_sock, F_SETFD, FD_CLOEXEC)) {
+				goto err;
+			}
+		}
 
 		spawn_sock_wake(wait_sock, 0);
 		if (!is_exec)

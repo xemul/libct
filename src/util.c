@@ -276,19 +276,6 @@ int setup_fds_at(int proc_fd, int *fds, int n)
 	return close_fds(proc_fd, n);
 }
 
-int setup_fds(int *fds, int n)
-{
-	int fd;
-
-	fd = open("/proc/", O_DIRECTORY | O_RDONLY);
-	if (fd == -1) {
-		pr_perror("Unable to open /proc");
-		return -1;
-	}
-
-	return setup_fds_at(fd, fds, n);
-}
-
 int spawn_sock_wait(sk)
 {
 	int ret = INT_MIN;
