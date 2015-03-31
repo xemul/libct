@@ -316,6 +316,44 @@ static int apply_env(struct process_desc *p)
 	return 0;
 }
 
+static int apply_proc_props(struct process_desc *p, int *wait_sock, int proc_fd)
+{
+	int ret;
+
+	ret = apply_creds(p);
+	if (ret < 0)
+		goto err;
+
+	if (apply_rlimit(p))
+		goto err;
+
+	ret = apply_env(p);
+	if (ret < 0)
+		goto err;
+
+	if (p->lsm_label)
+		ret = lsm_process_label_set(p->lsm_label, false, p->lsm_on_exec);
+	p->lsm_on_exec = 0;
+	if (ret < 0)
+		goto err;
+
+	if (p->fds) {
+		p->fds[p->fdn] = *wait_sock;
+
+		if (setup_fds_at(proc_fd, p->fds, p->fdn + 1))
+			goto err;
+
+		*wait_sock = p->fdn;
+		if (fcntl(*wait_sock, F_SETFD, FD_CLOEXEC)) {
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	return -1;
+}
+
 static int ct_clone(void *arg)
 {
 	int ret = -1, proc_fd;
@@ -406,34 +444,9 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
-	ret = apply_creds(p);
+	ret = apply_proc_props(p, &wait_sock, proc_fd);
 	if (ret < 0)
 		goto err_um;
-
-	if (apply_rlimit(p))
-		goto err_um;
-
-	ret = apply_env(p);
-	if (ret < 0)
-		goto err_um;
-
-	if (p->lsm_label)
-		ret = lsm_process_label_set(p->lsm_label, false, p->lsm_on_exec);
-	p->lsm_on_exec = 0;
-	if (ret < 0)
-		goto err;
-
-	if (p->fds) {
-		p->fds[p->fdn] = wait_sock;
-
-		if (setup_fds_at(proc_fd, p->fds, p->fdn + 1))
-			goto err;
-
-		wait_sock = p->fdn;
-		if (fcntl(wait_sock, F_SETFD, FD_CLOEXEC)) {
-			goto err;
-		}
-	}
 
 	spawn_sock_wake(wait_sock, 0);
 	if (!ca->is_exec)
@@ -660,7 +673,6 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		int proc_fd;
 
 		wait_sock = wait_socks[1];
-
 		close(wait_socks[0]);
 
 		if (spawn_sock_wait_and_close(wait_sock)) /* wait cgroups */
@@ -696,26 +708,8 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 				exit(-1);
 		}
 
-		if (apply_creds(p))
+		if (apply_proc_props(p, &wait_sock, proc_fd))
 			exit(-1);
-
-		if (apply_rlimit(p))
-			exit(-1);
-
-		if (apply_env(p))
-			exit(-1);
-
-		if (p->fds) {
-			p->fds[p->fdn] = wait_sock;
-
-			if (setup_fds_at(proc_fd, p->fds, p->fdn + 1))
-				exit(-1);
-
-			wait_sock = p->fdn;
-			if (fcntl(wait_sock, F_SETFD, FD_CLOEXEC)) {
-				goto err;
-			}
-		}
 
 		spawn_sock_wake(wait_sock, 0);
 		if (!is_exec)
