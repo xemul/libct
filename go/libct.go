@@ -276,6 +276,14 @@ func (ct *Container) Wait() error {
 	return nil
 }
 
+func (ct *Container) Destroy() error {
+	C.libct_container_destroy(ct.ct)
+
+	ct.ct = nil
+
+	return nil
+}
+
 func (ct *Container) Uname(host *string, domain *string) error {
 	var chost *C.char
 	var cdomain *C.char
