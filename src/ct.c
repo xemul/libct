@@ -320,14 +320,14 @@ static int apply_proc_props(struct process_desc *p, int *wait_sock, int proc_fd)
 {
 	int ret;
 
-	ret = apply_creds(p);
+	ret = apply_env(p);
 	if (ret < 0)
 		goto err;
 
 	if (apply_rlimit(p))
 		goto err;
 
-	ret = apply_env(p);
+	ret = apply_creds(p);
 	if (ret < 0)
 		goto err;
 
