@@ -164,6 +164,17 @@ func (p *ProcessDesc) SetGid(gid int) error {
 	return nil
 }
 
+func (p *ProcessDesc) SetUser(user string) error {
+	cuser := C.CString(user)
+	defer C.free(unsafe.Pointer(cuser))
+	ret := C.libct_process_desc_set_user(p.desc, cuser)
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
 func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
 	if ret := C.libct_process_desc_set_pdeathsig(p.desc, C.int(sig)); ret != 0 {
 		return LibctError{int(ret)}

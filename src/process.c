@@ -26,6 +26,17 @@ static int local_desc_setgid(ct_process_desc_t h, unsigned gid)
 	return 0;
 }
 
+static int local_desc_set_user(ct_process_desc_t h, char *user)
+{
+	struct process_desc *p = prh2pr(h);
+
+	p->user = xstrdup(user);
+	if (p->user == NULL)
+		return -1;
+
+	return 0;
+}
+
 static int local_desc_setgroups(ct_process_desc_t h, unsigned int ngroups, unsigned int *groups)
 {
 	struct process_desc *p = prh2pr(h);
@@ -112,6 +123,7 @@ static void local_desc_destroy(ct_process_desc_t h)
 	local_desc_destroy_env(p);
 	xfree(p->lsm_label);
 	xfree(p->groups);
+	xfree(p->user);
 	xfree(p->fds);
 	xfree(p);
 }
@@ -209,6 +221,7 @@ static const struct process_desc_ops local_process_desc_ops = {
 	.destroy	= local_desc_destroy,
 	.setuid		= local_desc_setuid,
 	.setgid		= local_desc_setgid,
+	.set_user	= local_desc_set_user,
 	.setgroups	= local_desc_setgroups,
 	.set_caps	= local_desc_set_caps,
 	.set_pdeathsig	= local_desc_set_pdeathsig,

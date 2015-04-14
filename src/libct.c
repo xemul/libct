@@ -184,6 +184,11 @@ int libct_process_desc_setgid(ct_process_desc_t p, unsigned int gid)
 	return p->ops->setgid(p, gid);
 }
 
+int libct_process_desc_set_user(ct_process_desc_t p, char *user)
+{
+	return p->ops->set_user(p, user);
+}
+
 int libct_process_desc_set_rlimit(ct_process_desc_t p, int resource, uint64_t soft, uint64_t hard)
 {
 	return p->ops->set_rlimit(p, resource, soft, hard);

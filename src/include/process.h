@@ -28,6 +28,7 @@ struct process_desc_ops {
 	int (*setuid)(ct_process_desc_t p, unsigned int uid);
 	int (*setgid)(ct_process_desc_t p, unsigned int gid);
 	int (*setgroups)(ct_process_desc_t p, unsigned int size, unsigned int *groups);
+	int (*set_user)(ct_process_desc_t p, char *user);
 	int (*set_caps)(ct_process_desc_t h, unsigned long mask, unsigned int apply_to);
 	int (*set_pdeathsig)(ct_process_desc_t h, int sig);
 	int (*set_lsm_label)(ct_process_desc_t h, char *label);
@@ -48,6 +49,7 @@ struct process_desc {
 	unsigned int		gid;
 	unsigned int		ngroups;
 	unsigned int		*groups;
+	char			*user;
 
 	unsigned int		cap_mask;
 	uint64_t		cap_bset;
