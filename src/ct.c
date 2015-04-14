@@ -737,6 +737,7 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	if (spawn_sock_wait_and_close(wait_sock) != INT_MIN)
 		goto err;
 
+	close(wait_sock);
 	pr->pid = pid;
 
 	return &pr->h;
