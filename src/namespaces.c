@@ -72,19 +72,25 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 
 	snprintf(buf, sizeof(buf), "/proc/%d/ns/%s", pid, nd->name);
 	nsfd = open(buf, O_RDONLY);
-	if (nsfd < 0)
+	if (nsfd < 0) {
+		pr_perror("Unable to open %s", buf);
 		goto err_ns;
+	}
 
 	if (rst) {
 		snprintf(buf, sizeof(buf), "/proc/self/ns/%s", nd->name);
 		*rst = open(buf, O_RDONLY);
-		if (*rst < 0)
+		if (*rst < 0) {
+			pr_perror("Unable to open %s", buf);
 			goto err_rst;
+		}
 	}
 
 	ret = libct_setns(nsfd, nd->cflag);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_perror("Unable setns into %s:%d", nd->name, pid);
 		goto err_set;
+	}
 
 	close(nsfd);
 	return 0;
