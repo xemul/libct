@@ -146,6 +146,24 @@ func (p *ProcessDesc) SetCaps(mask uint64, apply_to int) error {
 	return nil
 }
 
+func (p *ProcessDesc) SetUid(uid int) error {
+	ret := C.libct_process_desc_setuid(p.desc, C.uint(uid))
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (p *ProcessDesc) SetGid(gid int) error {
+	ret := C.libct_process_desc_setgid(p.desc, C.uint(gid))
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
 func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
 	if ret := C.libct_process_desc_set_pdeathsig(p.desc, C.int(sig)); ret != 0 {
 		return LibctError{int(ret)}
