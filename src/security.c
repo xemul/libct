@@ -52,7 +52,7 @@ static int apply_all_caps(uint64_t mask)
 			return -1;
 	}
 
-	header.pid = getpid();
+	header.pid = 0;
 
 	data[0].effective = mask;
 	data[0].permitted = mask;
@@ -71,8 +71,14 @@ int apply_creds(struct process_desc *p)
 	if (setgroups(p->ngroups, p->groups))
 		return -1;
 
+	if (prctl(PR_SET_KEEPCAPS, 1))
+		pr_perror("Unable to set PR_SET_KEEPCAPS\n");
 	if (setgid(p->gid) || setuid(p->uid))
 		return -1;
+	if (prctl(PR_SET_KEEPCAPS, 0)) {
+		pr_perror("Unable to clear PR_SET_KEEPCAPS\n");
+		return -1;
+	}
 
 	if (!p->cap_mask)
 		return 0;
