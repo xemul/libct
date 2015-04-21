@@ -219,6 +219,8 @@ int setup_fds_at(int proc_fd, int *fds, int n)
 {
 	int i;
 
+	libct_log_init(-1, 0); /* close */
+
 	for (i = 0; i < n; i++) {
 		if (fds[i] == LIBCT_CONSOLE_FD) {
 			fds[i] = open("/dev/console", O_RDWR);
@@ -241,6 +243,9 @@ int setup_fds_at(int proc_fd, int *fds, int n)
 
 		fds[i] = i;
 	}
+
+	if (proc_fd < n)
+		proc_fd = dup(proc_fd);
 
 	/* move target descriptros from target places */
 	for (i = 0; i < n; i++) {
@@ -271,19 +276,6 @@ int setup_fds_at(int proc_fd, int *fds, int n)
 	}
 
 	return close_fds(proc_fd, n);
-}
-
-int setup_fds(int *fds, int n)
-{
-	int fd;
-
-	fd = open("/proc/", O_DIRECTORY | O_RDONLY);
-	if (fd == -1) {
-		pr_perror("Unable to open /proc");
-		return -1;
-	}
-
-	return setup_fds_at(fd, fds, n);
 }
 
 int spawn_sock_wait(sk)

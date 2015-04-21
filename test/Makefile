@@ -1,5 +1,3 @@
-include ../Makefile.config
-
 COMMON_TESTS = vz_create_exec vz_net_veth vz_enter
 
 LOCAL_TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter \
@@ -17,6 +15,9 @@ PIGS  = file_piggy
 
 CC = gcc
 CFLAGS = -I../src/include/uapi/ -g -Wall -Werror
+
+CFLAGS += $(DEFINES)
+
 ifneq ("$(wildcard /proc/vz)","")
 	CFLAGS += -I/usr/src/kernels/$(shell uname -r)/include/
 	CFLAGS += -DVZ
@@ -69,7 +70,7 @@ $(1).out: $(1)
 	./$$^ > $$@
 	@ tail -n1 $$@
 endef
-$(foreach t, $(TESTS), $(eval $(call gen-out,$(t))))
+$(foreach t, $(TESTS) $(PIGS), $(eval $(call gen-out,$(t))))
 
 run-local: cleanouts root $(PIGS) $(LOCAL_OUTS) $(COMMON_OUTS)
 

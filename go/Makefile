@@ -1,2 +1,6 @@
+CGO_LDFLAGS	:= -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -l:libapparmor.a -l:libselinux.a -lm
+LIBRARY_PATH	:= ../.shipped/libnl/lib/.libs:..
+export CGO_LDFLAGS LIBRARY_PATH
+
 test:
-	LIBRARY_PATH=../.shipped/libnl/lib/.libs:.. go test .
+	go test -v .

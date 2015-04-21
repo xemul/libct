@@ -12,7 +12,7 @@ script:
     - git submodule update --init --recursive
     - ( cd .shipped/libnl && ./autogen.sh && ./configure && make -j2 && sudo make install && cd ../../ )
     - make -j2
-    - (cd test && make -j2 )
+    - make -j2 test-build
 
 notifications:
   email:

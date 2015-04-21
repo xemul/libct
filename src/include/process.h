@@ -2,6 +2,7 @@
 #define __LIBCT_PROCESS_H__
 
 #include <stdint.h>
+#include <sys/resource.h>
 
 #include "uapi/libct.h"
 
@@ -27,10 +28,13 @@ struct process_desc_ops {
 	int (*setuid)(ct_process_desc_t p, unsigned int uid);
 	int (*setgid)(ct_process_desc_t p, unsigned int gid);
 	int (*setgroups)(ct_process_desc_t p, unsigned int size, unsigned int *groups);
+	int (*set_user)(ct_process_desc_t p, char *user);
 	int (*set_caps)(ct_process_desc_t h, unsigned long mask, unsigned int apply_to);
 	int (*set_pdeathsig)(ct_process_desc_t h, int sig);
 	int (*set_lsm_label)(ct_process_desc_t h, char *label);
 	int (*set_fds)(ct_process_desc_t h, int *fds, int fdn);
+	int (*set_env)(ct_process_desc_t h, char **env, int envn);
+	int (*set_rlimit)(ct_process_desc_t h, int resource, uint64_t soft, uint64_t hard);
 	ct_process_desc_t (*copy)(ct_process_desc_t h);
 	void (*destroy)(ct_process_desc_t p);
 };
@@ -45,6 +49,7 @@ struct process_desc {
 	unsigned int		gid;
 	unsigned int		ngroups;
 	unsigned int		*groups;
+	char			*user;
 
 	unsigned int		cap_mask;
 	uint64_t		cap_bset;
@@ -57,6 +62,10 @@ struct process_desc {
 
 	int			*fds;
 	int			fdn;
+	char			**env;
+	int			envn;
+
+	struct rlimit		rlimit[RLIM_NLIMITS];
 };
 
 static inline struct process_desc *prh2pr(ct_process_desc_t h)

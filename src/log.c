@@ -25,7 +25,7 @@ static void log_set_fd(int fd)
 {
 	if (logfd != -1)
 		close(logfd);
-	logfd = fd;
+	logfd = dup(fd);
 }
 
 static void loglevel_set(unsigned int loglevel)

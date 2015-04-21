@@ -5,6 +5,8 @@
 
 #include "namespaces.h"
 #include "vzsyscalls.h"
+#include "bug.h"
+#include "log.h"
 
 struct ns_desc pid_ns = {
 	.name = "pid",
@@ -49,10 +51,17 @@ int setns(int fd, int nstype) __attribute__((weak));
 
 static int libct_setns(int fd, int nstype)
 {
-	if (setns)
-		return setns(fd, nstype);
+	int ret;
 
-	return syscall(__NR_setns, fd, nstype);
+	if (setns)
+		ret = setns(fd, nstype);
+	else
+		ret = syscall(__NR_setns, fd, nstype);
+
+	if (ret)
+		pr_perror("Unable to switch namespace %d", nstype);
+
+	return ret;
 }
 
 int switch_ns(int pid, struct ns_desc *nd, int *rst)
@@ -63,19 +72,25 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 
 	snprintf(buf, sizeof(buf), "/proc/%d/ns/%s", pid, nd->name);
 	nsfd = open(buf, O_RDONLY);
-	if (nsfd < 0)
+	if (nsfd < 0) {
+		pr_perror("Unable to open %s", buf);
 		goto err_ns;
+	}
 
 	if (rst) {
 		snprintf(buf, sizeof(buf), "/proc/self/ns/%s", nd->name);
 		*rst = open(buf, O_RDONLY);
-		if (*rst < 0)
+		if (*rst < 0) {
+			pr_perror("Unable to open %s", buf);
 			goto err_rst;
+		}
 	}
 
 	ret = libct_setns(nsfd, nd->cflag);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_perror("Unable setns into %s:%d", nd->name, pid);
 		goto err_set;
+	}
 
 	close(nsfd);
 	return 0;
@@ -91,6 +106,7 @@ err_ns:
 
 void restore_ns(int rst, struct ns_desc *nd)
 {
-	libct_setns(rst, nd->cflag);
+	if (libct_setns(rst, nd->cflag))
+		BUG();
 	close(rst);
 }

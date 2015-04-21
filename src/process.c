@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -21,6 +22,17 @@ static int local_desc_setgid(ct_process_desc_t h, unsigned gid)
 	struct process_desc *p = prh2pr(h);
 
 	p->gid = gid;
+
+	return 0;
+}
+
+static int local_desc_set_user(ct_process_desc_t h, char *user)
+{
+	struct process_desc *p = prh2pr(h);
+
+	p->user = xstrdup(user);
+	if (p->user == NULL)
+		return -1;
 
 	return 0;
 }
@@ -69,12 +81,49 @@ static int local_desc_set_pdeathsig(ct_process_desc_t h, int sig)
 	return 0;
 }
 
+static void local_desc_destroy_env(struct process_desc *p)
+{
+	int i;
+
+	for (i = 0; i < p->envn; i++)
+		xfree(p->env[i]);
+	xfree(p->env);
+	p->env = NULL;
+	p->envn = 0;
+}
+
+static int local_desc_set_env(ct_process_desc_t h, char **env, int n)
+{
+	struct process_desc *p = prh2pr(h);
+	int i;
+
+	if (p->env)
+		return -LCTERR_INVARG;
+
+	p->env = xzalloc(n * sizeof(char *));
+	if (p == NULL)
+		return -1;
+
+	p->envn = n;
+	for (i = 0; i < n; i++) {
+		p->env[i] = xstrdup(env[i]);
+		if (p->env[i] == NULL) {
+			local_desc_destroy_env(p);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static void local_desc_destroy(ct_process_desc_t h)
 {
 	struct process_desc *p = prh2pr(h);
 
+	local_desc_destroy_env(p);
 	xfree(p->lsm_label);
 	xfree(p->groups);
+	xfree(p->user);
 	xfree(p->fds);
 	xfree(p);
 }
@@ -154,31 +203,61 @@ int local_desc_set_fds(ct_process_desc_t h, int *fds, int fdn)
 	return 0;
 }
 
+int local_desc_set_rlimit(ct_process_desc_t h, int resource, uint64_t soft, uint64_t hard)
+{
+	struct process_desc *p = prh2pr(h);
+
+	if (resource >= RLIM_NLIMITS)
+		return -1;
+
+	p->rlimit[resource].rlim_cur = soft;
+	p->rlimit[resource].rlim_max = hard;
+
+	return 0;
+}
+
 static const struct process_desc_ops local_process_desc_ops = {
 	.copy		= local_desc_copy,
 	.destroy	= local_desc_destroy,
 	.setuid		= local_desc_setuid,
 	.setgid		= local_desc_setgid,
+	.set_user	= local_desc_set_user,
 	.setgroups	= local_desc_setgroups,
 	.set_caps	= local_desc_set_caps,
 	.set_pdeathsig	= local_desc_set_pdeathsig,
 	.set_lsm_label	= local_desc_set_lsm_label,
 	.set_fds	= local_desc_set_fds,
+	.set_env	= local_desc_set_env,
+	.set_rlimit	= local_desc_set_rlimit,
 };
 
 void local_process_desc_init(struct process_desc *p)
 {
+	int i;
+
 	p->h.ops	= &local_process_desc_ops;
 	p->uid		= 0;
 	p->gid		= 0;
 	p->cap_caps	= 0;
 	p->cap_bset	= 0;
+	p->cap_mask	= 0;
 	p->pdeathsig	= 0;
 	p->groups	= NULL;
 	p->ngroups	= 0;
 	p->lsm_label	= NULL;
 	p->fds		= NULL;
 	p->fdn		= 0;
+	p->env		= NULL;
+	p->envn		= 0;
+
+	for (i = 0; i < RLIM_NLIMITS; i++) {
+		/*
+		 * Here is an invalid pair of values, which
+		 * means that this type of limits isn't set.
+		 */
+		p->rlimit[i].rlim_cur = RLIM_INFINITY;
+		p->rlimit[i].rlim_max = 0;
+	}
 }
 
 static int local_process_get_pid(ct_process_t h)
@@ -190,12 +269,12 @@ static int local_process_get_pid(ct_process_t h)
 static int local_process_wait(ct_process_t h, int *status)
 {
 	struct process *p = ph2p(h);
-	int s;
+	int s = -1;
 
 	if (p->pid < 0)
 		return -LCTERR_BADCTSTATE;
 
-	if (waitpid(p->pid, &s, 0) == -1) {
+	if (waitpid(p->pid, &s, 0) == -1 && errno != ECHILD) {
 		pr_perror("Unable to wait %d\n", p->pid);
 		return -1;
 	}

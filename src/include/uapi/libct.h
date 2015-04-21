@@ -2,6 +2,7 @@
 #define __UAPI_LIBCT_H__
 
 #include <sys/types.h>
+#include <stdint.h>
 #include "libct-errors.h"
 
 /*
@@ -58,6 +59,7 @@ extern void libct_container_destroy(ct_handler_t ct);
  */
 
 extern int libct_container_set_nsmask(ct_handler_t ct, unsigned long ns_mask);
+extern int libct_container_set_nspath(ct_handler_t ct, int ns, char *path);
 
 enum ct_controller {
 	CTL_BLKIO,
@@ -183,7 +185,9 @@ extern ct_process_desc_t libct_process_desc_copy(ct_process_desc_t p);
 extern void libct_process_desc_destroy(ct_process_desc_t p);
 extern int libct_process_desc_setuid(ct_process_desc_t p, unsigned int uid);
 extern int libct_process_desc_setgid(ct_process_desc_t p, unsigned int uid);
+extern int libct_process_desc_set_user(ct_process_desc_t p, char *user);
 extern int libct_process_desc_setgroupts(ct_process_desc_t p, unsigned int size, unsigned int groups[]);
+extern int libct_process_desc_set_rlimit(ct_process_desc_t p, int resource, uint64_t soft, uint64_t hard);
 extern int libct_process_desc_set_lsm_label(ct_process_desc_t p, char *label);
 
 #define CAPS_BSET	0x1
@@ -196,8 +200,24 @@ extern int libct_process_desc_set_pdeathsig(ct_process_desc_t ct, int sig);
 #define LIBCT_CONSOLE_FD -2
 extern int libct_process_desc_set_fds(ct_process_desc_t p, int *fds, int n);
 
+extern int libct_process_desc_set_env(ct_process_desc_t p, char **env, int envn);
+
 extern int libct_process_wait(ct_process_t p, int *status);
 extern void libct_process_destroy(ct_process_t p);
 extern int libct_process_get_pid(ct_process_t p);
+
+struct libct_processes {
+	int nproc;
+	int array[];
+};
+
+extern struct libct_processes *libct_container_processes(ct_handler_t h);
+
+static inline int libct_processes_get(struct libct_processes *p, int i)
+{
+	return p->array[i];
+}
+
+void libct_processes_free(struct libct_processes *p);
 
 #endif /* __UAPI_LIBCT_H__ */

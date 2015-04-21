@@ -1,7 +1,6 @@
 /*
  * Test empty "container" creation
  */
-#define _GNU_SOURCE
 #include <libct.h>
 #include <stdio.h>
 #include <sys/mman.h>

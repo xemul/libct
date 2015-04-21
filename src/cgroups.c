@@ -17,6 +17,7 @@
 #include "xmalloc.h"
 #include "util.h"
 #include "linux-kernel.h"
+#include "err.h"
 
 #ifndef PATH_MAX
 #define PATH_MAX	4096
@@ -389,6 +390,59 @@ int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 		return -LCTERR_INVARG;
 
 	return ct->ops->config_controller(ct, ctype, param, value);
+}
+
+struct libct_processes *local_controller_tasks(ct_handler_t h)
+{
+	struct container *ct = cth2ct(h);
+	char path[PATH_MAX], *p, spid[16];
+	struct libct_processes *procs = NULL;
+	int size;
+	struct controller *ctl;
+	FILE *f;
+
+	ctl = list_first_entry(&ct->cgroups, struct controller, ct_l);
+	if (&ctl->ct_l == &ct->cgroups)
+		return ERR_PTR(-LCTERR_INVARG);
+
+	p = cgroup_get_path(ctl->ctype, path, sizeof(path));
+	snprintf(p, sizeof(path) - (p - path), "/%s/%s", ct->name, "tasks");
+
+	f = fopen(path, "r");
+	if (!f)
+		return ERR_PTR(-1);
+
+	procs = xmalloc(sizeof(struct libct_processes));
+	if (!procs)
+		goto err;
+	size = 0;
+	procs->nproc = 0;
+
+	while (fgets(spid, sizeof(spid), f)) {
+		int pid;
+
+		pid = atoi(spid);
+
+		if (procs->nproc + 1 < size) {
+			struct libct_processes *p;
+			size = (size + 1) * 2;
+			p = xrealloc(procs, sizeof(*procs) + size * sizeof(procs->array[0]));
+			if (p == NULL)
+				goto err;
+			procs = p;
+		}
+		procs->array[procs->nproc] = pid;
+		procs->nproc++;
+	}
+
+	fclose(f);
+
+	return procs;
+
+err:
+	xfree(procs);
+	fclose(f);
+	return ERR_PTR(-1);
 }
 
 int service_ctl_killall(struct container *ct)

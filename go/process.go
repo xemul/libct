@@ -3,16 +3,17 @@
 package libct
 
 // #cgo CFLAGS: -DCONFIG_X86_64 -DARCH="x86" -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
-// #cgo LDFLAGS: -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -l:libapparmor.a -l:libselinux.a -lm
 // #include "../src/include/uapi/libct.h"
 // #include "../src/include/uapi/libct-errors.h"
+// #include <stdlib.h>
 import "C"
 import "os"
 import "io"
 import "syscall"
+import "unsafe"
 
 type ProcessDesc struct {
-	desc C.ct_process_desc_t
+	desc   C.ct_process_desc_t
 	handle C.ct_process_t
 
 	// Stdin specifies the process's standard input. If Stdin is
@@ -39,7 +40,7 @@ type ProcessDesc struct {
 	closeAfterWait  []io.Closer
 	goroutine       []func() error
 
-	errch           chan error // one send per goroutine
+	errch chan error // one send per goroutine
 }
 
 // interfaceEqual protects against panics from doing equality tests on
@@ -145,6 +146,35 @@ func (p *ProcessDesc) SetCaps(mask uint64, apply_to int) error {
 	return nil
 }
 
+func (p *ProcessDesc) SetUid(uid int) error {
+	ret := C.libct_process_desc_setuid(p.desc, C.uint(uid))
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (p *ProcessDesc) SetGid(gid int) error {
+	ret := C.libct_process_desc_setgid(p.desc, C.uint(gid))
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (p *ProcessDesc) SetUser(user string) error {
+	cuser := C.CString(user)
+	defer C.free(unsafe.Pointer(cuser))
+	ret := C.libct_process_desc_set_user(p.desc, cuser)
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
 func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
 	if ret := C.libct_process_desc_set_pdeathsig(p.desc, C.int(sig)); ret != 0 {
 		return LibctError{int(ret)}
@@ -154,30 +184,68 @@ func (p *ProcessDesc) SetParentDeathSignal(sig syscall.Signal) error {
 }
 
 func (p *ProcessDesc) SetLSMLabel(label string) error {
-	if ret := C.libct_process_desc_set_lsm_label(p.desc, C.CString(label)); ret != 0 {
+	clabel := C.CString(label)
+	defer C.free(unsafe.Pointer(clabel))
+
+	if ret := C.libct_process_desc_set_lsm_label(p.desc, clabel); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
 	return nil
 }
 
-func (p *ProcessDesc) Wait() (int, error) {
-	var status C.int
+func (p *ProcessDesc) Wait() (*os.ProcessState, error) {
 
-	if ret := C.libct_process_wait(p.handle, &status); ret != 0 {
-		return -1, LibctError{int(ret)}
+	pid, err := p.GetPid()
+	if err != nil {
+		return nil, err
 	}
 
-        var copyError error
-        for range p.goroutine {
-                if err := <-p.errch; err != nil && copyError == nil {
-                        copyError = err
-                }
-        }
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return nil, err
+	}
+
+	ps, err := process.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	var copyError error
+	for _ = range p.goroutine {
+		if err := <-p.errch; err != nil && copyError == nil {
+			copyError = err
+		}
+	}
 
 	p.closeDescriptors(p.closeAfterWait)
 
-	return int(status), nil
+	return ps, nil
+}
+
+func (p *ProcessDesc) SetEnv(env []string) error {
+	cenv := make([]*C.char, len(env))
+	for i, v := range env {
+		cenv[i] = C.CString(v)
+	}
+
+	ret := C.libct_process_desc_set_env(p.desc, &cenv[0], C.int(len(env)))
+
+	for i := range cenv {
+		C.free(unsafe.Pointer(cenv[i]))
+	}
+	if ret < 0 {
+		return LibctError{int(ret)}
+	}
+	return nil
+}
+
+func (p *ProcessDesc) SetRlimit(resource int, soft uint64, hard uint64) error {
+	ret := C.libct_process_desc_set_rlimit(p.desc, C.int(resource), C.uint64_t(soft), C.uint64_t(hard))
+	if ret < 0 {
+		return LibctError{int(ret)}
+	}
+	return nil
 }
 
 func (p *ProcessDesc) GetPid() (int, error) {

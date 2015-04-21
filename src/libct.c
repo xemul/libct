@@ -6,6 +6,7 @@
 #include "uapi/libct.h"
 
 #include "linux-kernel.h"
+#include "xmalloc.h"
 #include "process.h"
 #include "libct.h"
 #include "list.h"
@@ -120,6 +121,11 @@ int libct_container_set_nsmask(ct_handler_t ct, unsigned long nsmask)
 	return ct->ops->set_nsmask(ct, nsmask);
 }
 
+int libct_container_set_nspath(ct_handler_t ct, int ns, char *path)
+{
+	return ct->ops->set_nspath(ct, ns, path);
+}
+
 int libct_container_set_option(ct_handler_t ct, int opt, void *args)
 {
 	return ct->ops->set_option(ct, opt, args);
@@ -178,6 +184,16 @@ int libct_process_desc_setgid(ct_process_desc_t p, unsigned int gid)
 	return p->ops->setgid(p, gid);
 }
 
+int libct_process_desc_set_user(ct_process_desc_t p, char *user)
+{
+	return p->ops->set_user(p, user);
+}
+
+int libct_process_desc_set_rlimit(ct_process_desc_t p, int resource, uint64_t soft, uint64_t hard)
+{
+	return p->ops->set_rlimit(p, resource, soft, hard);
+}
+
 int libct_process_desc_setgroups(ct_process_desc_t p, unsigned int size, unsigned int groups[])
 {
 	return p->ops->setgroups(p, size, groups);
@@ -203,6 +219,11 @@ int libct_process_desc_set_fds(ct_process_desc_t p, int *fds, int n)
 	return p->ops->set_fds(p, fds, n);
 }
 
+int libct_process_desc_set_env(ct_process_desc_t p, char **env, int envn)
+{
+	return p->ops->set_env(p, env, envn);
+}
+
 int libct_process_wait(ct_process_t p, int *status)
 {
 	return p->ops->wait(p, status);
@@ -216,4 +237,13 @@ void libct_process_destroy(ct_process_t p)
 int libct_process_get_pid(ct_process_t p)
 {
 	return p->ops->get_pid(p);
+}
+
+struct libct_processes *libct_container_processes(ct_handler_t ct) {
+	return ct->ops->get_processes(ct);
+}
+
+void libct_processes_free(struct libct_processes *p)
+{
+	xfree(p);
 }

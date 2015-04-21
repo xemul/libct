@@ -1,10 +1,13 @@
 package libct
 
 // #cgo CFLAGS: -DCONFIG_X86_64 -DARCH="x86" -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
-// #cgo LDFLAGS: -l:libct.a -l:libnl-route-3.a -l:libnl-3.a -l:libapparmor.a -l:libselinux.a -lm
+// #include <stdlib.h>
 // #include "../src/include/uapi/libct.h"
 // #include "../src/include/uapi/libct-errors.h"
+// #include "../src/include/uapi/libct-log-levels.h"
 import "C"
+
+import "os"
 import "fmt"
 import "unsafe"
 
@@ -84,7 +87,10 @@ func (s *Session) OpenLocal() error {
 }
 
 func (s *Session) ContainerCreate(name string) (*Container, error) {
-	ct := C.libct_container_create(s.s, C.CString(name))
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+
+	ct := C.libct_container_create(s.s, cname)
 
 	if C.libct_handle_is_err(unsafe.Pointer(ct)) != 0 {
 		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(ct)))}
@@ -94,7 +100,10 @@ func (s *Session) ContainerCreate(name string) (*Container, error) {
 }
 
 func (s *Session) ContainerOpen(name string) (*Container, error) {
-	ct := C.libct_container_open(s.s, C.CString(name))
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+
+	ct := C.libct_container_open(s.s, cname)
 
 	if C.libct_handle_is_err(unsafe.Pointer(ct)) != 0 {
 		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(ct)))}
@@ -115,6 +124,18 @@ func (s *Session) ProcessCreateDesc() (*ProcessDesc, error) {
 func (ct *Container) SetNsMask(nsmask uint64) error {
 	ret := C.libct_container_set_nsmask(ct.ct, C.ulong(nsmask))
 
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (ct *Container) SetNsPath(ns int, path string) error {
+	cpath := C.CString(path)
+	defer C.free(unsafe.Pointer(cpath))
+
+	ret := C.libct_container_set_nspath(ct.ct, C.int(ns), cpath)
 	if ret != 0 {
 		return LibctError{int(ret)}
 	}
@@ -150,21 +171,21 @@ func (ct *Container) SetConsoleFd(f file) error {
 	return nil
 }
 
-func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
+func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) error {
 	err := ct.execve(p, path, argv, env, true)
 
 	return err
 }
 
-func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) (error) {
+func (ct *Container) EnterExecve(p *ProcessDesc, path string, argv []string, env []string) error {
 	err := ct.execve(p, path, argv, env, false)
 	return err
 }
 
-func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) (error) {
+func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []string, spawn bool) error {
 	var (
-		h     C.ct_process_t
-		i   int = 0
+		h C.ct_process_t
+		i int = 0
 	)
 
 	type F func(*ProcessDesc) (file, error)
@@ -179,17 +200,34 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 		i = i + 1
 	}
 
+	freeStrings := func(array []*C.char) {
+		for _, item := range array {
+			if item != nil {
+				C.free(unsafe.Pointer(item))
+			}
+		}
+	}
+
 	p.childFiles = append(p.childFiles, p.ExtraFiles...)
 
-
 	cargv := make([]*C.char, len(argv)+1)
+	defer freeStrings(cargv)
+
 	for i, arg := range argv {
 		cargv[i] = C.CString(arg)
 	}
 
-	cenv := make([]*C.char, len(env)+1)
-	for i, e := range env {
-		cenv[i] = C.CString(e)
+	var penv **C.char
+	if env == nil {
+		penv = nil
+	} else {
+		cenv := make([]*C.char, len(env)+1)
+		defer freeStrings(cenv)
+
+		for i, e := range env {
+			cenv[i] = C.CString(e)
+		}
+		penv = &cenv[0]
 	}
 
 	cfds := make([]C.int, len(p.childFiles))
@@ -199,16 +237,19 @@ func (ct *Container) execve(p *ProcessDesc, path string, argv []string, env []st
 
 	C.libct_process_desc_set_fds(p.desc, &cfds[0], C.int(len(p.childFiles)))
 
+	cpath := C.CString(path)
+	defer C.free(unsafe.Pointer(cpath))
+
 	if spawn {
-		h = C.libct_container_spawn_execve(ct.ct, p.desc, C.CString(path), &cargv[0], &cenv[0])
+		h = C.libct_container_spawn_execve(ct.ct, p.desc, cpath, &cargv[0], penv)
 	} else {
-		h = C.libct_container_enter_execve(ct.ct, p.desc, C.CString(path), &cargv[0], &cenv[0])
+		h = C.libct_container_enter_execve(ct.ct, p.desc, cpath, &cargv[0], penv)
 	}
 
 	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {
 		p.closeDescriptors(p.closeAfterStart)
 		p.closeDescriptors(p.closeAfterWait)
-		return  LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
+		return LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
 	}
 
 	p.closeDescriptors(p.closeAfterStart)
@@ -235,16 +276,26 @@ func (ct *Container) Wait() error {
 	return nil
 }
 
+func (ct *Container) Destroy() error {
+	C.libct_container_destroy(ct.ct)
+
+	ct.ct = nil
+
+	return nil
+}
+
 func (ct *Container) Uname(host *string, domain *string) error {
 	var chost *C.char
 	var cdomain *C.char
 
 	if host != nil {
 		chost = C.CString(*host)
+		defer C.free(unsafe.Pointer(chost))
 	}
 
 	if domain != nil {
 		cdomain = C.CString(*domain)
+		defer C.free(unsafe.Pointer(cdomain))
 	}
 
 	ret := C.libct_container_uname(ct.ct, chost, cdomain)
@@ -257,8 +308,10 @@ func (ct *Container) Uname(host *string, domain *string) error {
 }
 
 func (ct *Container) SetRoot(root string) error {
+	croot := C.CString(root)
+	defer C.free(unsafe.Pointer(croot))
 
-	if ret := C.libct_fs_set_root(ct.ct, C.CString(root)); ret != 0 {
+	if ret := C.libct_fs_set_root(ct.ct, croot); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
@@ -274,9 +327,32 @@ const (
 	CT_FS_STRICTATIME = C.CT_FS_STRICTATIME
 )
 
-func (ct *Container) AddBindMount(src string, dst string, flags int) error {
+func (ct *Container) AddUidMap(first, lower_first, count int) error {
+	ret := C.libct_userns_add_uid_map(ct.ct, C.uint(first), C.uint(lower_first), C.uint(count))
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
 
-	if ret := C.libct_fs_add_bind_mount(ct.ct, C.CString(src), C.CString(dst), C.int(flags)); ret != 0 {
+	return nil
+}
+
+func (ct *Container) AddGidMap(first, lower_first, count int) error {
+	ret := C.libct_userns_add_gid_map(ct.ct, C.uint(first), C.uint(lower_first), C.uint(count))
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (ct *Container) AddBindMount(src string, dst string, flags int) error {
+	csrc := C.CString(src)
+	defer C.free(unsafe.Pointer(csrc))
+
+	cdst := C.CString(dst)
+	defer C.free(unsafe.Pointer(cdst))
+
+	if ret := C.libct_fs_add_bind_mount(ct.ct, csrc, cdst, C.int(flags)); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
@@ -284,12 +360,72 @@ func (ct *Container) AddBindMount(src string, dst string, flags int) error {
 }
 
 func (ct *Container) AddMount(src string, dst string, flags int, fstype string, data string) error {
+	csrc := C.CString(src)
+	defer C.free(unsafe.Pointer(csrc))
 
-	if ret := C.libct_fs_add_mount(ct.ct, C.CString(src), C.CString(dst), C.int(flags), C.CString(fstype), C.CString(data)); ret != 0 {
+	cdst := C.CString(dst)
+	defer C.free(unsafe.Pointer(cdst))
+
+	cfstype := C.CString(fstype)
+	defer C.free(unsafe.Pointer(cfstype))
+
+	cdata := C.CString(data)
+	defer C.free(unsafe.Pointer(cdata))
+
+	if ret := C.libct_fs_add_mount(ct.ct, csrc, cdst, C.int(flags), cfstype, cdata); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
 	return nil
+}
+
+const (
+	CTL_BLKIO   = C.CTL_BLKIO
+	CTL_CPU     = C.CTL_CPU
+	CTL_CPUACCT = C.CTL_CPUACCT
+	CTL_CPUSET  = C.CTL_CPUSET
+	CTL_DEVICES = C.CTL_DEVICES
+	CTL_FREEZER = C.CTL_FREEZER
+	CTL_HUGETLB = C.CTL_HUGETLB
+	CTL_MEMORY  = C.CTL_MEMORY
+	CTL_NETCLS  = C.CTL_NETCLS
+)
+
+func (ct *Container) AddController(ctype int) error {
+	if ret := C.libct_controller_add(ct.ct, C.enum_ct_controller(ctype)); ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (ct *Container) ConfigureController(ctype int, param string, value string) error {
+	cparam := C.CString(param)
+	defer C.free(unsafe.Pointer(cparam))
+	cvalue := C.CString(value)
+	defer C.free(unsafe.Pointer(cvalue))
+
+	ret := C.libct_controller_configure(ct.ct, C.enum_ct_controller(ctype), cparam, cvalue)
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (ct *Container) Processes() ([]int, error) {
+	ctasks := C.libct_container_processes(ct.ct)
+	if C.libct_handle_is_err(unsafe.Pointer(ctasks)) != 0 {
+		return nil, LibctError{int(C.libct_handle_to_err(unsafe.Pointer(ctasks)))}
+	}
+	defer C.libct_processes_free(ctasks)
+
+	tasks := make([]int, int(ctasks.nproc))
+	for i := 0; i < int(ctasks.nproc); i++ {
+		tasks[i] = int(C.libct_processes_get(ctasks, C.int(i)))
+	}
+
+	return tasks, nil
 }
 
 func (ct *Container) SetOption(opt int32) error {
@@ -301,9 +437,10 @@ func (ct *Container) SetOption(opt int32) error {
 }
 
 func (ct *Container) AddDeviceNode(path string, mode int, major int, minor int) error {
+	cpath := C.CString(path)
+	defer C.free(unsafe.Pointer(cpath))
 
-	ret := C.libct_fs_add_devnode(ct.ct, C.CString(path), C.int(mode), C.int(major), C.int(minor))
-
+	ret := C.libct_fs_add_devnode(ct.ct, cpath, C.int(mode), C.int(major), C.int(minor))
 	if ret != 0 {
 		return LibctError{int(ret)}
 	}
@@ -326,8 +463,13 @@ func (ct *Container) AddNetVeth(host_name string, ct_name string) (*NetDev, erro
 
 	var args C.struct_ct_net_veth_arg
 
-	args.host_name = C.CString(host_name)
-	args.ct_name = C.CString(ct_name)
+	chost_name := C.CString(host_name)
+	defer C.free(unsafe.Pointer(chost_name))
+	cct_name := C.CString(ct_name)
+	defer C.free(unsafe.Pointer(cct_name))
+
+	args.host_name = chost_name
+	args.ct_name = cct_name
 
 	dev := C.libct_net_add(ct.ct, C.CT_NET_VETH, unsafe.Pointer(&args))
 
@@ -339,7 +481,10 @@ func (ct *Container) AddNetVeth(host_name string, ct_name string) (*NetDev, erro
 }
 
 func (dev *NetDev) AddIpAddr(addr string) error {
-	err := C.libct_net_dev_add_ip_addr(dev.dev, C.CString(addr))
+	caddr := C.CString(addr)
+	defer C.free(unsafe.Pointer(caddr))
+
+	err := C.libct_net_dev_add_ip_addr(dev.dev, caddr)
 	if err != 0 {
 		return LibctError{int(err)}
 	}
@@ -348,7 +493,10 @@ func (dev *NetDev) AddIpAddr(addr string) error {
 }
 
 func (dev *NetDev) SetMaster(master string) error {
-	err := C.libct_net_dev_set_master(dev.dev, C.CString(master))
+	cmaster := C.CString(master)
+	defer C.free(unsafe.Pointer(cmaster))
+
+	err := C.libct_net_dev_set_master(dev.dev, cmaster)
 	if err != 0 {
 		return LibctError{int(err)}
 	}
@@ -376,7 +524,10 @@ func (ct *Container) AddRoute() (*NetRoute, error) {
 }
 
 func (route *NetRoute) SetSrc(src string) error {
-	err := C.libct_net_route_set_src(route.route, C.CString(src))
+	csrc := C.CString(src)
+	defer C.free(unsafe.Pointer(csrc))
+
+	err := C.libct_net_route_set_src(route.route, csrc)
 	if err != 0 {
 		return LibctError{int(err)}
 	}
@@ -385,7 +536,10 @@ func (route *NetRoute) SetSrc(src string) error {
 }
 
 func (route *NetRoute) SetDst(dst string) error {
-	err := C.libct_net_route_set_dst(route.route, C.CString(dst))
+	cdst := C.CString(dst)
+	defer C.free(unsafe.Pointer(cdst))
+
+	err := C.libct_net_route_set_dst(route.route, cdst)
 	if err != 0 {
 		return LibctError{int(err)}
 	}
@@ -394,7 +548,10 @@ func (route *NetRoute) SetDst(dst string) error {
 }
 
 func (route *NetRoute) SetDev(dev string) error {
-	err := C.libct_net_route_set_dev(route.route, C.CString(dev))
+	cdev := C.CString(dev)
+	defer C.free(unsafe.Pointer(cdev))
+
+	err := C.libct_net_route_set_dev(route.route, cdev)
 	if err != 0 {
 		return LibctError{int(err)}
 	}
@@ -412,7 +569,10 @@ func (route *NetRoute) AddNextHop() (*NetRouteNextHop, error) {
 }
 
 func (nh *NetRouteNextHop) SetGateway(addr string) error {
-	err := C.libct_net_route_nh_set_gw(nh.nh, C.CString(addr))
+	caddr := C.CString(addr)
+	defer C.free(unsafe.Pointer(caddr))
+
+	err := C.libct_net_route_nh_set_gw(nh.nh, caddr)
 	if err != 0 {
 		return LibctError{int(err)}
 	}
@@ -421,10 +581,25 @@ func (nh *NetRouteNextHop) SetGateway(addr string) error {
 }
 
 func (nh *NetRouteNextHop) SetDev(dev string) error {
-	err := C.libct_net_route_nh_set_dev(nh.nh, C.CString(dev))
+	cdev := C.CString(dev)
+	defer C.free(unsafe.Pointer(cdev))
+
+	err := C.libct_net_route_nh_set_dev(nh.nh, cdev)
 	if err != 0 {
 		return LibctError{int(err)}
 	}
 
 	return nil
+}
+
+const (
+	LOG_MSG   = C.LOG_MSG
+	LOG_ERROR = C.LOG_ERROR
+	LOG_WARN  = C.LOG_WARN
+	LOG_INFO  = C.LOG_INFO
+	LOG_DEBUG = C.LOG_DEBUG
+)
+
+func LogInit(fd *os.File, level uint) {
+	C.libct_log_init(C.int(fd.Fd()), C.uint(level))
 }
