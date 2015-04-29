@@ -100,6 +100,17 @@ static inline char *cgroup_get_path(int type, char *buf, int blen)
 	return buf + lp;
 }
 
+static inline char *cgroup_get_ct_path(struct container *ct, enum ct_controller ctype, char *buf, int blen)
+{
+	char *t;
+	int off;
+
+	t = cgroup_get_path(ctype, buf, blen);
+	off = snprintf(t, blen - (t - buf), "/%s", ct->name);
+
+	return t + off;
+}
+
 int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 {
 	if (ctype >= CT_NR_CONTROLLERS)
@@ -177,8 +188,8 @@ int config_controller(struct container *ct, enum ct_controller ctype,
 	char path[PATH_MAX], *t;
 	int fd, ret;
 
-	t = cgroup_get_path(ctype, path, sizeof(path));
-	snprintf(t, sizeof(path) - (t - path), "/%s/%s", ct->name, param);
+	t = cgroup_get_ct_path(ct, ctype, path, sizeof(path));
+	snprintf(t, sizeof(path) - (t - path), "/tasks");
 
 	ret = fd = open(path, O_WRONLY);
 	if (fd >= 0) {
@@ -231,10 +242,9 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 
 int cgroup_create_one(struct container *ct, struct controller *ctl)
 {
-	char path[PATH_MAX], *t;
+	char path[PATH_MAX];
 
-	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
-	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
+	cgroup_get_ct_path(ct, ctl->ctype, path, sizeof(path));
 
 	return mkdir(path, 0600);
 }
@@ -283,14 +293,13 @@ int cgroups_attach(struct container *ct, pid_t pid)
 
 static void destroy_controller(struct container *ct, struct controller *ctl)
 {
-	char path[PATH_MAX], *t;
+	char path[PATH_MAX];
 
 	/*
 	 * Remove the directory with cgroup. It may fail, but what
 	 * to do in that case? XXX
 	 */
-	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
-	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
+	cgroup_get_ct_path(ct, ctl->ctype, path, sizeof(path));
 	rmdir(path);
 }
 
@@ -451,8 +460,8 @@ int service_ctl_killall(struct container *ct)
 	FILE *f;
 	bool has_tasks;
 
-	p = cgroup_get_path(CTL_SERVICE, path, sizeof(path));
-	snprintf(p, sizeof(path) - (p - path), "/%s/%s", ct->name, "tasks");
+	p = cgroup_get_ct_path(ct, CTL_SERVICE, path, sizeof(path));
+	snprintf(p, sizeof(path) - (p - path), "/%s", "tasks");
 
 try_again:
 	f = fopen(path, "r");
