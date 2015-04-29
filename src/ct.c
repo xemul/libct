@@ -910,6 +910,38 @@ static int local_add_gid_map(ct_handler_t h, unsigned int first,
 	return local_add_map(&ct->gid_map, first, lower_first, count);
 }
 
+static int local_pause(ct_handler_t h)
+{
+	struct container *ct = cth2ct(h);
+	int ret;
+
+	if ((ct->cgroups_mask & cbit(CTL_FREEZER)) == 0)
+		return -EINVAL;
+
+	ret = cgroup_freezer_set_state(ct, true);
+	if (ret)
+		return ret;
+
+	ct->state = CT_PAUSED;
+	return 0;
+}
+
+static int local_resume(ct_handler_t h)
+{
+	struct container *ct = cth2ct(h);
+	int ret;
+
+	if ((ct->cgroups_mask & cbit(CTL_FREEZER)) == 0)
+		return -EINVAL;
+
+	ret = cgroup_freezer_set_state(ct, false);
+	if (ret)
+		return ret;
+
+	ct->state = CT_RUNNING;
+	return 0;
+}
+
 static const struct container_ops local_ct_ops = {
 	.spawn_cb		= local_spawn_cb,
 	.spawn_execve		= local_spawn_execve,
@@ -939,6 +971,8 @@ static const struct container_ops local_ct_ops = {
 	.add_uid_map		= local_add_uid_map,
 	.add_gid_map		= local_add_gid_map,
 	.get_processes		= local_controller_tasks,
+	.pause			= local_pause,
+	.resume			= local_resume,
 };
 
 ct_handler_t ct_create(char *name)

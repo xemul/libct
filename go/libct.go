@@ -153,6 +153,26 @@ func (ct *Container) Kill() error {
 	return nil
 }
 
+func (ct *Container) Pause() error {
+	ret := C.libct_container_pause(ct.ct)
+
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (ct *Container) Resume() error {
+	ret := C.libct_container_resume(ct.ct)
+
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
 func getFd(f file) C.int {
 	if _, ok := f.(console); ok {
 		return C.LIBCT_CONSOLE_FD

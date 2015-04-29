@@ -43,6 +43,8 @@ struct container_ops {
 	int (*add_gid_map)(ct_handler_t ct, unsigned int first,
 			unsigned int lower_first, unsigned int count);
 	struct libct_processes *(*get_processes)(ct_handler_t ct);
+	int (*pause)(ct_handler_t ct);
+	int (*resume)(ct_handler_t ct);
 };
 
 struct ct_handler {

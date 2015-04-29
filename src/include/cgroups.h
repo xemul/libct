@@ -1,9 +1,13 @@
 #ifndef __LIBCT_CGROUP_H__
 #define __LIBCT_CGROUP_H__
 
+#include <stdbool.h>
+
 #include "uapi/libct.h"
 
 #include "list.h"
+
+#define cbit(ctype)	(1 << ctype)
 
 struct container;
 struct mntent;
@@ -51,6 +55,8 @@ extern int add_service_controller(struct container *ct);
 extern int service_ctl_killall(struct container *ct);
 
 extern struct libct_processes *local_controller_tasks(ct_handler_t h);
+
+extern int cgroup_freezer_set_state(struct container *ct, bool freeze);
 
 #define DEFAULT_CGROUPS_PATH	"/sys/fs/cgroup"
 

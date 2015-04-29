@@ -141,6 +141,16 @@ int libct_container_uname(ct_handler_t ct, char *host, char *domain)
 	return ct->ops->uname(ct, host, domain);
 }
 
+int libct_container_pause(ct_handler_t ct)
+{
+	return ct->ops->pause(ct);
+}
+
+int libct_container_resume(ct_handler_t ct)
+{
+	return ct->ops->resume(ct);
+}
+
 libct_session_t libct_session_open(char *how)
 {
 	if (!how || !strcmp(how, "local"))

@@ -4,6 +4,8 @@
 #include <string.h>
 #include <mntent.h>
 #include <limits.h>
+#include <errno.h>
+#include <time.h>
 
 #include <sys/stat.h>
 #include <sys/mount.h>
@@ -118,8 +120,6 @@ int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 
 	return ct->ops->add_controller(ct, ctype);
 }
-
-#define cbit(ctype)	(1 << ctype)
 
 static int add_controller(struct container *ct, int ctype)
 {
@@ -489,3 +489,50 @@ err:
 	fclose(f);
 	return -1;
 }
+
+int cgroup_freezer_set_state(struct container *ct, bool freeze)
+{
+	char path[PATH_MAX], *p, buf[10];
+	char *state;
+	int ret, fd;
+
+	state = freeze ? "FROZEN\n" : "THAWED\n";
+
+	p = cgroup_get_ct_path(ct, CTL_FREEZER, path, sizeof(path));
+	snprintf(p, sizeof(path) - (p - path), "/freezer.state");
+
+	fd = open(path, O_RDWR);
+	if (fd < 0) {
+		pr_perror("Unable to open %s", path);
+		return -1;
+	}
+
+	if (write(fd, state, 6) != 6) {
+		pr_perror("Unable to write '%s' in %s", state, path);
+		goto err;
+	}
+
+	while (1) {
+		struct timespec to = {0, 1000000};
+		if (lseek(fd, 0, SEEK_SET) < 0) {
+			pr_perror("lseek");
+			goto err;
+		}
+
+		ret = read(fd, buf, sizeof(buf) - 1);
+		if (ret < 0) {
+			pr_perror("Unable to read from %s", path);
+			goto err;
+		};
+		buf[ret] = 0;
+		if (strcmp(buf, state) == 0)
+			break;
+		nanosleep(&to, NULL);
+	}
+
+	return 0;
+err:
+	close(fd);
+	return -1;
+}
+

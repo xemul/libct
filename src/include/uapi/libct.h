@@ -37,6 +37,7 @@ enum ct_state {
 	CT_ERROR = -1,
 	CT_STOPPED,
 	CT_RUNNING,
+	CT_PAUSED,
 };
 
 extern ct_handler_t libct_container_create(libct_session_t ses, char *name);
@@ -78,6 +79,9 @@ extern int libct_controller_add(ct_handler_t ct, enum ct_controller ctype);
 extern int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype, char *param, char *value);
 
 extern int libct_container_uname(ct_handler_t ct, char *host, char *domain);
+
+extern int libct_container_pause(ct_handler_t ct);
+extern int libct_container_resume(ct_handler_t ct);
 
 /*
  * FS configuration
