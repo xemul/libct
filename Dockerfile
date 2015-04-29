@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y \
     bison \
     flex \
     libselinux1-dev \
-    libapparmor-dev
+    libapparmor-dev \
+    libdbus-1-dev
 
 COPY . /libct
 WORKDIR /libct

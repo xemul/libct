@@ -24,6 +24,7 @@ obj-y			+= lsm/lsm.o
 obj-$(CONFIG_APPARMOR)	+= lsm/apparmor.o
 obj-$(CONFIG_SELINUX)	+= lsm/selinux.o
 obj-y			+= lsm/nop.o
+obj-y			+= systemd.o
 
 cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
 cflags-so		+= -rdynamic

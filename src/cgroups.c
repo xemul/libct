@@ -17,6 +17,7 @@
 #include "ct.h"
 #include "cgroups.h"
 #include "xmalloc.h"
+#include "systemd.h"
 #include "util.h"
 #include "linux-kernel.h"
 #include "err.h"
@@ -286,6 +287,11 @@ int cgroups_attach(struct container *ct, pid_t pid)
 	char spid[12];
 	struct controller *ctl;
 	int ret = 0;
+
+	if (ct->flags & CT_SYSTEMD && ct->p.pid == pid) {
+		if (systemd_start_unit(ct, pid))
+			return -1;
+	}
 
 	snprintf(spid, sizeof(spid), "%d", pid);
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {

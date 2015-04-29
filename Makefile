@@ -64,6 +64,9 @@ cflags-y	+= -iquote src
 cflags-y	+= -fno-strict-aliasing
 cflags-y	+= -I/usr/include
 cflags-y	+= -I/usr/include/libnl3
+cflags-y	+= -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include
+cflags-y	+= -I/usr/lib64/dbus-1.0/include/
+cflags-y	+= -I/usr/include/dbus-1.0
 export cflags-y
 
 VERSION_MAJOR		:= 0
