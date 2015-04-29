@@ -127,6 +127,7 @@ static void local_ct_destroy(ct_handler_t h)
 	fs_free(ct);
 	net_release(ct);
 	xfree(ct->name);
+	xfree(ct->slice);
 	xfree(ct->hostname);
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
@@ -942,6 +943,17 @@ static int local_resume(ct_handler_t h)
 	return 0;
 }
 
+static int local_set_slice(ct_handler_t h, char *slice)
+{
+	struct container *ct = cth2ct(h);
+
+	ct->slice = xstrdup(slice);
+	if (ct->slice == NULL)
+		return -ENOMEM;
+
+	return 0;
+}
+
 static const struct container_ops local_ct_ops = {
 	.spawn_cb		= local_spawn_cb,
 	.spawn_execve		= local_spawn_execve,
@@ -973,6 +985,7 @@ static const struct container_ops local_ct_ops = {
 	.get_processes		= local_controller_tasks,
 	.pause			= local_pause,
 	.resume			= local_resume,
+	.set_slice		= local_set_slice,
 };
 
 ct_handler_t ct_create(char *name)
@@ -985,6 +998,7 @@ ct_handler_t ct_create(char *name)
 		ct->h.ops = &local_ct_ops;
 		ct->state = CT_STOPPED;
 		ct->name = xstrdup(name);
+		ct->slice = NULL;
 		ct->tty_fd = -1;
 		INIT_LIST_HEAD(&ct->setns_list);
 		INIT_LIST_HEAD(&ct->cgroups);

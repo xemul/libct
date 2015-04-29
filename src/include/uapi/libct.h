@@ -189,6 +189,10 @@ extern int libct_userns_add_gid_map(ct_handler_t ct, unsigned int first,
  * Don't create a session for an initial process in CT
  */
 #define LIBCT_OPT_NOSETSID				4
+/*
+ * Tell systemd about CT
+ */
+#define LIBCT_OPT_SYSTEMD				5
 
 extern int libct_container_set_option(ct_handler_t ct, int opt, void *args);
 

@@ -104,11 +104,17 @@ static inline char *cgroup_get_path(int type, char *buf, int blen)
 
 static inline char *cgroup_get_ct_path(struct container *ct, enum ct_controller ctype, char *buf, int blen)
 {
-	char *t;
+	char *slice = "system.slice", *t;
 	int off;
 
+	if (ct->slice)
+		slice = ct->slice;
+
 	t = cgroup_get_path(ctype, buf, blen);
-	off = snprintf(t, blen - (t - buf), "/%s", ct->name);
+	if (ct->flags & CT_SYSTEMD)
+		off = snprintf(t, blen - (t - buf), "/%s/%s-%s.scope", slice, slice, ct->name);
+	else
+		off = snprintf(t, blen - (t - buf), "/%s", ct->name);
 
 	return t + off;
 }

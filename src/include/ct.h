@@ -46,6 +46,7 @@ struct container_ops {
 	struct libct_processes *(*get_processes)(ct_handler_t ct);
 	int (*pause)(ct_handler_t ct);
 	int (*resume)(ct_handler_t ct);
+	int (*set_slice)(ct_handler_t ct, char *slice);
 };
 
 struct ct_handler {
@@ -58,12 +59,14 @@ ct_handler_t ct_create(char *name);
 #define CT_AUTO_PROC		0x1
 #define CT_KILLABLE		0x2
 #define CT_NOSETSID		0x4
+#define CT_SYSTEMD		0x5
 
 /*
  * The main structure describing a container
  */
 struct container {
 	char			*name;
+	char			*slice;
 	struct ct_handler	h;
 	enum ct_state		state;
 
