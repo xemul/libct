@@ -25,7 +25,8 @@ endif
 LIBNLDIR = ../.shipped/libnl/lib/.libs
 LDFLAGS = -Wl,--no-as-needed \
 	-lct -L../src/ -Wl,-rpath,'$$ORIGIN/../src' \
-	-lnl-route-3 -lnl-3 -L$(LIBNLDIR) -Wl,-rpath,'$$ORIGIN/$(LIBNLDIR)'
+	-lnl-route-3 -lnl-3 -L$(LIBNLDIR) -Wl,-rpath,'$$ORIGIN/$(LIBNLDIR)' \
+	-ldbus-1
 
 COMMON_OUTS = $(COMMON_TESTS:%=%.out)
 LOCAL_OUTS = $(LOCAL_TESTS:%=%.out)
