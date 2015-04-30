@@ -13,9 +13,15 @@ import "unsafe"
 
 const (
 	LIBCT_OPT_AUTO_PROC_MOUNT = C.LIBCT_OPT_AUTO_PROC_MOUNT
-	CAPS_BSET                 = C.CAPS_BSET
-	CAPS_ALLCAPS              = C.CAPS_ALLCAPS
-	CAPS_ALL                  = C.CAPS_ALL
+
+	CAPS_BSET    = C.CAPS_BSET
+	CAPS_ALLCAPS = C.CAPS_ALLCAPS
+	CAPS_ALL     = C.CAPS_ALL
+
+	CT_ERROR   = C.CT_ERROR
+	CT_STOPPED = C.CT_STOPPED
+	CT_RUNNING = C.CT_RUNNING
+	CT_PAUSED  = C.CT_PAUSED
 )
 
 type file interface {
@@ -151,6 +157,16 @@ func (ct *Container) Kill() error {
 	}
 
 	return nil
+}
+
+func (ct *Container) State() (int, error) {
+	ret := C.libct_container_state(ct.ct)
+
+	if ret < 0 {
+		return CT_ERROR, LibctError{int(ret)}
+	}
+
+	return int(ret), nil
 }
 
 func (ct *Container) Pause() error {
