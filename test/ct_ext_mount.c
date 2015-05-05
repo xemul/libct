@@ -16,6 +16,7 @@
 
 #define FS_ROOT	"libct_test_root"
 #define FS_EXT	"libct_test_external"
+#define FS_ACT	"libct_test_actions"
 #define FS_PTS	"libct_test_devpts"
 #define FS_DIR	"dir"
 #define FS_FILE	"file"
@@ -42,6 +43,11 @@ static int check_fs_data(void *a)
 		return 1;
 	}
 
+	if (access(FS_ACT "/hello", F_OK)) {
+		tst_err("Unable to access %s", FS_ACT "/hello");
+		return 1;
+	}
+
 	*fs_data = 1;
 	return 0;
 }
@@ -53,6 +59,16 @@ int main(int argc, char **argv)
 	ct_handler_t ct;
 	ct_process_desc_t p;
 	int fs_err = 0;
+	char *preargv[] = {"echo", "premount", NULL};
+	struct libct_cmd premount = {
+		.path = "echo",
+		.argv = preargv,
+	};
+	char *postargv[] = {"touch", FS_ROOT "/" FS_ACT "/hello", NULL};
+	struct libct_cmd postmount = {
+		.path = "touch",
+		.argv = postargv,
+	};
 
 	mkdir(FS_EXT, 0600);
 	if (creat(FS_EXT "/" FS_FILE, 0600) < 0)
@@ -74,6 +90,7 @@ int main(int argc, char **argv)
 	printf("Set bind\n");
 	libct_fs_add_bind_mount(ct, FS_EXT, FS_DIR, 0);
 	libct_fs_add_mount(ct, "test_devpts", FS_PTS, 0, "devpts", "newinstance");
+	libct_fs_add_mount_with_actions(ct, "test_actions", FS_ACT, 0, "tmpfs", "", &premount, &postmount);
 	printf("Spawn\n");
 	libct_container_spawn_cb(ct, p, check_fs_data, fs_data);
 	printf("Done\n");
@@ -85,6 +102,8 @@ int main(int argc, char **argv)
 		fs_err |= 1;
 	if (rmdir(FS_ROOT "/" FS_PTS) < 0)
 		fs_err |= 16;
+	if (rmdir(FS_ROOT "/" FS_ACT) < 0)
+		fs_err |= 32;
 	if (rmdir(FS_ROOT) < 0)
 		fs_err |= 2;
 	if (unlink(FS_EXT "/" FS_FILE) < 0)

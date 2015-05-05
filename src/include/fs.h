@@ -17,7 +17,8 @@ extern int local_fs_set_root(ct_handler_t h, char *root);
 extern int local_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *priv);
 extern int local_add_bind_mount(ct_handler_t ct, char *src, char *dst, int flags);
 extern int local_del_bind_mount(ct_handler_t ct, char *dst);
-extern int local_add_mount(ct_handler_t h, char *src, char *dst, int flags, char *fstype, char *data);
+extern int local_add_mount(ct_handler_t h, char *src, char *dst, int flags, char *fstype, char *data,
+				struct libct_cmd *premount, struct libct_cmd *postdump);
 
 extern int fs_mount(struct container *ct);
 extern int fs_mount_ext(struct container *ct);

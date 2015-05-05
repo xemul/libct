@@ -104,11 +104,22 @@ extern int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *arg
 #define CT_FS_NODEV		0x20
 #define CT_FS_STRICTATIME	0x40
 
+struct libct_cmd {
+	struct libct_cmd *next;
+
+	char *path;
+	char **argv;
+	char **envp;
+	char *dir;
+};
+
 extern int libct_fs_add_bind_mount(ct_handler_t ct, char *source, char *destination, int flags);
 extern int libct_fs_del_bind_mount(ct_handler_t ct, char *destination);
 extern int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst,
 					int flags, char *fstype, char *data);
-
+extern int libct_fs_add_mount_with_actions(ct_handler_t ct, char *src, char *dst,
+					int flags, char *fstype, char *data,
+					struct libct_cmd *pre, struct libct_cmd *post);
 /*
  * Networking configuration
  */

@@ -11,6 +11,7 @@
 #include "list.h"
 #include "util.h"
 #include "bug.h"
+#include "cmd.h"
 #include "ct.h"
 
 /*
@@ -23,6 +24,9 @@ struct fs_mount {
 	char *fstype;
 	char *data;
 	int  flags;
+
+	struct libct_cmd *premount;
+	struct libct_cmd *postmount;
 
 	struct list_head l;
 };
@@ -40,7 +44,11 @@ int fs_mount_ext(struct container *ct)
 
 	list_for_each_entry(fm, &ct->fs_mnts, l) {
 		snprintf(rdst, PATH_MAX, "%s/%s", ct->root_path, fm->dst);
+		if (fm->premount && exec_cmd(fm->premount))
+			goto err;
 		if (do_mount(fm->src, rdst, fm->flags, fm->fstype, fm->data))
+			goto err;
+		if (fm->postmount && exec_cmd(fm->postmount))
 			goto err;
 	}
 
@@ -69,6 +77,8 @@ static void fs_mount_free(struct fs_mount *fm)
 		xfree(fm->dst);
 		xfree(fm->fstype);
 		xfree(fm->data);
+		free_cmd(fm->premount);
+		free_cmd(fm->postmount);
 		xfree(fm);
 	}
 }
@@ -84,7 +94,9 @@ static void free_ext(struct container *ct)
 }
 
 static struct fs_mount *fs_mount_alloc(char *src, char *dst, int flags,
-						char *fstype, char *data)
+						char *fstype, char *data,
+					struct libct_cmd *premount,
+					struct libct_cmd *postmount)
 {
 	struct fs_mount *fm = xzalloc(sizeof(*fm));
 
@@ -112,6 +124,17 @@ static struct fs_mount *fs_mount_alloc(char *src, char *dst, int flags,
 			goto err;
 	}
 
+	if (premount) {
+		fm->premount = alloc_cmd(premount);
+		if (!fm->premount)
+			goto err;
+	}
+	if (postmount) {
+		fm->postmount = alloc_cmd(postmount);
+		if (!fm->postmount)
+			goto err;
+	}
+
 	fm->flags = flags;
 
 	return fm;
@@ -120,7 +143,8 @@ err:
 	return NULL;
 }
 
-int local_add_mount(ct_handler_t h, char *src, char *dst, int flags, char *fstype, char *data)
+int local_add_mount(ct_handler_t h, char *src, char *dst, int flags, char *fstype, char *data,
+			struct libct_cmd *premount, struct libct_cmd *postdump)
 {
 	struct container *ct = cth2ct(h);
 	struct fs_mount *fm;
@@ -129,9 +153,10 @@ int local_add_mount(ct_handler_t h, char *src, char *dst, int flags, char *fstyp
 		/* FIXME -- implement */
 		return -LCTERR_BADCTSTATE;
 
-	fm = fs_mount_alloc(src, dst, flags, fstype, data);
+	fm = fs_mount_alloc(src, dst, flags, fstype, data, premount, postdump);
 	if (!fm)
 		return -1;
+
 	list_add_tail(&fm->l, &ct->fs_mnts);
 	return 0;
 }
@@ -145,7 +170,7 @@ int local_add_bind_mount(ct_handler_t h, char *src, char *dst, int flags)
 		/* FIXME -- implement */
 		return -LCTERR_BADCTSTATE;
 
-	fm = fs_mount_alloc(src, dst, flags | CT_FS_BIND, NULL, NULL);
+	fm = fs_mount_alloc(src, dst, flags | CT_FS_BIND, NULL, NULL, NULL, NULL);
 	if (!fm)
 		return -1;
 	list_add_tail(&fm->l, &ct->fs_mnts);
@@ -305,8 +330,9 @@ int libct_fs_set_root(ct_handler_t ct, char *root)
 	return ct->ops->fs_set_root(ct, root);
 }
 
-int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst,
-				int flags, char *fstype, char *data)
+int libct_fs_add_mount_with_actions(ct_handler_t ct, char *src, char *dst,
+			int flags, char *fstype, char *data,
+			struct libct_cmd *premount, struct libct_cmd *postmount)
 {
 	if (flags & ~(CT_FS_PRIVATE | CT_FS_RDONLY | CT_FS_NOEXEC |
 			CT_FS_NOSUID | CT_FS_NODEV | CT_FS_STRICTATIME))
@@ -315,7 +341,13 @@ int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst,
 	if (!src || !dst)
 		return -LCTERR_INVARG;
 
-	return ct->ops->fs_add_mount(ct, src, dst, flags, fstype, data);
+	return ct->ops->fs_add_mount(ct, src, dst, flags, fstype, data, premount, postmount);
+}
+
+int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst,
+			int flags, char *fstype, char *data)
+{
+	return libct_fs_add_mount_with_actions(ct, src,dst, flags, fstype, data, NULL, NULL);
 }
 
 int libct_fs_add_bind_mount(ct_handler_t ct, char *src, char *dst, int flags)
