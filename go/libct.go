@@ -395,7 +395,14 @@ func (ct *Container) AddBindMount(src string, dst string, flags int) error {
 	return nil
 }
 
-func (ct *Container) AddMount(src string, dst string, flags int, fstype string, data string) error {
+type Command struct {
+        Path string   `json:"path"`
+        Args []string `json:"args"`
+        Env  []string `json:"env"`
+        Dir  string   `json:"dir"`
+}
+
+func (ct *Container) AddMount(src string, dst string, flags int, fstype string, data string, preCmds []Command, postCmds []Command) error {
 	csrc := C.CString(src)
 	defer C.free(unsafe.Pointer(csrc))
 
@@ -408,7 +415,12 @@ func (ct *Container) AddMount(src string, dst string, flags int, fstype string, 
 	cdata := C.CString(data)
 	defer C.free(unsafe.Pointer(cdata))
 
-	if ret := C.libct_fs_add_mount(ct.ct, csrc, cdst, C.int(flags), cfstype, cdata); ret != 0 {
+	pre, preFree := allocCmd(preCmds)
+	defer freeCmd(pre, preFree)
+	post, postFree := allocCmd(postCmds)
+	defer freeCmd(post, postFree)
+
+	if ret := C.libct_fs_add_mount_with_actions(ct.ct, csrc, cdst, C.int(flags), cfstype, cdata, pre, post); ret != 0 {
 		return LibctError{int(ret)}
 	}
 

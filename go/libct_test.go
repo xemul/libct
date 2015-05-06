@@ -26,6 +26,16 @@ func TestSpawnExecv(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	preCmds := []Command{
+		{Path: "touch", Args: []string{"touch", "/tmp/hello"}},
+		{Path: "touch", Args: []string{"touch", "/tmp/hello2"}},
+	}
+	postCmds := []Command{
+		{Path: "touch", Args: []string{"touch", "/tmp/Hello"}},
+		{Path: "touch", Args: []string{"touch", "/tmp/Hello2"}},
+	}
+	ct.AddMount("", "/tmp", 0, "tmpfs", "", preCmds, postCmds)
+
 	ct.SetNsMask(syscall.CLONE_NEWNS | syscall.CLONE_NEWPID)
 	if err = p.SetEnv([]string{"PATH=/bin:/usr/bin"}); err != nil {
 		t.Fatal(err)
