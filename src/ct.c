@@ -91,7 +91,7 @@ static int apply_nspath(struct container *ct)
 
 	list_for_each_entry(e, &ct->setns_list, node) {
 		int fd;
-		fd = open(e->path, O_RDWR);
+		fd = open(e->path, O_RDONLY);
 		if (fd < 0) {
 			pr_perror("Unable to open %s", e->path);
 			return -1;
