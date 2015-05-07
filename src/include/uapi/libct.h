@@ -96,13 +96,14 @@ enum ct_fs_type {
 
 extern int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *arg);
 
-#define CT_FS_RDONLY		0x1
-#define CT_FS_PRIVATE		0x2
-#define CT_FS_BIND		0x4
-#define CT_FS_NOEXEC		0x8
-#define CT_FS_NOSUID		0x10
-#define CT_FS_NODEV		0x20
-#define CT_FS_STRICTATIME	0x40
+#define CT_FS_RDONLY		0x0001
+#define CT_FS_PRIVATE		0x0002
+#define CT_FS_BIND		0x0004
+#define CT_FS_NOEXEC		0x0008
+#define CT_FS_NOSUID		0x0010
+#define CT_FS_NODEV		0x0020
+#define CT_FS_STRICTATIME	0x0040
+#define CT_FS_REC		0x0080
 
 struct libct_cmd {
 	struct libct_cmd *next;

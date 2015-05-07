@@ -396,10 +396,10 @@ func (ct *Container) AddBindMount(src string, dst string, flags int) error {
 }
 
 type Command struct {
-        Path string   `json:"path"`
-        Args []string `json:"args"`
-        Env  []string `json:"env"`
-        Dir  string   `json:"dir"`
+	Path string   `json:"path"`
+	Args []string `json:"args"`
+	Env  []string `json:"env"`
+	Dir  string   `json:"dir"`
 }
 
 func (ct *Container) AddMount(src string, dst string, flags int, fstype string, data string, preCmds []Command, postCmds []Command) error {

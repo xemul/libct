@@ -12,8 +12,9 @@ func __allocCmd(c *Command, toFree [][]*C.char) (*C.struct_libct_cmd, [][]*C.cha
 
 	if len(c.Dir) != 0 {
 		cmd.dir = C.CString(c.Dir)
-	} else
+	} else {
 		cmd.dir = nil
+	}
 	cmd.path = C.CString(c.Path)
 	cmd.next = nil
 
@@ -72,7 +73,7 @@ func freeCmd(cmd *C.struct_libct_cmd, toFree [][]*C.char) {
 		}
 	}
 
-	for _, f := range(toFree) {
+	for _, f := range toFree {
 		freeStrings(f)
 	}
 

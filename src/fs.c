@@ -335,7 +335,8 @@ int libct_fs_add_mount_with_actions(ct_handler_t ct, char *src, char *dst,
 			struct libct_cmd *premount, struct libct_cmd *postmount)
 {
 	if (flags & ~(CT_FS_PRIVATE | CT_FS_RDONLY | CT_FS_NOEXEC |
-			CT_FS_NOSUID | CT_FS_NODEV | CT_FS_STRICTATIME))
+			CT_FS_NOSUID | CT_FS_NODEV | CT_FS_STRICTATIME |
+			CT_FS_BIND | CT_FS_REC))
 		return -LCTERR_INVARG;
 
 	if (!src || !dst)
