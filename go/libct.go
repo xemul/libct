@@ -362,6 +362,8 @@ const (
 	CT_FS_NOSUID      = C.CT_FS_NOSUID
 	CT_FS_NODEV       = C.CT_FS_NODEV
 	CT_FS_STRICTATIME = C.CT_FS_STRICTATIME
+	CT_FS_REC         = C.CT_FS_REC
+	CT_FS_BIND        = C.CT_FS_BIND
 )
 
 func (ct *Container) AddUidMap(first, lower_first, count int) error {
