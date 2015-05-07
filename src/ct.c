@@ -118,6 +118,70 @@ static void local_free_nspath(struct container *ct)
 	}
 }
 
+struct sysctl {
+	struct list_head node;
+
+	char *name;
+	char *val;
+};
+
+static int local_set_sysctl(ct_handler_t h, char *name, char *val)
+{
+	struct container *ct = cth2ct(h);
+	int sn = strlen(name) + 1, sv = strlen(val) + 1;
+	struct sysctl *e;
+
+	e = xmalloc(sizeof(struct sysctl) + sn + sv);
+	if (!e)
+		return ENOMEM;
+
+	e->name = ((char *) e) + sizeof(*e);
+	memcpy(e->name, name, sn);
+	e->val = e->name + sn;
+	memcpy(e->val, val, sv);
+
+	list_add(&e->node, &ct->sysctls);
+
+	return 0;
+}
+
+static int apply_sysctls(struct container *ct)
+{
+	struct sysctl *e;
+
+	list_for_each_entry(e, &ct->sysctls, node) {
+		char *c, fpath[PATH_MAX];
+		int fd, ret, len = strlen(e->val);
+
+		for (c = e->name; *c; c++)
+			if (*c == '.')
+				*c = '/';
+
+		snprintf(fpath, sizeof(fpath), "/proc/sys/%s", e->name);
+		fd = open(fpath, O_WRONLY);
+		if (fd < 0) {
+			pr_perror("Unable to open %s", fpath);
+			return -1;
+		}
+
+		ret = write(fd, e->val, len);
+		if (ret < 0)
+			pr_perror("Unable to write '%s' into %s", e->val, fpath);
+		close(fd);
+		if (ret < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
+static void local_free_sysctls(struct container *ct)
+{
+	struct sysctl *e, *t;
+
+	list_for_each_entry_safe(e, t, &ct->sysctls, node)
+		xfree(e);
+}
 
 static void local_ct_destroy(ct_handler_t h)
 {
@@ -133,6 +197,7 @@ static void local_ct_destroy(ct_handler_t h)
 	xfree(ct->cgroup_sub);
 	local_ct_uid_gid_free(ct);
 	local_free_nspath(ct);
+	local_free_sysctls(ct);
 	xfree(ct);
 }
 
@@ -442,6 +507,11 @@ static int ct_clone(void *arg)
 		goto err_um;
 
 	ret = try_mount_proc(ct);
+	if (ret < 0)
+		goto err_um;
+
+	/* FIXME where should it be */
+	ret = apply_sysctls(ct);
 	if (ret < 0)
 		goto err_um;
 
@@ -986,6 +1056,7 @@ static const struct container_ops local_ct_ops = {
 	.pause			= local_pause,
 	.resume			= local_resume,
 	.set_slice		= local_set_slice,
+	.set_sysctl		= local_set_sysctl,
 };
 
 ct_handler_t ct_create(char *name)
@@ -1009,6 +1080,7 @@ ct_handler_t ct_create(char *name)
 		INIT_LIST_HEAD(&ct->fs_devnodes);
 		INIT_LIST_HEAD(&ct->uid_map);
 		INIT_LIST_HEAD(&ct->gid_map);
+		INIT_LIST_HEAD(&ct->sysctls);
 
 		local_process_init(&ct->p);
 

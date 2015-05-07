@@ -150,6 +150,21 @@ func (ct *Container) SetNsPath(ns int, path string) error {
 	return nil
 }
 
+func (ct *Container) SetSysctl(name string, val string) error {
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+
+	cval := C.CString(val)
+	defer C.free(unsafe.Pointer(cval))
+
+	ret := C.libct_container_set_sysctl(ct.ct, cname, cval)
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
 func (ct *Container) Kill() error {
 	ret := C.libct_container_kill(ct.ct)
 

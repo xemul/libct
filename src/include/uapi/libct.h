@@ -61,6 +61,7 @@ extern void libct_container_destroy(ct_handler_t ct);
 
 extern int libct_container_set_nsmask(ct_handler_t ct, unsigned long ns_mask);
 extern int libct_container_set_nspath(ct_handler_t ct, int ns, char *path);
+extern int libct_container_set_sysctl(ct_handler_t ct, char *name, char *val);
 
 enum ct_controller {
 	CTL_BLKIO,
