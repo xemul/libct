@@ -78,6 +78,7 @@ enum ct_controller {
 
 extern int libct_controller_add(ct_handler_t ct, enum ct_controller ctype);
 extern int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype, char *param, char *value);
+extern int libct_controller_read(ct_handler_t ct, enum ct_controller ctype, char *param, void *buf, size_t len);
 
 extern int libct_container_uname(ct_handler_t ct, char *host, char *domain);
 

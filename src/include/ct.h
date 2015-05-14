@@ -24,6 +24,7 @@ struct container_ops {
 	int (*set_nspath)(ct_handler_t h, unsigned long ns, char *path);
 	int (*add_controller)(ct_handler_t h, enum ct_controller ctype);
 	int (*config_controller)(ct_handler_t h, enum ct_controller ctype, char *param, char *value);
+	int (*read_controller)(ct_handler_t h, enum ct_controller ctype, char *param, void *buf, size_t len);
 	int (*fs_set_root)(ct_handler_t h, char *root);
 	int (*fs_set_private)(ct_handler_t h, enum ct_fs_type, void *priv);
 	int (*fs_add_mount)(ct_handler_t h, char *src, char *dst, int flags, char *fstype, char *data,

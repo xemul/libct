@@ -46,6 +46,7 @@ extern void cgroups_free(struct container *ct);
 
 extern int local_add_controller(ct_handler_t h, enum ct_controller ctype);
 extern int local_config_controller(ct_handler_t h, enum ct_controller ctype, char *param, char *value);
+extern int local_read_controller(ct_handler_t h, enum ct_controller ctype, char *param, void *buf, size_t len);
 extern int config_controller(struct container *ct, enum ct_controller ctype, char *param, char *value);
 
 extern int try_mount_cg(struct container *ct);

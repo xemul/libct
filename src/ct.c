@@ -1037,6 +1037,7 @@ static const struct container_ops local_ct_ops = {
 	.set_nspath		= local_set_nspath,
 	.add_controller		= local_add_controller,
 	.config_controller	= local_config_controller,
+	.read_controller	= local_read_controller,
 	.fs_set_root		= local_fs_set_root,
 	.fs_set_private		= local_fs_set_private,
 	.fs_add_mount		= local_add_mount,

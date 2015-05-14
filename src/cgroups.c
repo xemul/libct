@@ -189,6 +189,28 @@ static struct cg_config *cg_config_alloc(enum ct_controller ctype, char *param, 
 	return cg;
 }
 
+int local_read_controller(ct_handler_t h, enum ct_controller ctype,
+		char *param, void *buf, size_t len)
+{
+	struct container *ct = cth2ct(h);
+	char path[PATH_MAX], *t;
+	int fd, ret;
+
+	if (ct->state == CT_STOPPED)
+		return -LCTERR_BADCTSTATE;
+
+	t = cgroup_get_ct_path(ct, ctype, path, sizeof(path));
+	snprintf(t, sizeof(path) - (t - path), "/%s", param);
+
+	ret = fd = open(path, O_RDONLY);
+	if (fd >= 0) {
+		ret = read(fd, buf, len);
+		close(fd);
+	}
+
+	return ret;
+}
+
 int config_controller(struct container *ct, enum ct_controller ctype,
 		char *param, char *value)
 {
@@ -196,7 +218,7 @@ int config_controller(struct container *ct, enum ct_controller ctype,
 	int fd, ret;
 
 	t = cgroup_get_ct_path(ct, ctype, path, sizeof(path));
-	snprintf(t, sizeof(path) - (t - path), "/tasks");
+	snprintf(t, sizeof(path) - (t - path), "/%s", param);
 
 	ret = fd = open(path, O_WRONLY);
 	if (fd >= 0) {
@@ -411,6 +433,15 @@ int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 		return -LCTERR_INVARG;
 
 	return ct->ops->config_controller(ct, ctype, param, value);
+}
+
+int libct_controller_read(ct_handler_t ct, enum ct_controller ctype,
+		char *param, void *buf, size_t size)
+{
+	if (!param)
+		return -LCTERR_INVARG;
+
+	return ct->ops->read_controller(ct, ctype, param, buf, size);
 }
 
 struct libct_processes *local_controller_tasks(ct_handler_t h)
