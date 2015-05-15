@@ -479,6 +479,20 @@ func (ct *Container) ConfigureController(ctype int, param string, value string) 
 	return nil
 }
 
+func (ct *Container) ReadController(ctype int, param string) (string, error) {
+	cparam := C.CString(param)
+	defer C.free(unsafe.Pointer(cparam))
+
+	buf := make([]byte, 4096)
+
+	ret := C.libct_controller_read(ct.ct, C.enum_ct_controller(ctype), cparam, unsafe.Pointer(&buf[0]), 4096)
+	if ret < 0 {
+		return "", LibctError{int(ret)}
+	}
+
+	return string(buf[:ret]), nil
+}
+
 func (ct *Container) Processes() ([]int, error) {
 	ctasks := C.libct_container_processes(ct.ct)
 	if C.libct_handle_is_err(unsafe.Pointer(ctasks)) != 0 {

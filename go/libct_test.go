@@ -88,6 +88,9 @@ func TestSpawnExecvStdout(t *testing.T) {
 	if err = ct.AddController(CTL_CPU); err != nil {
 		t.Fatal(err)
 	}
+	if err = ct.AddController(CTL_MEMORY); err != nil {
+		t.Fatal(err)
+	}
 	if err = p.SetEnv([]string{"TEST_LIBCT=hello", "PATH=/bin:/usr/bin"}); err != nil {
 		t.Fatal(err)
 	}
@@ -95,6 +98,13 @@ func TestSpawnExecvStdout(t *testing.T) {
 		[]string{"sh", "-c", "echo ok; cat; cat <&3 >&2; env | grep -q TEST_LIBCT"},
 		nil)
 	defer ct.Wait()
+
+	val, err := ct.ReadController(CTL_MEMORY, "memory.usage_in_bytes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(val)
+
 	pw.Close()
 	ir.Close()
 	tr.Close()
