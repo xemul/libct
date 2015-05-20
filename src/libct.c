@@ -56,6 +56,15 @@ enum ct_state libct_container_state(ct_handler_t h)
 	return h->ops->get_state(h);
 }
 
+ct_process_t libct_container_load(ct_handler_t ct, pid_t pid)
+{
+	/* This one is optional -- only local ops support */
+	if (!ct->ops->load)
+		return ERR_PTR(-LCTERR_OPNOTSUPP);
+
+	return ct->ops->load(ct, pid);
+}
+
 ct_process_t libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*cb)(void *), void *arg)
 {
 	/* This one is optional -- only local ops support */

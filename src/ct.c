@@ -981,6 +981,14 @@ static int local_add_gid_map(ct_handler_t h, unsigned int first,
 	return local_add_map(&ct->gid_map, first, lower_first, count);
 }
 
+static ct_process_t local_load(ct_handler_t h, pid_t pid)
+{
+	struct container *ct = cth2ct(h);
+	ct->p.pid = pid;
+	ct->state = CT_RUNNING;
+	return &ct->p.h;
+}
+
 static int local_pause(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
@@ -1027,6 +1035,7 @@ static int local_set_slice(ct_handler_t h, char *slice)
 static const struct container_ops local_ct_ops = {
 	.spawn_cb		= local_spawn_cb,
 	.spawn_execve		= local_spawn_execve,
+	.load			= local_load,
 	.enter_cb		= local_enter_cb,
 	.enter_execve		= local_enter_execve,
 	.kill			= local_ct_kill,

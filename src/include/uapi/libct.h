@@ -45,6 +45,7 @@ extern ct_handler_t libct_container_open(libct_session_t ses, char *name);
 extern void libct_container_close(ct_handler_t ct);
 
 enum ct_state libct_container_state(ct_handler_t ct);
+extern ct_process_t libct_container_load(ct_handler_t ct, pid_t pid);
 extern ct_process_t libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*ct_fn)(void *), void *arg);
 extern ct_process_t libct_container_spawn_execv(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv);
 extern ct_process_t libct_container_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env);

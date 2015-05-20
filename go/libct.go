@@ -223,6 +223,20 @@ func (ct *Container) SetConsoleFd(f file) error {
 	return nil
 }
 
+func (ct *Container) Load(p *ProcessDesc, pid int) error {
+	h := C.libct_container_load(ct.ct, C.pid_t(pid))
+
+	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {
+		p.closeDescriptors(p.closeAfterStart)
+		p.closeDescriptors(p.closeAfterWait)
+		return LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
+	}
+
+	p.handle = h
+
+	return nil
+}
+
 func (ct *Container) SpawnExecve(p *ProcessDesc, path string, argv []string, env []string) error {
 	err := ct.execve(p, path, argv, env, true)
 
