@@ -258,6 +258,10 @@ int apply_creds(struct process_desc *p)
 	if (setgroups(p->ngroups, p->groups))
 		return -1;
 
+	if (p->cap_mask & CAPS_BSET)
+		if (apply_bset(p->cap_bset) < 0)
+			return -1;
+
 	if (prctl(PR_SET_KEEPCAPS, 1))
 		pr_perror("Unable to set PR_SET_KEEPCAPS\n");
 	if (setgid(p->gid) || setuid(p->uid))
@@ -266,13 +270,6 @@ int apply_creds(struct process_desc *p)
 		pr_perror("Unable to clear PR_SET_KEEPCAPS\n");
 		return -1;
 	}
-
-	if (!p->cap_mask)
-		return 0;
-
-	if (p->cap_mask & CAPS_BSET)
-		if (apply_bset(p->cap_bset) < 0)
-			return -1;
 
 	if (p->cap_mask & CAPS_ALLCAPS)
 		if (apply_all_caps(p->cap_caps) < 0)
