@@ -89,8 +89,10 @@ int cgroups_create_service(void)
 
 	mkdir(LIBCT_CTL_PATH, 0600);
 	if (mount("cgroup", LIBCT_CTL_PATH, "cgroup",
-				MS_MGC_VAL, "none,name=libct") < 0)
+				MS_MGC_VAL, "none,name=libct") < 0) {
+		pr_perror("Unable to mount the libct subsystem");
 		return -LCTERR_CGCREATE;
+	}
 
 	cg_descs[CTL_SERVICE].mounted_at = LIBCT_CTL_PATH;
 	return 0;
@@ -275,7 +277,12 @@ int cgroup_create_one(struct container *ct, struct controller *ctl)
 
 	cgroup_get_ct_path(ct, ctl->ctype, path, sizeof(path));
 
-	return mkdir(path, 0600);
+	if (mkdir(path, 0600) && errno != EEXIST) {
+		pr_perror("Unable to create %s", path);
+		return -errno;
+	}
+
+	return 0;
 }
 
 int cgroups_create(struct container *ct)
@@ -368,8 +375,10 @@ static int re_mount_controller(struct container *ct, struct controller *ctl, cha
 {
 	char path[PATH_MAX], *t;
 
-	if (mkdir(to, 0600))
+	if (mkdir(to, 0600)) {
+		pr_perror("Unable to create %s", to);
 		return -1;
+	}
 
 	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
 	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
