@@ -58,6 +58,7 @@ static void __print_on_level(unsigned int loglevel, const char *format, va_list 
 void print_on_level(unsigned int loglevel, const char *format, ...)
 {
 	va_list params;
+	int save_errno = errno;
 
 	if (pr_quelled(loglevel))
 		return;
@@ -65,4 +66,6 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 	va_start(params, format);
 	__print_on_level(loglevel, format, params);
 	va_end(params);
+
+	errno = save_errno;
 }
