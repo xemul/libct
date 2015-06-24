@@ -3,7 +3,8 @@
 
 #include <stdbool.h>
 #include <stdarg.h>
-#include <sched.h>
+
+#include <linux/sched.h>
 
 #include "uapi/libct.h"
 
