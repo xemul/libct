@@ -37,3 +37,16 @@ For more details, see [Documentation/libct.txt](Documentation/libct.txt).
 For usage examples, see [test](test/) directory.
 All the API calls, types and constants are collected in
 [src/include/uapi/libct.h](src/include/uapi/libct.h).
+
+## Compiling
+
+Currently, libct depends on libnl which is configured as a git submodule.
+So, before trying to compile libct for the first time you need to prepare
+libnl first:
+
+    git submodule update --init --recursive
+    (cd .shipped/libnl/ && ./autogen.sh && ./configure && make)
+
+Once it is done, please compile as usual, i.e.
+
+    make
