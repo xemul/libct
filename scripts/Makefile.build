@@ -215,7 +215,7 @@ endif
 ifneq ($(lib-a),)
 $(obj)/$(lib-a).a: $(all-objs) $(libs-e)
 	$(E) "  LINK    " $@
-	$(Q) ar -cru -o $@ $^
+	$(Q) ar -cr -o $@ $^
 
 _all += $(obj)/$(lib-a).a
 cleanup-y += $(obj)/$(lib-a).a
