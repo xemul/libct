@@ -278,7 +278,7 @@ int setup_fds_at(int proc_fd, int *fds, int n)
 	return close_fds(proc_fd, n);
 }
 
-int spawn_sock_wait(sk)
+int spawn_sock_wait(int sk)
 {
 	int ret = INT_MIN;
 	read(sk, &ret, sizeof(ret));
