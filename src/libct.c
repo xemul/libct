@@ -56,6 +56,15 @@ enum ct_state libct_container_state(ct_handler_t h)
 	return h->ops->get_state(h);
 }
 
+ct_process_t libct_container_load(ct_handler_t ct, pid_t pid)
+{
+	/* This one is optional -- only local ops support */
+	if (!ct->ops->load)
+		return ERR_PTR(-LCTERR_OPNOTSUPP);
+
+	return ct->ops->load(ct, pid);
+}
+
 ct_process_t libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*cb)(void *), void *arg)
 {
 	/* This one is optional -- only local ops support */
@@ -126,6 +135,11 @@ int libct_container_set_nspath(ct_handler_t ct, int ns, char *path)
 	return ct->ops->set_nspath(ct, ns, path);
 }
 
+int libct_container_set_sysctl(ct_handler_t ct, char *name, char *val)
+{
+	return ct->ops->set_sysctl(ct, name, val);
+}
+
 int libct_container_set_option(ct_handler_t ct, int opt, void *args)
 {
 	return ct->ops->set_option(ct, opt, args);
@@ -139,6 +153,16 @@ int libct_container_set_console_fd(ct_handler_t ct, int tty_fd)
 int libct_container_uname(ct_handler_t ct, char *host, char *domain)
 {
 	return ct->ops->uname(ct, host, domain);
+}
+
+int libct_container_pause(ct_handler_t ct)
+{
+	return ct->ops->pause(ct);
+}
+
+int libct_container_resume(ct_handler_t ct)
+{
+	return ct->ops->resume(ct);
 }
 
 libct_session_t libct_session_open(char *how)

@@ -91,7 +91,7 @@ static int apply_nspath(struct container *ct)
 
 	list_for_each_entry(e, &ct->setns_list, node) {
 		int fd;
-		fd = open(e->path, O_RDWR);
+		fd = open(e->path, O_RDONLY);
 		if (fd < 0) {
 			pr_perror("Unable to open %s", e->path);
 			return -1;
@@ -118,6 +118,70 @@ static void local_free_nspath(struct container *ct)
 	}
 }
 
+struct sysctl {
+	struct list_head node;
+
+	char *name;
+	char *val;
+};
+
+static int local_set_sysctl(ct_handler_t h, char *name, char *val)
+{
+	struct container *ct = cth2ct(h);
+	int sn = strlen(name) + 1, sv = strlen(val) + 1;
+	struct sysctl *e;
+
+	e = xmalloc(sizeof(struct sysctl) + sn + sv);
+	if (!e)
+		return ENOMEM;
+
+	e->name = ((char *) e) + sizeof(*e);
+	memcpy(e->name, name, sn);
+	e->val = e->name + sn;
+	memcpy(e->val, val, sv);
+
+	list_add(&e->node, &ct->sysctls);
+
+	return 0;
+}
+
+static int apply_sysctls(struct container *ct)
+{
+	struct sysctl *e;
+
+	list_for_each_entry(e, &ct->sysctls, node) {
+		char *c, fpath[PATH_MAX];
+		int fd, ret, len = strlen(e->val);
+
+		for (c = e->name; *c; c++)
+			if (*c == '.')
+				*c = '/';
+
+		snprintf(fpath, sizeof(fpath), "/proc/sys/%s", e->name);
+		fd = open(fpath, O_WRONLY);
+		if (fd < 0) {
+			pr_perror("Unable to open %s", fpath);
+			return -1;
+		}
+
+		ret = write(fd, e->val, len);
+		if (ret < 0)
+			pr_perror("Unable to write '%s' into %s", e->val, fpath);
+		close(fd);
+		if (ret < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
+static void local_free_sysctls(struct container *ct)
+{
+	struct sysctl *e, *t;
+
+	list_for_each_entry_safe(e, t, &ct->sysctls, node)
+		xfree(e);
+}
 
 static void local_ct_destroy(ct_handler_t h)
 {
@@ -127,11 +191,13 @@ static void local_ct_destroy(ct_handler_t h)
 	fs_free(ct);
 	net_release(ct);
 	xfree(ct->name);
+	xfree(ct->slice);
 	xfree(ct->hostname);
 	xfree(ct->domainname);
 	xfree(ct->cgroup_sub);
 	local_ct_uid_gid_free(ct);
 	local_free_nspath(ct);
+	local_free_sysctls(ct);
 	xfree(ct);
 }
 
@@ -441,6 +507,11 @@ static int ct_clone(void *arg)
 		goto err_um;
 
 	ret = try_mount_proc(ct);
+	if (ret < 0)
+		goto err_um;
+
+	/* FIXME where should it be */
+	ret = apply_sysctls(ct);
 	if (ret < 0)
 		goto err_um;
 
@@ -910,9 +981,61 @@ static int local_add_gid_map(ct_handler_t h, unsigned int first,
 	return local_add_map(&ct->gid_map, first, lower_first, count);
 }
 
+static ct_process_t local_load(ct_handler_t h, pid_t pid)
+{
+	struct container *ct = cth2ct(h);
+	ct->p.pid = pid;
+	ct->state = CT_RUNNING;
+	return &ct->p.h;
+}
+
+static int local_pause(ct_handler_t h)
+{
+	struct container *ct = cth2ct(h);
+	int ret;
+
+	if ((ct->cgroups_mask & cbit(CTL_FREEZER)) == 0)
+		return -EINVAL;
+
+	ret = cgroup_freezer_set_state(ct, true);
+	if (ret)
+		return ret;
+
+	ct->state = CT_PAUSED;
+	return 0;
+}
+
+static int local_resume(ct_handler_t h)
+{
+	struct container *ct = cth2ct(h);
+	int ret;
+
+	if ((ct->cgroups_mask & cbit(CTL_FREEZER)) == 0)
+		return -EINVAL;
+
+	ret = cgroup_freezer_set_state(ct, false);
+	if (ret)
+		return ret;
+
+	ct->state = CT_RUNNING;
+	return 0;
+}
+
+static int local_set_slice(ct_handler_t h, char *slice)
+{
+	struct container *ct = cth2ct(h);
+
+	ct->slice = xstrdup(slice);
+	if (ct->slice == NULL)
+		return -ENOMEM;
+
+	return 0;
+}
+
 static const struct container_ops local_ct_ops = {
 	.spawn_cb		= local_spawn_cb,
 	.spawn_execve		= local_spawn_execve,
+	.load			= local_load,
 	.enter_cb		= local_enter_cb,
 	.enter_execve		= local_enter_execve,
 	.kill			= local_ct_kill,
@@ -923,6 +1046,7 @@ static const struct container_ops local_ct_ops = {
 	.set_nspath		= local_set_nspath,
 	.add_controller		= local_add_controller,
 	.config_controller	= local_config_controller,
+	.read_controller	= local_read_controller,
 	.fs_set_root		= local_fs_set_root,
 	.fs_set_private		= local_fs_set_private,
 	.fs_add_mount		= local_add_mount,
@@ -939,6 +1063,10 @@ static const struct container_ops local_ct_ops = {
 	.add_uid_map		= local_add_uid_map,
 	.add_gid_map		= local_add_gid_map,
 	.get_processes		= local_controller_tasks,
+	.pause			= local_pause,
+	.resume			= local_resume,
+	.set_slice		= local_set_slice,
+	.set_sysctl		= local_set_sysctl,
 };
 
 ct_handler_t ct_create(char *name)
@@ -951,6 +1079,7 @@ ct_handler_t ct_create(char *name)
 		ct->h.ops = &local_ct_ops;
 		ct->state = CT_STOPPED;
 		ct->name = xstrdup(name);
+		ct->slice = NULL;
 		ct->tty_fd = -1;
 		INIT_LIST_HEAD(&ct->setns_list);
 		INIT_LIST_HEAD(&ct->cgroups);
@@ -961,6 +1090,7 @@ ct_handler_t ct_create(char *name)
 		INIT_LIST_HEAD(&ct->fs_devnodes);
 		INIT_LIST_HEAD(&ct->uid_map);
 		INIT_LIST_HEAD(&ct->gid_map);
+		INIT_LIST_HEAD(&ct->sysctls);
 
 		local_process_init(&ct->p);
 

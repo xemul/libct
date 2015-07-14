@@ -37,6 +37,7 @@ enum ct_state {
 	CT_ERROR = -1,
 	CT_STOPPED,
 	CT_RUNNING,
+	CT_PAUSED,
 };
 
 extern ct_handler_t libct_container_create(libct_session_t ses, char *name);
@@ -44,6 +45,7 @@ extern ct_handler_t libct_container_open(libct_session_t ses, char *name);
 extern void libct_container_close(ct_handler_t ct);
 
 enum ct_state libct_container_state(ct_handler_t ct);
+extern ct_process_t libct_container_load(ct_handler_t ct, pid_t pid);
 extern ct_process_t libct_container_spawn_cb(ct_handler_t ct, ct_process_desc_t pr, int (*ct_fn)(void *), void *arg);
 extern ct_process_t libct_container_spawn_execv(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv);
 extern ct_process_t libct_container_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, char *path, char **argv, char **env);
@@ -60,6 +62,7 @@ extern void libct_container_destroy(ct_handler_t ct);
 
 extern int libct_container_set_nsmask(ct_handler_t ct, unsigned long ns_mask);
 extern int libct_container_set_nspath(ct_handler_t ct, int ns, char *path);
+extern int libct_container_set_sysctl(ct_handler_t ct, char *name, char *val);
 
 enum ct_controller {
 	CTL_BLKIO,
@@ -76,8 +79,12 @@ enum ct_controller {
 
 extern int libct_controller_add(ct_handler_t ct, enum ct_controller ctype);
 extern int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype, char *param, char *value);
+extern int libct_controller_read(ct_handler_t ct, enum ct_controller ctype, char *param, void *buf, size_t len);
 
 extern int libct_container_uname(ct_handler_t ct, char *host, char *domain);
+
+extern int libct_container_pause(ct_handler_t ct);
+extern int libct_container_resume(ct_handler_t ct);
 
 /*
  * FS configuration
@@ -92,19 +99,31 @@ enum ct_fs_type {
 
 extern int libct_fs_set_private(ct_handler_t ct, enum ct_fs_type type, void *arg);
 
-#define CT_FS_RDONLY		0x1
-#define CT_FS_PRIVATE		0x2
-#define CT_FS_BIND		0x4
-#define CT_FS_NOEXEC		0x8
-#define CT_FS_NOSUID		0x10
-#define CT_FS_NODEV		0x20
-#define CT_FS_STRICTATIME	0x40
+#define CT_FS_RDONLY		0x0001
+#define CT_FS_PRIVATE		0x0002
+#define CT_FS_BIND		0x0004
+#define CT_FS_NOEXEC		0x0008
+#define CT_FS_NOSUID		0x0010
+#define CT_FS_NODEV		0x0020
+#define CT_FS_STRICTATIME	0x0040
+#define CT_FS_REC		0x0080
+
+struct libct_cmd {
+	struct libct_cmd *next;
+
+	char *path;
+	char **argv;
+	char **envp;
+	char *dir;
+};
 
 extern int libct_fs_add_bind_mount(ct_handler_t ct, char *source, char *destination, int flags);
 extern int libct_fs_del_bind_mount(ct_handler_t ct, char *destination);
 extern int libct_fs_add_mount(ct_handler_t ct, char *src, char *dst,
 					int flags, char *fstype, char *data);
-
+extern int libct_fs_add_mount_with_actions(ct_handler_t ct, char *src, char *dst,
+					int flags, char *fstype, char *data,
+					struct libct_cmd *pre, struct libct_cmd *post);
 /*
  * Networking configuration
  */
@@ -173,6 +192,10 @@ extern int libct_userns_add_gid_map(ct_handler_t ct, unsigned int first,
  * Don't create a session for an initial process in CT
  */
 #define LIBCT_OPT_NOSETSID				4
+/*
+ * Tell systemd about CT
+ */
+#define LIBCT_OPT_SYSTEMD				5
 
 extern int libct_container_set_option(ct_handler_t ct, int opt, void *args);
 

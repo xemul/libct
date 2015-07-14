@@ -17,6 +17,7 @@ struct container_ops {
 	ct_process_t (*spawn_execve)(ct_handler_t, ct_process_desc_t p, char *path, char **argv, char **env);
 	ct_process_t (*enter_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
 	ct_process_t (*enter_execve)(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env);
+	ct_process_t (*load)(ct_handler_t h, pid_t pid);
 	int (*kill)(ct_handler_t h);
 	int (*wait)(ct_handler_t h);
 	enum ct_state (*get_state)(ct_handler_t h);
@@ -24,9 +25,11 @@ struct container_ops {
 	int (*set_nspath)(ct_handler_t h, unsigned long ns, char *path);
 	int (*add_controller)(ct_handler_t h, enum ct_controller ctype);
 	int (*config_controller)(ct_handler_t h, enum ct_controller ctype, char *param, char *value);
+	int (*read_controller)(ct_handler_t h, enum ct_controller ctype, char *param, void *buf, size_t len);
 	int (*fs_set_root)(ct_handler_t h, char *root);
 	int (*fs_set_private)(ct_handler_t h, enum ct_fs_type, void *priv);
-	int (*fs_add_mount)(ct_handler_t h, char *src, char *dst, int flags, char *fstype, char *data);
+	int (*fs_add_mount)(ct_handler_t h, char *src, char *dst, int flags, char *fstype, char *data,
+						struct libct_cmd *premount, struct libct_cmd *postdump);
 	int (*fs_add_bind_mount)(ct_handler_t h, char *src, char *dst, int flags);
 	int (*fs_del_bind_mount)(ct_handler_t h, char *dst);
 	int (*set_option)(ct_handler_t h, int opt, void *args);
@@ -43,6 +46,10 @@ struct container_ops {
 	int (*add_gid_map)(ct_handler_t ct, unsigned int first,
 			unsigned int lower_first, unsigned int count);
 	struct libct_processes *(*get_processes)(ct_handler_t ct);
+	int (*pause)(ct_handler_t ct);
+	int (*resume)(ct_handler_t ct);
+	int (*set_slice)(ct_handler_t ct, char *slice);
+	int (*set_sysctl)(ct_handler_t ct, char *name, char *val);
 };
 
 struct ct_handler {
@@ -55,12 +62,14 @@ ct_handler_t ct_create(char *name);
 #define CT_AUTO_PROC		0x1
 #define CT_KILLABLE		0x2
 #define CT_NOSETSID		0x4
+#define CT_SYSTEMD		0x5
 
 /*
  * The main structure describing a container
  */
 struct container {
 	char			*name;
+	char			*slice;
 	struct ct_handler	h;
 	enum ct_state		state;
 
@@ -107,6 +116,8 @@ struct container {
 	struct list_head	gid_map;
 
 	struct process		p;
+
+	struct list_head	sysctls;
 };
 
 struct _uid_gid_map {

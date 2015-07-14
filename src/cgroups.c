@@ -4,6 +4,8 @@
 #include <string.h>
 #include <mntent.h>
 #include <limits.h>
+#include <errno.h>
+#include <time.h>
 
 #include <sys/stat.h>
 #include <sys/mount.h>
@@ -15,6 +17,7 @@
 #include "ct.h"
 #include "cgroups.h"
 #include "xmalloc.h"
+#include "systemd.h"
 #include "util.h"
 #include "linux-kernel.h"
 #include "err.h"
@@ -86,8 +89,10 @@ int cgroups_create_service(void)
 
 	mkdir(LIBCT_CTL_PATH, 0600);
 	if (mount("cgroup", LIBCT_CTL_PATH, "cgroup",
-				MS_MGC_VAL, "none,name=libct") < 0)
+				MS_MGC_VAL, "none,name=libct") < 0) {
+		pr_perror("Unable to mount the libct subsystem");
 		return -LCTERR_CGCREATE;
+	}
 
 	cg_descs[CTL_SERVICE].mounted_at = LIBCT_CTL_PATH;
 	return 0;
@@ -100,6 +105,23 @@ static inline char *cgroup_get_path(int type, char *buf, int blen)
 	return buf + lp;
 }
 
+static inline char *cgroup_get_ct_path(struct container *ct, enum ct_controller ctype, char *buf, int blen)
+{
+	char *slice = "system.slice", *t;
+	int off;
+
+	if (ct->slice)
+		slice = ct->slice;
+
+	t = cgroup_get_path(ctype, buf, blen);
+	if (ct->flags & CT_SYSTEMD)
+		off = snprintf(t, blen - (t - buf), "/%s/%s-%s.scope", slice, slice, ct->name);
+	else
+		off = snprintf(t, blen - (t - buf), "/%s", ct->name);
+
+	return t + off;
+}
+
 int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 {
 	if (ctype >= CT_NR_CONTROLLERS)
@@ -107,8 +129,6 @@ int libct_controller_add(ct_handler_t ct, enum ct_controller ctype)
 
 	return ct->ops->add_controller(ct, ctype);
 }
-
-#define cbit(ctype)	(1 << ctype)
 
 static int add_controller(struct container *ct, int ctype)
 {
@@ -171,14 +191,36 @@ static struct cg_config *cg_config_alloc(enum ct_controller ctype, char *param, 
 	return cg;
 }
 
+int local_read_controller(ct_handler_t h, enum ct_controller ctype,
+		char *param, void *buf, size_t len)
+{
+	struct container *ct = cth2ct(h);
+	char path[PATH_MAX], *t;
+	int fd, ret;
+
+	if (ct->state == CT_STOPPED)
+		return -LCTERR_BADCTSTATE;
+
+	t = cgroup_get_ct_path(ct, ctype, path, sizeof(path));
+	snprintf(t, sizeof(path) - (t - path), "/%s", param);
+
+	ret = fd = open(path, O_RDONLY);
+	if (fd >= 0) {
+		ret = read(fd, buf, len);
+		close(fd);
+	}
+
+	return ret;
+}
+
 int config_controller(struct container *ct, enum ct_controller ctype,
 		char *param, char *value)
 {
 	char path[PATH_MAX], *t;
 	int fd, ret;
 
-	t = cgroup_get_path(ctype, path, sizeof(path));
-	snprintf(t, sizeof(path) - (t - path), "/%s/%s", ct->name, param);
+	t = cgroup_get_ct_path(ct, ctype, path, sizeof(path));
+	snprintf(t, sizeof(path) - (t - path), "/%s", param);
 
 	ret = fd = open(path, O_WRONLY);
 	if (fd >= 0) {
@@ -231,12 +273,16 @@ int local_config_controller(ct_handler_t h, enum ct_controller ctype,
 
 int cgroup_create_one(struct container *ct, struct controller *ctl)
 {
-	char path[PATH_MAX], *t;
+	char path[PATH_MAX];
 
-	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
-	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
+	cgroup_get_ct_path(ct, ctl->ctype, path, sizeof(path));
 
-	return mkdir(path, 0600);
+	if (mkdir(path, 0600) && errno != EEXIST) {
+		pr_perror("Unable to create %s", path);
+		return -errno;
+	}
+
+	return 0;
 }
 
 int cgroups_create(struct container *ct)
@@ -271,6 +317,11 @@ int cgroups_attach(struct container *ct, pid_t pid)
 	struct controller *ctl;
 	int ret = 0;
 
+	if (ct->flags & CT_SYSTEMD && ct->p.pid == pid) {
+		if (systemd_start_unit(ct, pid))
+			return -1;
+	}
+
 	snprintf(spid, sizeof(spid), "%d", pid);
 	list_for_each_entry(ctl, &ct->cgroups, ct_l) {
 		ret = cgroup_attach_one(ct, ctl, spid);
@@ -283,14 +334,13 @@ int cgroups_attach(struct container *ct, pid_t pid)
 
 static void destroy_controller(struct container *ct, struct controller *ctl)
 {
-	char path[PATH_MAX], *t;
+	char path[PATH_MAX];
 
 	/*
 	 * Remove the directory with cgroup. It may fail, but what
 	 * to do in that case? XXX
 	 */
-	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
-	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
+	cgroup_get_ct_path(ct, ctl->ctype, path, sizeof(path));
 	rmdir(path);
 }
 
@@ -325,8 +375,10 @@ static int re_mount_controller(struct container *ct, struct controller *ctl, cha
 {
 	char path[PATH_MAX], *t;
 
-	if (mkdir(to, 0600))
+	if (mkdir(to, 0600)) {
+		pr_perror("Unable to create %s", to);
 		return -1;
+	}
 
 	t = cgroup_get_path(ctl->ctype, path, sizeof(path));
 	snprintf(t, sizeof(path) - (t - path), "/%s", ct->name);
@@ -392,6 +444,15 @@ int libct_controller_configure(ct_handler_t ct, enum ct_controller ctype,
 	return ct->ops->config_controller(ct, ctype, param, value);
 }
 
+int libct_controller_read(ct_handler_t ct, enum ct_controller ctype,
+		char *param, void *buf, size_t size)
+{
+	if (!param)
+		return -LCTERR_INVARG;
+
+	return ct->ops->read_controller(ct, ctype, param, buf, size);
+}
+
 struct libct_processes *local_controller_tasks(ct_handler_t h)
 {
 	struct container *ct = cth2ct(h);
@@ -451,8 +512,8 @@ int service_ctl_killall(struct container *ct)
 	FILE *f;
 	bool has_tasks;
 
-	p = cgroup_get_path(CTL_SERVICE, path, sizeof(path));
-	snprintf(p, sizeof(path) - (p - path), "/%s/%s", ct->name, "tasks");
+	p = cgroup_get_ct_path(ct, CTL_SERVICE, path, sizeof(path));
+	snprintf(p, sizeof(path) - (p - path), "/%s", "tasks");
 
 try_again:
 	f = fopen(path, "r");
@@ -480,3 +541,50 @@ err:
 	fclose(f);
 	return -1;
 }
+
+int cgroup_freezer_set_state(struct container *ct, bool freeze)
+{
+	char path[PATH_MAX], *p, buf[10];
+	char *state;
+	int ret, fd;
+
+	state = freeze ? "FROZEN\n" : "THAWED\n";
+
+	p = cgroup_get_ct_path(ct, CTL_FREEZER, path, sizeof(path));
+	snprintf(p, sizeof(path) - (p - path), "/freezer.state");
+
+	fd = open(path, O_RDWR);
+	if (fd < 0) {
+		pr_perror("Unable to open %s", path);
+		return -1;
+	}
+
+	if (write(fd, state, 6) != 6) {
+		pr_perror("Unable to write '%s' in %s", state, path);
+		goto err;
+	}
+
+	while (1) {
+		struct timespec to = {0, 1000000};
+		if (lseek(fd, 0, SEEK_SET) < 0) {
+			pr_perror("lseek");
+			goto err;
+		}
+
+		ret = read(fd, buf, sizeof(buf) - 1);
+		if (ret < 0) {
+			pr_perror("Unable to read from %s", path);
+			goto err;
+		};
+		buf[ret] = 0;
+		if (strcmp(buf, state) == 0)
+			break;
+		nanosleep(&to, NULL);
+	}
+
+	return 0;
+err:
+	close(fd);
+	return -1;
+}
+

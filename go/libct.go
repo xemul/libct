@@ -13,9 +13,16 @@ import "unsafe"
 
 const (
 	LIBCT_OPT_AUTO_PROC_MOUNT = C.LIBCT_OPT_AUTO_PROC_MOUNT
-	CAPS_BSET                 = C.CAPS_BSET
-	CAPS_ALLCAPS              = C.CAPS_ALLCAPS
-	CAPS_ALL                  = C.CAPS_ALL
+	LIBCT_OPT_SYSTEMD         = C.LIBCT_OPT_SYSTEMD
+
+	CAPS_BSET    = C.CAPS_BSET
+	CAPS_ALLCAPS = C.CAPS_ALLCAPS
+	CAPS_ALL     = C.CAPS_ALL
+
+	CT_ERROR   = C.CT_ERROR
+	CT_STOPPED = C.CT_STOPPED
+	CT_RUNNING = C.CT_RUNNING
+	CT_PAUSED  = C.CT_PAUSED
 )
 
 type file interface {
@@ -143,8 +150,53 @@ func (ct *Container) SetNsPath(ns int, path string) error {
 	return nil
 }
 
+func (ct *Container) SetSysctl(name string, val string) error {
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+
+	cval := C.CString(val)
+	defer C.free(unsafe.Pointer(cval))
+
+	ret := C.libct_container_set_sysctl(ct.ct, cname, cval)
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
 func (ct *Container) Kill() error {
 	ret := C.libct_container_kill(ct.ct)
+
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (ct *Container) State() (int, error) {
+	ret := C.libct_container_state(ct.ct)
+
+	if ret < 0 {
+		return CT_ERROR, LibctError{int(ret)}
+	}
+
+	return int(ret), nil
+}
+
+func (ct *Container) Pause() error {
+	ret := C.libct_container_pause(ct.ct)
+
+	if ret != 0 {
+		return LibctError{int(ret)}
+	}
+
+	return nil
+}
+
+func (ct *Container) Resume() error {
+	ret := C.libct_container_resume(ct.ct)
 
 	if ret != 0 {
 		return LibctError{int(ret)}
@@ -167,6 +219,20 @@ func (ct *Container) SetConsoleFd(f file) error {
 	if ret != 0 {
 		return LibctError{int(ret)}
 	}
+
+	return nil
+}
+
+func (ct *Container) Load(p *ProcessDesc, pid int) error {
+	h := C.libct_container_load(ct.ct, C.pid_t(pid))
+
+	if C.libct_handle_is_err(unsafe.Pointer(h)) != 0 {
+		p.closeDescriptors(p.closeAfterStart)
+		p.closeDescriptors(p.closeAfterWait)
+		return LibctError{int(C.libct_handle_to_err(unsafe.Pointer(h)))}
+	}
+
+	p.handle = h
 
 	return nil
 }
@@ -325,6 +391,8 @@ const (
 	CT_FS_NOSUID      = C.CT_FS_NOSUID
 	CT_FS_NODEV       = C.CT_FS_NODEV
 	CT_FS_STRICTATIME = C.CT_FS_STRICTATIME
+	CT_FS_REC         = C.CT_FS_REC
+	CT_FS_BIND        = C.CT_FS_BIND
 )
 
 func (ct *Container) AddUidMap(first, lower_first, count int) error {
@@ -359,7 +427,14 @@ func (ct *Container) AddBindMount(src string, dst string, flags int) error {
 	return nil
 }
 
-func (ct *Container) AddMount(src string, dst string, flags int, fstype string, data string) error {
+type Command struct {
+	Path string   `json:"path"`
+	Args []string `json:"args"`
+	Env  []string `json:"env"`
+	Dir  string   `json:"dir"`
+}
+
+func (ct *Container) AddMount(src string, dst string, flags int, fstype string, data string, preCmds []Command, postCmds []Command) error {
 	csrc := C.CString(src)
 	defer C.free(unsafe.Pointer(csrc))
 
@@ -372,7 +447,12 @@ func (ct *Container) AddMount(src string, dst string, flags int, fstype string, 
 	cdata := C.CString(data)
 	defer C.free(unsafe.Pointer(cdata))
 
-	if ret := C.libct_fs_add_mount(ct.ct, csrc, cdst, C.int(flags), cfstype, cdata); ret != 0 {
+	pre, preFree := allocCmd(preCmds)
+	defer freeCmd(pre, preFree)
+	post, postFree := allocCmd(postCmds)
+	defer freeCmd(post, postFree)
+
+	if ret := C.libct_fs_add_mount_with_actions(ct.ct, csrc, cdst, C.int(flags), cfstype, cdata, pre, post); ret != 0 {
 		return LibctError{int(ret)}
 	}
 
@@ -411,6 +491,20 @@ func (ct *Container) ConfigureController(ctype int, param string, value string) 
 	}
 
 	return nil
+}
+
+func (ct *Container) ReadController(ctype int, param string) (string, error) {
+	cparam := C.CString(param)
+	defer C.free(unsafe.Pointer(cparam))
+
+	buf := make([]byte, 4096)
+
+	ret := C.libct_controller_read(ct.ct, C.enum_ct_controller(ctype), cparam, unsafe.Pointer(&buf[0]), 4096)
+	if ret < 0 {
+		return "", LibctError{int(ret)}
+	}
+
+	return string(buf[:ret]), nil
 }
 
 func (ct *Container) Processes() ([]int, error) {

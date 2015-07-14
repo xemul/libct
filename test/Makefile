@@ -5,7 +5,7 @@ LOCAL_TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter \
 	ct_net_veth ct_private_subdir \
 	ct_ext_mount ct_private_subdir_ns \
 	ct_cgroup_sub ct_service ct_kill_nons ct_pid_enter \
-	ct_userns ct_caps ct_fds
+	ct_userns ct_caps ct_fds ct_pause
 
 VZ_TESTS = vz_cgroup_memory vz_cgroup_cpu vz_cgroup_blkio
 
@@ -25,7 +25,8 @@ endif
 LIBNLDIR = ../.shipped/libnl/lib/.libs
 LDFLAGS = -Wl,--no-as-needed \
 	-lct -L../src/ -Wl,-rpath,'$$ORIGIN/../src' \
-	-lnl-route-3 -lnl-3 -L$(LIBNLDIR) -Wl,-rpath,'$$ORIGIN/$(LIBNLDIR)'
+	-lnl-route-3 -lnl-3 -L$(LIBNLDIR) -Wl,-rpath,'$$ORIGIN/$(LIBNLDIR)' \
+	-ldbus-1
 
 COMMON_OUTS = $(COMMON_TESTS:%=%.out)
 LOCAL_OUTS = $(LOCAL_TESTS:%=%.out)
