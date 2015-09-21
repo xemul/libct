@@ -1,3 +1,11 @@
+VERSION_MAJOR           := 0
+VERSION_MINOR           := 1
+VERSION_SUBLEVEL        :=
+VERSION_EXTRA           :=
+VERSION_NAME            :=
+VERSION_SO_MAJOR        := 0
+VERSION_SO_MINOR        := 1
+
 MAKEFLAGS 	:= -r -R --no-print-directory
 
 ifeq ($(strip $(V)),)
@@ -47,6 +55,22 @@ ifeq ($(ARCH),x86_64)
 	DEFINES      := -DCONFIG_X86_64 -DARCH="\"$(ARCH)\""
 	LDARCH       := i386:x86-64
 endif
+
+# Installation paths
+PREFIX          := /usr/local
+MANDIR          := $(PREFIX)/share/man
+LIBDIR          := $(PREFIX)/lib
+# For recent Debian/Ubuntu with multiarch support
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture \
+                        -qDEB_HOST_MULTIARCH 2>/dev/null)
+ifneq "$(DEB_HOST_MULTIARCH)" ""
+LIBDIR          := $(PREFIX)/lib/$(DEB_HOST_MULTIARCH)
+# For most other systems
+else ifeq "$(shell uname -m)" "x86_64"
+LIBDIR          := $(PREFIX)/lib64
+endif
+
+INCLUDEDIR      := $(PREFIX)/include/libct
 
 ifneq ($(ARCH),x86)
 $(error "The architecture $(ARCH) isn't supported"))
@@ -129,6 +153,7 @@ build := -r -R --no-print-directory -f scripts/Makefile.build makefile=Makefile 
 run := -r -R --no-print-directory
 
 LIBCT		:= libct
+LIBCT-INC	:= src/include/uapi/libct.h src/include/uapi/libct-log-levels.h src/include/uapi/libct-errors.h
 
 .PHONY: all clean tags docs
 
@@ -191,5 +216,17 @@ clean:
 	$(Q) $(RM) $(CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) libapparmor.a libselinux.a
+
+install:
+	$(E) "  INSTALL "
+	$(Q) install -m 755 $(LIBCT).so \
+		$(DESTDIR)$(LIBDIR)/$(LIBCT).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR)
+	$(Q) ln -fns $(LIBCT).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
+		$(DESTDIR)$(LIBDIR)/$(LIBCT).so.$(VERSION_SO_MAJOR)
+	$(Q) ln -fns $(LIBCT).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
+		$(DESTDIR)$(LIBDIR)/$(LIBCT).so
+	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
+	$(Q) install -m 644 $(LIBCT-INC) $(DESTDIR)$(INCLUDEDIR)
+
 
 .DEFAULT_GOAL := all
