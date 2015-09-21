@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/socket.h>
+#include <sys/capability.h>
 
 #include "uapi/libct.h"
 #include "asm/page.h"
@@ -575,6 +576,35 @@ err:
 	return exit_code;
 }
 
+static int handle_pidsetgroups(pid_t pid)
+{
+	struct __user_cap_header_struct hdr = {_LINUX_CAPABILITY_VERSION_3, 0};
+	struct __user_cap_data_struct data[2];
+	int fd;
+	char fname[PATH_MAX];
+
+	memset(&data, 0, sizeof(data));
+
+	if (capget(&hdr, data))
+		return -1;
+
+	if (data[0].effective & CAP_SETUID)
+		return 0;
+
+	snprintf(fname, sizeof(fname), "/proc/%d/setgroups", pid);
+	fd = open(fname, O_WRONLY);
+	if (fd < 0) {
+		pr_perror("Unable to open %s", fname);
+		return -1;
+	}
+	if (write(fd, "deny", 4) != 4) {
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
 static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg, bool is_exec)
 {
 	struct container *ct = cth2ct(h);
@@ -622,11 +652,13 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	ct->p.pid = pid;
 
 	if (ct->nsmask & CLONE_NEWUSER) {
+		if (handle_pidsetgroups(pid))
+			goto err_net;
+		if (write_id_mappings(pid, &ct->gid_map, "gid_map"))
+			goto err_net;
 		if (write_id_mappings(pid, &ct->uid_map, "uid_map"))
 			goto err_net;
 
-		if (write_id_mappings(pid, &ct->gid_map, "gid_map"))
-			goto err_net;
 	}
 
 	ret = cgroups_attach(ct, pid);
