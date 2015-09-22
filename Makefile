@@ -219,7 +219,7 @@ clean:
 
 install:
 	$(E) "  INSTALL "
-	$(Q) install -m 755 $(LIBCT).so \
+	$(Q) install -D -m 755 $(LIBCT).so \
 		$(DESTDIR)$(LIBDIR)/$(LIBCT).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR)
 	$(Q) ln -fns $(LIBCT).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
 		$(DESTDIR)$(LIBDIR)/$(LIBCT).so.$(VERSION_SO_MAJOR)
