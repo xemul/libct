@@ -64,6 +64,7 @@ ct_handler_t ct_create(char *name);
 #define CT_KILLABLE		0x2
 #define CT_NOSETSID		0x4
 #define CT_SYSTEMD		0x8
+#define CT_TASKLESS		0x10
 
 /*
  * The main structure describing a container
@@ -83,6 +84,7 @@ struct container {
 	unsigned long		nsmask;		/* namespaces used by container */
 	unsigned long		setnsmask;
 	struct list_head	setns_list;
+	int			*ns_fds;
 
 	unsigned long		cgroups_mask;
 	struct list_head	cgroups;
