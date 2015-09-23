@@ -761,6 +761,51 @@ static ct_process_t local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, ch
 	return __local_spawn_cb(ct, pr, ct_execv, &ea, true);
 }
 
+static int local_switch_ns(struct container *ct)
+{
+	struct ns_desc *ns;
+	int aux = -1;
+
+	for (aux = 0; namespaces[aux]; aux++) {
+		ns = namespaces[aux];
+
+		if (ns->cflag == CLONE_NEWPID)
+			continue;
+		if (!(ns->cflag & ct->nsmask))
+			continue;
+
+		if (switch_ns(ct->p.pid, ns, NULL))
+			exit(-1);
+	}
+
+	if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
+		char nroot[128];
+
+		/*
+		 * Otherwise switched by setns()
+		 */
+
+		snprintf(nroot, sizeof(nroot), "/proc/%d/root", ct->p.pid);
+		if (set_current_root(nroot))
+			exit(-1);
+	}
+
+	return 0;
+}
+
+static int local_switch_ct(ct_handler_t h)
+{
+	struct container *ct = cth2ct(h);
+
+	if (ct->state != CT_RUNNING)
+		return -LCTERR_BADCTSTATE;
+
+	if (ct->nsmask & CLONE_NEWPID)
+		return -LCTERR_INVARG;
+
+	return local_switch_ns(ct);
+}
+
 static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg, bool is_exec)
 {
 	struct container *ct = cth2ct(h);
@@ -797,7 +842,6 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		goto err;
 	}
 	if (pid == 0) {
-		struct ns_desc *ns;
 		int proc_fd;
 
 		wait_sock = wait_socks[1];
@@ -812,29 +856,8 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 			exit(-1);
 		}
 
-		for (aux = 0; namespaces[aux]; aux++) {
-			ns = namespaces[aux];
-
-			if (ns->cflag == CLONE_NEWPID)
-				continue;
-			if (!(ns->cflag & ct->nsmask))
-				continue;
-
-			if (switch_ns(ct->p.pid, ns, NULL))
-				exit(-1);
-		}
-
-		if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
-			char nroot[128];
-
-			/*
-			 * Otherwise switched by setns()
-			 */
-
-			snprintf(nroot, sizeof(nroot), "/proc/%d/root", ct->p.pid);
-			if (set_current_root(nroot))
-				exit(-1);
-		}
+		if (local_switch_ns(ct))
+			exit(1);
 
 		if (apply_proc_props(p, &wait_sock, proc_fd))
 			exit(-1);
@@ -1124,6 +1147,7 @@ static const struct container_ops local_ct_ops = {
 	.resume			= local_resume,
 	.set_slice		= local_set_slice,
 	.set_sysctl		= local_set_sysctl,
+	.switch_ct		= local_switch_ct,
 };
 
 ct_handler_t ct_create(char *name)

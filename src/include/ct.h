@@ -18,6 +18,7 @@ struct container_ops {
 	ct_process_t (*enter_cb)(ct_handler_t h, ct_process_desc_t p, int (*cb)(void *), void *arg);
 	ct_process_t (*enter_execve)(ct_handler_t h, ct_process_desc_t p, char *path, char **argv, char **env);
 	ct_process_t (*load)(ct_handler_t h, pid_t pid);
+	int (*switch_ct)(ct_handler_t h);
 	int (*kill)(ct_handler_t h);
 	int (*wait)(ct_handler_t h);
 	enum ct_state (*get_state)(ct_handler_t h);

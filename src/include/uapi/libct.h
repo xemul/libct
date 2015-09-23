@@ -86,6 +86,8 @@ extern int libct_container_uname(ct_handler_t ct, char *host, char *domain);
 extern int libct_container_pause(ct_handler_t ct);
 extern int libct_container_resume(ct_handler_t ct);
 
+extern int libct_container_switch(ct_handler_t ct);
+
 /*
  * FS configuration
  */
