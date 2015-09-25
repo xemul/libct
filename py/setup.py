@@ -22,7 +22,7 @@ module1 = Extension('libct.libctcapi',
 		sources=['libct/libctmodule.c'],
 		include_dirs=['../src/include/uapi'],
 		library_dirs=['..', '../.shipped/libnl/lib/.libs/'],
-		libraries=['ct', 'nl-route-3', 'nl-3'])
+		libraries=['ct', 'nl-route-3', 'nl-3', 'dbus-1'])
 
 setup(name='libct',
 	version='0.1.0',

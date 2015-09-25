@@ -40,6 +40,16 @@ typedef struct {
 	ct_net_t net;
 } net_handler_Object;
 
+typedef struct {
+	PyObject_HEAD
+	ct_process_desc_t pdesc;
+} process_desc_Object;
+
+typedef struct {
+	PyObject_HEAD
+	ct_process_t proc;
+} process_Object;
+
 #define CHECK_ARG_TYPE(__obj, __name, __n)					\
 	do {									\
 		if (!is_object_valid(__obj, __name)) {				\
@@ -101,7 +111,7 @@ static char *parse_string(PyObject *obj)
 	return str;
 }
 
-static char ** parse_string_list(PyObject *py_list)
+static char ** parse_argv(PyObject *py_list)
 {
 	Py_ssize_t len;
 	size_t arr_size;
@@ -137,7 +147,7 @@ err:
 	return NULL;
 }
 
-static void free_string_list(char **arr)
+static void free_argv(char **arr)
 {
 	int i = 0;
 
@@ -146,39 +156,106 @@ static void free_string_list(char **arr)
 	PyMem_Free(arr);
 }
 
-static int * parse_int_list(PyObject *py_list)
+static ssize_t parse_string_list(PyObject *py_list, char ***arr)
 {
 	Py_ssize_t len;
 	size_t arr_size;
-	int *arr;
+	int i = 0, j = 0;
+	PyObject *item;
+
+	len = PyObject_Length(py_list);
+	arr_size = sizeof(char *) * (len);
+	*arr = PyMem_Malloc(arr_size);
+	if (*arr == NULL) {
+		PyErr_SetString(PyExc_MemoryError, "Can't allocate memory");
+		return -1;
+	}
+
+	memset(*arr, 0, arr_size);
+
+	for (i = 0; i < len; i++) {
+		item = PySequence_GetItem(py_list, i);
+		*arr[i] = parse_string(item);
+		if (*arr[i] == NULL)
+			goto err;
+
+		strcpy(*arr[i], PyString_AsString(item));
+	}
+
+	return len;
+err:
+	for (j = i - 1; j > 0; j--)
+		PyMem_Free(arr[j]);
+	PyMem_Free(arr);
+	return -1;
+}
+
+static ssize_t parse_int_list(PyObject *py_list, int **arr)
+{
+	Py_ssize_t len;
+	size_t arr_size;
 	int i = 0;
 	PyObject *item;
 
 	len = PyObject_Length(py_list);
 	arr_size = sizeof(int) * len;
-	arr = PyMem_Malloc(arr_size);
-	if (arr == NULL) {
+	*arr = PyMem_Malloc(arr_size);
+	if (*arr == NULL) {
 		PyErr_SetString(PyExc_MemoryError, "Can't allocate memory");
-		return NULL;
+		return -1;
 	}
 
-	memset(arr, 0, arr_size);
+	memset(*arr, 0, arr_size);
 
 	for (i = 0; i < len; i++) {
 		item = PySequence_GetItem(py_list, i);
 		if (PyInt_Check(item)) {
-			arr[i] = PyInt_AsLong(item);
+			*arr[i] = PyInt_AsLong(item);
 		} else if (PyLong_Check(item)) {
-			arr[i] = PyLong_AsLong(item);
+			*arr[i] = PyLong_AsLong(item);
 		} else {
 			PyErr_SetString(PyExc_MemoryError,
 					"A list of integers is expected.");
-			PyMem_Free(arr);
-			return NULL;
+			PyMem_Free(*arr);
+			return -1;
 		}
 	}
 
-	return arr;
+	return len;
+}
+
+static ssize_t parse_uint_list(PyObject *py_list, unsigned int **arr)
+{
+	Py_ssize_t len;
+	size_t arr_size;
+	int i = 0;
+	PyObject *item;
+
+	len = PyObject_Length(py_list);
+	arr_size = sizeof(unsigned int) * len;
+	*arr = PyMem_Malloc(arr_size);
+	if (*arr == NULL) {
+		PyErr_SetString(PyExc_MemoryError, "Can't allocate memory");
+		return -1;
+	}
+
+	memset(*arr, 0, arr_size);
+
+	for (i = 0; i < len; i++) {
+		item = PySequence_GetItem(py_list, i);
+		if (PyInt_Check(item)) {
+			*arr[i] = PyInt_AsLong(item);
+		} else if (PyLong_Check(item)) {
+			*arr[i] = PyLong_AsLong(item);
+		} else {
+			PyErr_SetString(PyExc_MemoryError,
+					"A list of integers is expected.");
+			PyMem_Free(*arr);
+			return -1;
+		}
+	}
+
+	return len;
 }
 
 static struct ct_net_veth_arg * parse_ct_net_veth(PyObject *obj)
@@ -415,19 +492,49 @@ static int ct_callback(void *arg)
 }
 
 static PyObject *
-py_libct_container_spawn_cb(PyObject *self, PyObject *args)
+py_libct_container_load(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
 	ct_handler_t ct;
-	struct cb_arg cb_arg;
-	int ret;
+	ct_process_t proc;
+	pid_t pid;
 
-	if (!PyArg_ParseTuple(args, "OOO:py_libct_container_spawn_execv",
-				&py_ct, &cb_arg.cb, &cb_arg.arg))
+	if (!PyArg_ParseTuple(args, "Oi:py_libct_container_load",
+				&py_ct, &pid))
 		return NULL;
 
 	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
 	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	Py_BEGIN_ALLOW_THREADS
+	proc = libct_container_load(ct, pid);
+	Py_END_ALLOW_THREADS
+
+	if (libct_handle_is_err(proc))
+		return PyLong_FromLong(libct_handle_to_err(proc));
+
+	return make_object(proc, "ct_process_t");
+}
+
+static PyObject *
+py_libct_container_spawn_cb(PyObject *self, PyObject *args)
+{
+	PyObject *py_ct;
+	PyObject *py_pdesc;
+	ct_handler_t ct;
+	ct_process_desc_t pdesc;
+	ct_process_t proc;
+	struct cb_arg cb_arg;
+
+	if (!PyArg_ParseTuple(args, "OOOO:py_libct_container_spawn_execv",
+				&py_ct, &py_pdesc, &cb_arg.cb, &cb_arg.arg))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
+	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "2");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
 
 	if (!PyCallable_Check(cb_arg.cb)) {
 		PyErr_SetString(PyExc_TypeError, "Parameter 2 must be callable");
@@ -438,184 +545,122 @@ py_libct_container_spawn_cb(PyObject *self, PyObject *args)
 	Py_XINCREF(cb_arg.arg);
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_spawn_cb(ct, &ct_callback, &cb_arg);
+	proc = libct_container_spawn_cb(ct, pdesc, &ct_callback, &cb_arg);
 	Py_END_ALLOW_THREADS
 
 	Py_XDECREF(cb_arg.arg);
 	Py_XDECREF(cb_arg.cb);
 
-	return PyLong_FromLong((long)ret);
+	if (libct_handle_is_err(proc))
+		return PyLong_FromLong(libct_handle_to_err(proc));
+
+	return make_object(proc, "ct_process_t");
 }
 
 static PyObject *
 py_libct_container_spawn_execv(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
+	PyObject *py_pdesc;
 	ct_handler_t ct;
+	ct_process_desc_t pdesc;
+	ct_process_t proc;
 	char *path;
 	PyObject *py_argv;
 	char **argv;
-	int ret;
 
-	if (!PyArg_ParseTuple(args, "OsO:py_libct_container_spawn_execv",
-				&py_ct, &path, &py_argv))
+	if (!PyArg_ParseTuple(args, "OOsO:py_libct_container_spawn_execv",
+				&py_ct, &py_pdesc, &path, &py_argv))
 		return NULL;
 
 	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
 	ct = ((ct_handler_Object *)py_ct)->ct;
 
-	argv = parse_string_list(py_argv);
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	argv = parse_argv(py_argv);
 	if (argv == NULL)
 		return NULL;
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_spawn_execv(ct, path, argv);
+	proc = libct_container_spawn_execv(ct, pdesc, path, argv);
 	Py_END_ALLOW_THREADS
 
-	free_string_list(argv);
+	free_argv(argv);
 
-	return PyLong_FromLong((long)ret);
+	if (libct_handle_is_err(proc))
+		return PyLong_FromLong(libct_handle_to_err(proc));
+
+	return make_object(proc, "ct_process_t");
 }
 
 static PyObject *
 py_libct_container_spawn_execve(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
+	PyObject *py_pdesc;
 	ct_handler_t ct;
+	ct_process_desc_t pdesc;
+	ct_process_t proc;
 	char *path;
 	PyObject *py_argv;
 	char **argv;
 	PyObject *py_env;
 	char **env;
-	int ret;
 
-	if (!PyArg_ParseTuple(args, "OsOO:py_libct_container_spawn_execve",
-				&py_ct, &path, &py_argv, &py_env))
+	if (!PyArg_ParseTuple(args, "OOsOO:py_libct_container_spawn_execve",
+				&py_ct, &py_pdesc, &path, &py_argv, &py_env))
 		return NULL;
 
 	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
 	ct = ((ct_handler_Object *)py_ct)->ct;
 
-	argv = parse_string_list(py_argv);
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	argv = parse_argv(py_argv);
 	if (argv == NULL)
 		return NULL;
 
-	env = parse_string_list(py_env);
+	env = parse_argv(py_env);
 	if (env == NULL) {
-		free_string_list(argv);
+		free_argv(argv);
 		return NULL;
 	}
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_spawn_execve(ct, path, argv, env);
+	proc = libct_container_spawn_execve(ct, pdesc, path, argv, env);
 	Py_END_ALLOW_THREADS
 
-	free_string_list(argv);
-	free_string_list(env);
+	free_argv(argv);
+	free_argv(env);
 
-	return PyLong_FromLong((long)ret);
-}
+	if (libct_handle_is_err(proc))
+		return PyLong_FromLong(libct_handle_to_err(proc));
 
-static PyObject *
-py_libct_container_spawn_execvfds(PyObject *self, PyObject *args)
-{
-	PyObject *py_ct;
-	ct_handler_t ct;
-	char *path;
-	PyObject *py_argv, *py_fds;
-	char **argv;
-	int *fds;
-	int ret;
-
-	if (!PyArg_ParseTuple(args, "OsOO:py_libct_container_spawn_execvfds",
-				&py_ct, &path, &py_argv, &py_fds))
-		return NULL;
-
-	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
-	ct = ((ct_handler_Object *)py_ct)->ct;
-
-	argv = parse_string_list(py_argv);
-	if (argv == NULL)
-		return NULL;
-
-	fds = parse_int_list(py_fds);
-	if (fds == NULL) {
-		free_string_list(argv);
-		return NULL;
-	}
-
-	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_spawn_execvfds(ct, path, argv, fds);
-	Py_END_ALLOW_THREADS
-
-	free_string_list(argv);
-	free(fds);
-
-	return PyLong_FromLong((long)ret);
-}
-
-static PyObject *
-py_libct_container_spawn_execvefds(PyObject *self, PyObject *args)
-{
-	PyObject *py_ct;
-	ct_handler_t ct;
-	char *path;
-	PyObject *py_argv, *py_fds;
-	char **argv;
-	int *fds;
-	PyObject *py_env;
-	char **env;
-	int ret;
-
-	if (!PyArg_ParseTuple(args, "OsOO:py_libct_container_spawn_execvefds",
-				&py_ct, &path, &py_argv, &py_env, &py_fds))
-		return NULL;
-
-	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
-	ct = ((ct_handler_Object *)py_ct)->ct;
-
-	argv = parse_string_list(py_argv);
-	if (argv == NULL)
-		return NULL;
-
-	env = parse_string_list(py_env);
-	if (env == NULL) {
-		free_string_list(argv);
-		return NULL;
-	}
-
-	fds = parse_int_list(py_fds);
-	if (fds == NULL) {
-		free_string_list(argv);
-		free_string_list(env);
-		return NULL;
-	}
-
-	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_spawn_execvefds(ct, path, argv, env, fds);
-	Py_END_ALLOW_THREADS
-
-	free_string_list(argv);
-	free_string_list(env);
-	free(fds);
-
-	return PyLong_FromLong((long)ret);
+	return make_object(proc, "ct_process_t");
 }
 
 static PyObject *
 py_libct_container_enter_cb(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
+	PyObject *py_pdesc;
 	ct_handler_t ct;
+	ct_process_desc_t pdesc;
+	ct_process_t proc;
 	struct cb_arg cb_arg;
-	int ret;
 
-	if (!PyArg_ParseTuple(args, "OOO:py_libct_container_enter_execv",
-				&py_ct, &cb_arg.cb, &cb_arg.arg))
+	if (!PyArg_ParseTuple(args, "OOOO:py_libct_container_enter_execv",
+				&py_ct, &py_pdesc, &cb_arg.cb, &cb_arg.arg))
 		return NULL;
 
 	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
 	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
 
 	if (!PyCallable_Check(cb_arg.cb)) {
 		PyErr_SetString(PyExc_TypeError, "Parameter 2 must be callable");
@@ -626,177 +671,103 @@ py_libct_container_enter_cb(PyObject *self, PyObject *args)
 	Py_XINCREF(cb_arg.arg);
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_enter_cb(ct, &ct_callback, &cb_arg);
+	proc = libct_container_enter_cb(ct, pdesc, &ct_callback, &cb_arg);
 	Py_END_ALLOW_THREADS
 
 	Py_XDECREF(cb_arg.arg);
 	Py_XDECREF(cb_arg.cb);
 
-	return PyLong_FromLong((long)ret);
+	if (libct_handle_is_err(proc))
+		return PyLong_FromLong(libct_handle_to_err(proc));
+
+	return make_object(proc, "ct_process_t");
 }
 
 static PyObject *
 py_libct_container_enter_execv(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
+	PyObject *py_pdesc;
 	ct_handler_t ct;
+	ct_process_desc_t pdesc;
+	ct_process_t proc;
 	char *path;
 	PyObject *py_argv;
 	char **argv;
-	int ret;
 
-	if (!PyArg_ParseTuple(args, "OsO:py_libct_container_enter_execv",
-				&py_ct, &path, &py_argv))
+	if (!PyArg_ParseTuple(args, "OOsO:py_libct_container_enter_execv",
+				&py_ct, &py_pdesc, &path, &py_argv))
 		return NULL;
 
 	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
 	ct = ((ct_handler_Object *)py_ct)->ct;
 
-	argv = parse_string_list(py_argv);
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	argv = parse_argv(py_argv);
 	if (argv == NULL)
 		return NULL;
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_enter_execv(ct, path, argv);
+	proc = libct_container_enter_execv(ct, pdesc, path, argv);
 	Py_END_ALLOW_THREADS
 
-	free_string_list(argv);
+	free_argv(argv);
 
-	return PyLong_FromLong((long)ret);
+	if (libct_handle_is_err(proc))
+		return PyLong_FromLong(libct_handle_to_err(proc));
+
+	return make_object(proc, "ct_process_t");
 }
 
 static PyObject *
 py_libct_container_enter_execve(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
+	PyObject *py_pdesc;
 	ct_handler_t ct;
+	ct_process_desc_t pdesc;
+	ct_process_t proc;
 	char *path;
 	PyObject *py_argv;
 	char **argv;
 	PyObject *py_env;
 	char **env;
-	int ret;
 
-	if (!PyArg_ParseTuple(args, "OsOO:py_libct_container_enter_execve",
-				&py_ct, &path, &py_argv, &py_env))
+	if (!PyArg_ParseTuple(args, "OOsOO:py_libct_container_enter_execve",
+				&py_ct, &py_pdesc, &path, &py_argv, &py_env))
 		return NULL;
 
 	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
 	ct = ((ct_handler_Object *)py_ct)->ct;
 
-	argv = parse_string_list(py_argv);
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	argv = parse_argv(py_argv);
 	if (argv == NULL)
 		return NULL;
 
-	env = parse_string_list(py_env);
+	env = parse_argv(py_env);
 	if (env == NULL) {
-		free_string_list(argv);
+		free_argv(argv);
 		return NULL;
 	}
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_enter_execve(ct, path, argv, env);
+	proc = libct_container_enter_execve(ct, pdesc, path, argv, env);
 	Py_END_ALLOW_THREADS
 
-	free_string_list(argv);
-	free_string_list(env);
+	free_argv(argv);
+	free_argv(env);
 
-	return PyLong_FromLong((long)ret);
+	if (libct_handle_is_err(proc))
+		return PyLong_FromLong(libct_handle_to_err(proc));
+
+	return make_object(proc, "ct_process_t");
 }
 
-static PyObject *
-py_libct_container_enter_execvfds(PyObject *self, PyObject *args)
-{
-	PyObject *py_ct;
-	ct_handler_t ct;
-	char *path;
-	PyObject *py_argv, *py_fds;
-	char **argv;
-	int *fds;
-	int ret;
-
-	if (!PyArg_ParseTuple(args, "OsOO:py_libct_container_enter_execvfds",
-				&py_ct, &path, &py_argv, &py_fds))
-		return NULL;
-
-	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
-	ct = ((ct_handler_Object *)py_ct)->ct;
-
-	argv = parse_string_list(py_argv);
-	if (argv == NULL)
-		return NULL;
-
-	if (py_fds == Py_None) {
-		fds = NULL;
-	} else {
-		fds = parse_int_list(py_fds);
-		if (fds == NULL) {
-			free_string_list(argv);
-			return NULL;
-		}
-	}
-
-	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_enter_execvfds(ct, path, argv, fds);
-	Py_END_ALLOW_THREADS
-
-	free_string_list(argv);
-	free(fds);
-
-	return PyLong_FromLong((long)ret);
-}
-
-static PyObject *
-py_libct_container_enter_execvefds(PyObject *self, PyObject *args)
-{
-	PyObject *py_ct;
-	ct_handler_t ct;
-	char *path;
-	PyObject *py_argv;
-	char **argv;
-	PyObject *py_env;
-	char **env;
-	PyObject *py_fds;
-	int *fds;
-	int ret;
-
-	if (!PyArg_ParseTuple(args, "OsOOO:py_libct_container_enter_execveds",
-				&py_ct, &path, &py_argv, &py_env, &py_fds))
-		return NULL;
-
-	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
-	ct = ((ct_handler_Object *)py_ct)->ct;
-
-	argv = parse_string_list(py_argv);
-	if (argv == NULL)
-		return NULL;
-
-	env = parse_string_list(py_env);
-	if (env == NULL) {
-		free_string_list(argv);
-		return NULL;
-	}
-
-	if (py_fds == Py_None) {
-		fds = NULL;
-	} else {
-		fds = parse_int_list(py_fds);
-		if (fds == NULL) {
-			free_string_list(argv);
-			return NULL;
-		}
-	}
-
-	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_enter_execvefds(ct, path, argv, env, fds);
-	Py_END_ALLOW_THREADS
-
-	free_string_list(argv);
-	free_string_list(env);
-	free(fds);
-
-	return PyLong_FromLong((long)ret);
-}
 static PyObject *
 py_libct_container_kill(PyObject *self, PyObject *args)
 {
@@ -879,6 +850,52 @@ py_libct_container_set_nsmask(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+py_libct_container_set_nspath(PyObject *self, PyObject *args)
+{
+	PyObject *py_ct;
+	ct_handler_t ct;
+	int ns;
+	char *path;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "Ois:py_libct_container_set_nspath",
+				&py_ct, &ns, &path))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
+	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_container_set_nspath(ct, ns, path);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_container_set_sysctl(PyObject *self, PyObject *args)
+{
+	PyObject *py_ct;
+	ct_handler_t ct;
+	char *name;
+	char *val;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "Oss:py_libct_container_set_sysctl",
+				&py_ct, &name, &val))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
+	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_container_set_sysctl(ct, name, val);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
 py_libct_controller_add(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
@@ -948,23 +965,42 @@ py_libct_container_uname(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-py_libct_container_set_caps(PyObject *self, PyObject *args)
+py_libct_container_pause(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
 	ct_handler_t ct;
-	unsigned long mask;
-	unsigned int apply_to;
 	int ret;
 
-	if (!PyArg_ParseTuple(args, "OkI:py_libct_container_set_caps",
-				&py_ct, &mask, &apply_to))
+	if (!PyArg_ParseTuple(args, "O:py_libct_container_pause",
+				&py_ct))
 		return NULL;
 
 	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
 	ct = ((ct_handler_Object *)py_ct)->ct;
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_container_set_caps(ct, mask, apply_to);
+	ret = libct_container_pause(ct);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_container_resume(PyObject *self, PyObject *args)
+{
+	PyObject *py_ct;
+	ct_handler_t ct;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "O:py_libct_container_resume",
+				&py_ct))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
+	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_container_resume(ct);
 	Py_END_ALLOW_THREADS
 
 	return PyLong_FromLong((long)ret);
@@ -1045,7 +1081,7 @@ py_libct_fs_set_private(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-py_libct_fs_add_mount(PyObject *self, PyObject *args)
+py_libct_fs_add_bind_mount(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
 	ct_handler_t ct;
@@ -1054,7 +1090,7 @@ py_libct_fs_add_mount(PyObject *self, PyObject *args)
 	int flags;
 	int ret;
 
-	if (!PyArg_ParseTuple(args, "Ossi:py_libct_fs_add_mount",
+	if (!PyArg_ParseTuple(args, "Ossi:py_libct_fs_add_bind_mount",
 				&py_ct, &src, &dst, &flags))
 		return NULL;
 
@@ -1062,21 +1098,21 @@ py_libct_fs_add_mount(PyObject *self, PyObject *args)
 	ct = ((ct_handler_Object *)py_ct)->ct;
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_fs_add_mount(ct, src, dst, flags);
+	ret = libct_fs_add_bind_mount(ct, src, dst, flags);
 	Py_END_ALLOW_THREADS
 
 	return PyLong_FromLong((long)ret);
 }
 
 static PyObject *
-py_libct_fs_del_mount(PyObject *self, PyObject *args)
+py_libct_fs_del_bind_mount(PyObject *self, PyObject *args)
 {
 	PyObject *py_ct;
 	ct_handler_t ct;
 	char *dst;
 	int ret;
 
-	if (!PyArg_ParseTuple(args, "Os:py_libct_fs_del_mount",
+	if (!PyArg_ParseTuple(args, "Os:py_libct_fs_del_bind_mount",
 				&py_ct, &dst))
 		return NULL;
 
@@ -1084,7 +1120,33 @@ py_libct_fs_del_mount(PyObject *self, PyObject *args)
 	ct = ((ct_handler_Object *)py_ct)->ct;
 
 	Py_BEGIN_ALLOW_THREADS
-	ret = libct_fs_del_mount(ct, dst);
+	ret = libct_fs_del_bind_mount(ct, dst);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_fs_add_mount(PyObject *self, PyObject *args)
+{
+	PyObject *py_ct;
+	ct_handler_t ct;
+	char *src;
+	char *dst;
+	int flags;
+	char *fstype;
+	char *data;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "Ossiss:py_libct_fs_add_mount",
+				&py_ct, &src, &dst, &flags, &fstype, &data))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_ct, "ct_handler_t", "1");
+	ct = ((ct_handler_Object *)py_ct)->ct;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_fs_add_mount(ct, src, dst, flags, fstype, data);
 	Py_END_ALLOW_THREADS
 
 	return PyLong_FromLong((long)ret);
@@ -1181,6 +1243,360 @@ py_libct_net_del(PyObject *self, PyObject *args)
 	return PyLong_FromLong((long)ret);
 }
 
+static PyObject *
+py_libct_process_desc_create(PyObject *self, PyObject *args)
+{
+	libct_session_t session;
+	PyObject *py_session;
+	ct_process_desc_t pdesc;
+
+	if (!PyArg_ParseTuple(args, "O:py_libct_process_desc_create",
+			&py_session))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_session, "libct_session_t", "1");
+	session = ((libct_session_Object *)py_session)->session;
+
+	Py_BEGIN_ALLOW_THREADS
+	pdesc = libct_process_desc_create(session);
+	Py_END_ALLOW_THREADS
+
+	if (libct_handle_is_err(pdesc))
+		return PyLong_FromLong(libct_handle_to_err(pdesc));
+
+	return make_object(pdesc, "ct_process_desc_t");
+}
+
+static PyObject *
+py_libct_process_desc_copy(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	ct_process_desc_t pdesc_src, pdesc_dst;
+
+	if (!PyArg_ParseTuple(args, "O:py_libct_process_desc_copy",
+			&py_pdesc))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc_src = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	Py_BEGIN_ALLOW_THREADS
+	pdesc_dst = libct_process_desc_copy(pdesc_src);
+	Py_END_ALLOW_THREADS
+
+	if (libct_handle_is_err(pdesc_dst))
+		return PyLong_FromLong(libct_handle_to_err(pdesc_dst));
+
+	return make_object(pdesc_dst, "ct_process_desc_t");
+}
+
+static PyObject *
+py_libct_process_desc_destroy(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	ct_process_desc_t pdesc;
+
+	if (!PyArg_ParseTuple(args, "O:py_libct_process_desc_destroy",
+			&py_pdesc))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	Py_BEGIN_ALLOW_THREADS
+	libct_process_desc_destroy(pdesc);
+	Py_END_ALLOW_THREADS
+
+	Py_RETURN_NONE;
+}
+
+static PyObject *
+py_libct_process_desc_setuid(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	ct_process_desc_t pdesc;
+	unsigned int uid;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OI:py_libct_process_desc_setuid",
+			&py_pdesc, &uid))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_setuid(pdesc, uid);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_process_desc_setgid(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	ct_process_desc_t pdesc;
+	unsigned int gid;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OI:py_libct_process_desc_setgid",
+			&py_pdesc, &gid))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_setgid(pdesc, gid);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_process_desc_set_user(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	ct_process_desc_t pdesc;
+	char *user;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "Os:py_libct_process_desc_set_user",
+			&py_pdesc, &user))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_set_user(pdesc, user);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_process_desc_set_groups(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	PyObject *py_groups;
+	ct_process_desc_t pdesc;
+	unsigned int *groups = NULL;
+	ssize_t len;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OO:py_libct_process_desc_set_groups",
+			&py_pdesc, &py_groups))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	len = parse_uint_list(py_groups, &groups);
+	if (len < 0)
+		return NULL;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_set_groups(pdesc, len, groups);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_process_desc_set_rlimit(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	ct_process_desc_t pdesc;
+	int resource;
+	uint64_t soft, hard;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OiKK:py_libct_process_desc_set_rlimit",
+			&py_pdesc, &resource, &soft, &hard))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_set_rlimit(pdesc, resource, soft, hard);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_process_desc_set_lsm_label(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	ct_process_desc_t pdesc;
+	char *label;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "Os:py_libct_process_desc_set_lsm_label",
+			&py_pdesc, &label))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_set_lsm_label(pdesc, label);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_process_desc_set_caps(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	ct_process_desc_t pdesc;
+	unsigned long mask;
+	unsigned int apply_to;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OkI:py_libct_process_desc_set_caps",
+			&py_pdesc, &mask, &apply_to))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_set_caps(pdesc, mask, apply_to);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_process_desc_set_pdeathsig(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	ct_process_desc_t pdesc;
+	int sig;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "Oi:py_libct_process_desc_set_pdeathsig",
+			&py_pdesc, &sig))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_set_pdeathsig(pdesc, sig);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_process_desc_set_fds(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	PyObject *py_fds;
+	ct_process_desc_t pdesc;
+	int *fds = NULL;
+	ssize_t len;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OO:py_libct_process_desc_set_fds",
+			&py_pdesc, &py_fds))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	len = parse_int_list(py_fds, &fds);
+	if (len < 0)
+		return NULL;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_set_fds(pdesc, fds, len);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+static PyObject *
+py_libct_process_desc_set_env(PyObject *self, PyObject *args)
+{
+	PyObject *py_pdesc;
+	PyObject *py_env;
+	ct_process_desc_t pdesc;
+	char **env = NULL;
+	ssize_t len;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "OO:py_libct_process_desc_set_env",
+			&py_pdesc, &py_env))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_pdesc, "ct_process_desc_t", "1");
+	pdesc = ((process_desc_Object *)py_pdesc)->pdesc;
+
+	len = parse_string_list(py_env, &env);
+	if (len < 0)
+		return NULL;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_desc_set_env(pdesc, env, len);
+	Py_END_ALLOW_THREADS
+
+	return PyLong_FromLong((long)ret);
+}
+
+
+static PyObject *
+py_libct_process_wait(PyObject *self, PyObject *args)
+{
+	PyObject *py_proc;
+	ct_process_t proc;
+	int status;
+	int ret;
+
+	if (!PyArg_ParseTuple(args, "O:py_libct_process_destroy",
+			&py_proc))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_proc, "ct_process_t", "1");
+	proc = ((process_Object *)py_proc)->proc;
+
+	Py_BEGIN_ALLOW_THREADS
+	ret = libct_process_wait(proc, &status);
+	Py_END_ALLOW_THREADS
+
+	if (ret < 0)
+		return NULL;
+
+	return PyLong_FromLong((long)status);
+}
+
+static PyObject *
+py_libct_process_destroy(PyObject *self, PyObject *args)
+{
+	PyObject *py_proc;
+	ct_process_t proc;
+
+	if (!PyArg_ParseTuple(args, "O:py_libct_process_destroy",
+			&py_proc))
+		return NULL;
+
+	CHECK_ARG_TYPE(py_proc, "ct_process_t", "1");
+	proc = ((process_Object *)py_proc)->proc;
+
+	Py_BEGIN_ALLOW_THREADS
+	libct_process_destroy(proc);
+	Py_END_ALLOW_THREADS
+
+	Py_RETURN_NONE;
+}
+
+
 static PyMethodDef LibctMethods[] = {
 	{"session_open",  py_libct_session_open, METH_VARARGS, "libct_session_open"},
 	{"session_open_local",  py_libct_session_open_local, METH_VARARGS, "libct_session_open_local"},
@@ -1189,30 +1605,48 @@ static PyMethodDef LibctMethods[] = {
 	{"container_open",  py_libct_container_open, METH_VARARGS, "libct_container_open"},
 	{"container_close",  py_libct_container_close, METH_VARARGS, "libct_container_close"},
 	{"container_state",  py_libct_container_state, METH_VARARGS, "libct_container_state"},
+	{"container_load",  py_libct_container_load, METH_VARARGS, "libct_container_load"},
 	{"container_spawn_cb",  py_libct_container_spawn_cb, METH_VARARGS, "libct_container_spawn_cb"},
 	{"container_spawn_execv",  py_libct_container_spawn_execv, METH_VARARGS, "libct_container_spawn_execv"},
 	{"container_spawn_execve",  py_libct_container_spawn_execve, METH_VARARGS, "libct_container_spawn_execve"},
-	{"container_spawn_execvfds",  py_libct_container_spawn_execvfds, METH_VARARGS, "libct_container_spawn_execvfds"},
-	{"container_spawn_execvefds",  py_libct_container_spawn_execvefds, METH_VARARGS, "libct_container_spawn_execvefds"},
 	{"container_enter_cb",  py_libct_container_enter_cb, METH_VARARGS, "libct_container_enter_cb"},
 	{"container_enter_execv",  py_libct_container_enter_execv, METH_VARARGS, "libct_container_enter_execv"},
 	{"container_enter_execve",  py_libct_container_enter_execve, METH_VARARGS, "libct_container_enter_execve"},
-	{"container_enter_execvfds",  py_libct_container_enter_execvfds, METH_VARARGS, "libct_container_enter_execvfds"},
-	{"container_enter_execvefds",  py_libct_container_enter_execvefds, METH_VARARGS, "libct_container_enter_execvefds"},
 	{"container_kill",  py_libct_container_kill, METH_VARARGS, "libct_container_kill"},
 	{"container_wait",  py_libct_container_wait, METH_VARARGS, "libct_container_wait"},
 	{"container_destroy",  py_libct_container_destroy, METH_VARARGS, "libct_container_destroy"},
 	{"container_set_nsmask",  py_libct_container_set_nsmask, METH_VARARGS, "libct_container_set_nsmask"},
+	{"container_set_nspath",  py_libct_container_set_nspath, METH_VARARGS, "libct_container_set_nspath"},
+	{"container_set_sysctl",  py_libct_container_set_sysctl, METH_VARARGS, "libct_container_set_sysctl"},
 	{"controller_add",  py_libct_controller_add, METH_VARARGS, "libct_controller_add"},
 	{"controller_configure",  py_libct_controller_configure, METH_VARARGS, "libct_controller_configure"},
 	{"container_uname",  py_libct_container_uname, METH_VARARGS, "libct_container_uname"},
-	{"container_set_caps",  py_libct_container_set_caps, METH_VARARGS, "libct_container_set_caps"},
+	{"container_pause",  py_libct_container_pause, METH_VARARGS, "libct_container_pause"},
+	{"container_resume",  py_libct_container_resume, METH_VARARGS, "libct_container_resume"},
 	{"fs_set_root",  py_libct_fs_set_root, METH_VARARGS, "libct_fs_set_root"},
 	{"fs_set_private",  py_libct_fs_set_private, METH_VARARGS, "libct_fs_set_private"},
+	{"fs_add_bind_mount",  py_libct_fs_add_bind_mount, METH_VARARGS, "libct_fs_add_bind_mount"},
+	{"fs_del_bind_mount",  py_libct_fs_del_bind_mount, METH_VARARGS, "libct_fs_del_bind_mount"},
 	{"fs_add_mount",  py_libct_fs_add_mount, METH_VARARGS, "libct_fs_add_mount"},
-	{"fs_del_mount",  py_libct_fs_del_mount, METH_VARARGS, "libct_fs_del_mount"},
 	{"net_add",  py_libct_net_add, METH_VARARGS, "libct_net_add"},
 	{"net_del",  py_libct_net_del, METH_VARARGS, "libct_net_del"},
+	{"process_desc_create",  py_libct_process_desc_create, METH_VARARGS, "libct_process_desc_create"},
+	{"process_desc_copy",  py_libct_process_desc_copy, METH_VARARGS, "libct_process_desc_copy"},
+	{"process_desc_destroy",  py_libct_process_desc_destroy, METH_VARARGS, "libct_process_desc_destroy"},
+	{"process_desc_setuid",  py_libct_process_desc_setuid, METH_VARARGS, "libct_process_desc_setuid"},
+	{"process_desc_setgid",  py_libct_process_desc_setgid, METH_VARARGS, "libct_process_desc_setgid"},
+	{"process_desc_set_user",  py_libct_process_desc_set_user, METH_VARARGS, "libct_process_desc_set_user"},
+	{"process_desc_set_groups",  py_libct_process_desc_set_groups, METH_VARARGS, "libct_process_desc_set_groups"},
+	{"process_desc_set_rlimit",  py_libct_process_desc_set_rlimit, METH_VARARGS, "libct_process_desc_set_rlimit"},
+	{"process_desc_set_lsm_label",  py_libct_process_desc_set_lsm_label, METH_VARARGS, "libct_process_desc_set_lsm_label"},
+	{"process_desc_set_caps",  py_libct_process_desc_set_caps, METH_VARARGS, "libct_process_desc_set_caps"},
+	{"process_desc_set_pdeathsig",  py_libct_process_desc_set_pdeathsig, METH_VARARGS, "libct_process_desc_set_pdeathsig"},
+	{"process_desc_set_fds",  py_libct_process_desc_set_fds, METH_VARARGS, "libct_process_desc_set_fds"},
+	{"process_desc_set_env",  py_libct_process_desc_set_env, METH_VARARGS, "libct_process_desc_set_env"},
+
+	{"process_wait",  py_libct_process_wait, METH_VARARGS, "libct_process_wait"},
+	{"process_destroy",  py_libct_process_destroy, METH_VARARGS, "libct_process_destroy"},
+
 	{NULL, NULL, 0, NULL}
 };
 
@@ -1249,6 +1683,15 @@ initlibctcapi(void)
 
 	PyModule_AddIntConstant(consts, "CT_FS_NONE", CT_FS_NONE);
 	PyModule_AddIntConstant(consts, "CT_FS_SUBDIR", CT_FS_SUBDIR);
+
+	PyModule_AddIntConstant(consts, "CT_FS_RDONLY", CT_FS_RDONLY);
+	PyModule_AddIntConstant(consts, "CT_FS_PRIVATE", CT_FS_PRIVATE);
+	PyModule_AddIntConstant(consts, "CT_FS_BIND", CT_FS_BIND);
+	PyModule_AddIntConstant(consts, "CT_FS_NOEXEC", CT_FS_NOEXEC);
+	PyModule_AddIntConstant(consts, "CT_FS_NOSUID", CT_FS_NOSUID);
+	PyModule_AddIntConstant(consts, "CT_FS_NODEV", CT_FS_NODEV);
+	PyModule_AddIntConstant(consts, "CT_FS_STRICTATIME", CT_FS_STRICTATIME);
+	PyModule_AddIntConstant(consts, "CT_FS_REC", CT_FS_REC);
 
 	PyModule_AddIntConstant(consts, "CT_NET_NONE", CT_NET_NONE);
 	PyModule_AddIntConstant(consts, "CT_NET_HOSTNIC", CT_NET_HOSTNIC);

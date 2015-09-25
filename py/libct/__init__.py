@@ -18,7 +18,7 @@
 
 import types
 
-import libctcapi
+from libct import libctcapi
 
 consts = libctcapi.consts
 errors = libctcapi.errors
@@ -61,8 +61,22 @@ class Session(object):
 		else:
 			raise LibctError(ct)
 
+	def process_desc_create(self):
+		pdesc = libctcapi.process_desc_create(self._sess)
+		if type(pdesc) != types.LongType:
+			return ProcessDesc(pdesc)
+		else:
+			raise LibctError(pdesc)
+
 def open(url):
 	sess = libctcapi.session_open(url)
+	if type(sess) != types.LongType:
+		return Session(sess)
+	else:
+		raise LibctError(sess)
+
+def open_local():
+	sess = libctcapi.session_open_local()
 	if type(sess) != types.LongType:
 		return Session(sess)
 	else:
@@ -80,43 +94,47 @@ class Container(object):
 		state = libctcapi.container_state(self._ct)
 		return state
 
-	def spawn_cb(self, cb, arg):
-		ret = libctcapi.container_spawn_cb(self._ct, cb, arg)
-		if ret:
-			raise LibctError(ret)
+	def spawn_cb(self, pdesc, cb, arg):
+		proc = libctcapi.container_spawn_cb(self._ct, pdesc._pdesc, cb, arg)
+		if type(proc) != types.LongType:
+			return Process(proc)
+		else:
+			raise LibctError(proc)
 
-	def spawn_execv(self, path, argv):
-		ret = libctcapi.container_spawn_execv(self._ct, path, argv)
-		if ret:
-			raise LibctError(ret)
+	def spawn_execv(self, pdesc, path, argv):
+		proc = libctcapi.container_spawn_execv(self._ct, pdesc._pdesc, path, argv)
+		if type(proc) != types.LongType:
+			return Process(proc)
+		else:
+			raise LibctError(proc)
 
-	def spawn_execve(self, path, argv, env):
-		ret = libctcapi.container_spawn_execve(self._ct, path, argv, env)
-		if ret:
-			raise LibctError(ret)
+	def spawn_execve(self, pdesc, path, argv, env):
+		proc = libctcapi.container_spawn_execve(self._ct, pdesc._pdesc, path, argv, env)
+		if type(proc) != types.LongType:
+			return Process(proc)
+		else:
+			raise LibctError(proc)
 
-	def spawn_execvfds(self, path, argv, fds):
-		ret = libctcapi.container_spawn_execvfds(self._ct,
-						path, argv, fds)
-		if ret:
-			raise LibctError(ret)
+	def enter_cb(self, pdesc, cb, arg):
+		proc = libctcapi.container_enter_cb(self._ct, pdesc._pdesc, cb, arg)
+		if type(proc) != types.LongType:
+			return Process(proc)
+		else:
+			raise LibctError(proc)
 
-	def spawn_execvefds(self, path, argv, env, fds):
-		ret = libctcapi.container_spawn_execvefds(self._ct,
-						path, argv, env, fds)
-		if ret:
-			raise LibctError(ret)
+	def enter_execv(self, pdesc, path, argv, fds=None):
+		proc = libctcapi.container_enter_execvfds(self._ct, pdesc._pdesc, path, argv, fds)
+		if type(proc) != types.LongType:
+			return Process(proc)
+		else:
+			raise LibctError(proc)
 
-	def enter_cb(self, cb, arg):
-		ret = libctcapi.container_enter_cb(self._ct, cb, arg)
-		if ret:
-			raise LibctError(ret)
-
-	def enter_execv(self, path, argv, fds=None):
-		return libctcapi.container_enter_execvfds(self._ct, path, argv, fds)
-
-	def enter_execve(self, path, argv, env, fds=None):
-		return libctcapi.container_enter_execvefds(self._ct, path, argv, env, fds)
+	def enter_execve(self, pdesc, path, argv, env, fds=None):
+		proc = libctcapi.container_enter_execvefds(self._ct, pdesc._pdesc, path, argv, env, fds)
+		if type(proc) != types.LongType:
+			return Process(proc)
+		else:
+			raise LibctError(proc)
 
 	def kill(self):
 		ret = libctcapi.container_kill(self._ct)
@@ -164,13 +182,18 @@ class Container(object):
 		if ret:
 			raise LibctError(ret)
 
-	def add_mount(self, src, dst, flags):
-		ret = libctcapi.fs_add_mount(self._ct, src, dst, flags)
+	def add_bind_mount(self, src, dst, flags):
+		ret = libctcapi.fs_add_bind_mount(self._ct, src, dst, flags)
 		if ret:
 			raise LibctError(ret)
 
-	def del_mount(self, dst):
-		ret = libctcapi.fs_del_mount(self._ct, dst)
+	def del_bind_mount(self, dst):
+		ret = libctcapi.fs_add_bind_mount(self._ct, dst)
+		if ret:
+			raise LibctError(ret)
+
+	def add_mount(self, src, dst, flags, fstype, data):
+		ret = libctcapi.fs_add_mount(self._ct, src, dst, flags, fstype, data)
 		if ret:
 			raise LibctError(ret)
 
@@ -190,3 +213,77 @@ class Net(object):
 
 	def __init__(self, net):
 		self._net = net
+
+class ProcessDesc(object):
+
+	def __init__(self, pdesc):
+		self._pdesc = pdesc
+
+	def copy(self):
+		pdesc2 = libctcapi.process_desc_copy(self._pdesc)
+		return ProcessDesc(pdesc2)
+
+	def destroy(self):
+		libctcapi.process_desc_destroy(self._pdesc)
+
+	def setuid(self, uid):
+		ret = libctcapi.process_desc_setuid(self._pdesc, uid)
+		if ret:
+			raise LibctError(ret)
+
+	def setgid(self, gid):
+		ret = libctcapi.process_desc_setgid(self._pdesc, gid)
+		if ret:
+			raise LibctError(ret)
+
+	def set_user(self, user):
+		ret = libctcapi.process_desc_set_user(self._pdesc, user)
+		if ret:
+			raise LibctError(ret)
+
+	def set_groups(self, groups):
+		ret = libctcapi.process_desc_set_groups(self._pdesc, groups)
+		if ret:
+			raise LibctError(ret)
+
+	def set_rlimit(self, resource, soft, hard):
+		ret = libctcapi.process_desc_set_rlimit(self._pdesc, resource, soft, hard)
+		if ret:
+			raise LibctError(ret)
+
+	def set_lsm_label(self, label):
+		ret = libctcapi.process_desc_set_lsm_label(self._pdesc, label)
+		if ret:
+			raise LibctError(ret)
+
+	def set_caps(self, caps):
+		ret = libctcapi.process_desc_set_caps(self._pdesc, caps)
+		if ret:
+			raise LibctError(ret)
+
+	def set_pdeathsig(self, sig):
+		ret = libctcapi.process_desc_set_pdeathsig(self._pdesc, deathsig)
+		if ret:
+			raise LibctError(ret)
+
+	def set_fds(self, fds):
+		ret = libctcapi.process_desc_set_fds(self._pdesc, fds)
+		if ret:
+			raise LibctError(ret)
+
+	def set_env(self, env):
+		ret = libctcapi.process_desc_set_env(self._pdesc, env)
+		if ret:
+			raise LibctError(ret)
+
+class Process(object):
+
+	def __init__(self, proc):
+		self._proc = proc
+
+	def wait(self):
+		return libctcapi.process_wait(self._proc)
+
+	def destroy(self):
+		libctcapi.process_destroy(self._proc)
+
