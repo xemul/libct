@@ -33,6 +33,11 @@ static struct ns_desc uts_ns = {
 	.cflag = CLONE_NEWUTS,
 };
 
+static struct ns_desc user_ns = {
+	.name = "user",
+	.cflag = CLONE_NEWUSER,
+};
+
 struct ns_desc *namespaces[] = {
 	&pid_ns,
 	&net_ns,
@@ -44,6 +49,7 @@ struct ns_desc *namespaces[] = {
 	 * namespaces
 	 */
 	&mnt_ns,
+	&user_ns,
 	NULL
 };
 
