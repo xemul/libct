@@ -218,7 +218,7 @@ int libct_process_desc_set_rlimit(ct_process_desc_t p, int resource, uint64_t so
 	return p->ops->set_rlimit(p, resource, soft, hard);
 }
 
-int libct_process_desc_setgroups(ct_process_desc_t p, unsigned int size, unsigned int groups[])
+int libct_process_desc_set_groups(ct_process_desc_t p, unsigned int size, unsigned int groups[])
 {
 	return p->ops->setgroups(p, size, groups);
 }
