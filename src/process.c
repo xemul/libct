@@ -243,6 +243,7 @@ void local_process_desc_init(struct process_desc *p)
 	p->cap_mask	= 0;
 	p->pdeathsig	= 0;
 	p->groups	= NULL;
+	p->user		= NULL;
 	p->ngroups	= 0;
 	p->lsm_label	= NULL;
 	p->fds		= NULL;

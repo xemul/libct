@@ -429,8 +429,6 @@ static int ct_clone(void *arg)
 	struct process_desc *p = ca->p;
 	int wait_sock = ca->wait_sock[1];
 
-	close(ca->wait_sock[0]);
-
 	ret = spawn_sock_wait_and_close(wait_sock);
 	if (ret)
 		goto err;
@@ -440,9 +438,6 @@ static int ct_clone(void *arg)
 		pr_perror("Unable to open /proc");
 		goto err;
 	}
-
-	if (apply_nspath(ct))
-		goto err;
 
 	if (ct->nsmask & CLONE_NEWUSER) {
 		if (setuid(0) || setgid(0) || setgroups(0, NULL))
@@ -611,7 +606,7 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	struct process_desc *p = prh2pr(ph);
 	int ret = -1, pid, aux;
 	struct ct_clone_arg ca;
-	int wait_sock;
+	int wait_sock, status;
 
 	if (ct->state != CT_STOPPED)
 		return ERR_PTR(-LCTERR_BADCTSTATE);
@@ -641,13 +636,43 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	ca.ct = ct;
 	ca.p = p;
 	ca.is_exec = is_exec;
-	pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD, &ca);
+	pid = fork();
+	if (pid == 0) {
+		close(ca.wait_sock[0]);
+
+		if (apply_nspath(ct))
+			exit(1);
+
+		pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD | CLONE_PARENT, &ca);
+		if (pid < 0) {
+			pr_perror("Unable to fork a process");
+			exit(1);
+		}
+		spawn_sock_wake(ca.wait_sock[1], pid);
+		exit(0);
+	}
+	close(ca.wait_sock[1]);
+
 	if (pid < 0) {
 		pr_perror("Unable to clone a child process");
 		close(ca.wait_sock[1]);
 		goto err_clone;
 	}
-	close(ca.wait_sock[1]);
+
+	if (waitpid(pid, &status, 0) != pid) {
+		pr_perror("Unable to wait %d", pid);
+		goto err_clone;
+	}
+	if (status != 0) {
+		pr_err("Unable to fork an init process: %x\n", status);
+		goto err_clone;
+	}
+
+	pid = spawn_sock_wait(wait_sock);
+	if (pid < 0) {
+		pr_err("Unable to get PID of the init process\n");
+		goto err_clone;
+	}
 
 	ct->p.pid = pid;
 
