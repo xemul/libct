@@ -429,8 +429,6 @@ static int ct_clone(void *arg)
 	struct process_desc *p = ca->p;
 	int wait_sock = ca->wait_sock[1];
 
-	close(ca->wait_sock[0]);
-
 	ret = spawn_sock_wait_and_close(wait_sock);
 	if (ret)
 		goto err;
@@ -440,9 +438,6 @@ static int ct_clone(void *arg)
 		pr_perror("Unable to open /proc");
 		goto err;
 	}
-
-	if (apply_nspath(ct))
-		goto err;
 
 	if (ct->nsmask & CLONE_NEWUSER) {
 		if (setuid(0) || setgid(0) || setgroups(0, NULL))
@@ -643,6 +638,11 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	ca.is_exec = is_exec;
 	pid = fork();
 	if (pid == 0) {
+		close(ca.wait_sock[0]);
+
+		if (apply_nspath(ct))
+			exit(1);
+
 		pid = clone(ct_clone, &ca.stack_ptr, ct->nsmask | SIGCHLD | CLONE_PARENT, &ca);
 		if (pid < 0) {
 			pr_perror("Unable to fork a process");
