@@ -766,7 +766,7 @@ static int local_switch_ns(struct container *ct)
 	struct ns_desc *ns;
 	int aux = -1;
 
-	for (aux = 0; namespaces[aux]; aux++) {
+	for (aux = 0; aux < ARRAY_SIZE(namespaces); aux++) {
 		ns = namespaces[aux];
 
 		if (ns->cflag == CLONE_NEWPID)

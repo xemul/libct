@@ -38,7 +38,7 @@ static struct ns_desc user_ns = {
 	.cflag = CLONE_NEWUSER,
 };
 
-struct ns_desc *namespaces[] = {
+struct ns_desc *namespaces[6] = {
 	&pid_ns,
 	&net_ns,
 	&ipc_ns,
@@ -50,7 +50,6 @@ struct ns_desc *namespaces[] = {
 	 */
 	&mnt_ns,
 	&user_ns,
-	NULL
 };
 
 int setns(int fd, int nstype) __attribute__((weak));
