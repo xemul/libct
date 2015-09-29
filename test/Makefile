@@ -6,7 +6,7 @@ LOCAL_TESTS =	ct_create ct_enter ct_proc ct_root ct_root_enter \
 	ct_ext_mount ct_private_subdir_ns \
 	ct_cgroup_sub ct_service ct_kill_nons ct_pid_enter \
 	ct_userns ct_caps ct_fds ct_pause ct_userns_self \
-	ct_userns_self
+	ct_userns_self ct_enter_pidns
 
 VZ_TESTS = vz_cgroup_memory vz_cgroup_cpu vz_cgroup_blkio
 
