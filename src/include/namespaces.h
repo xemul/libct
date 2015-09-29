@@ -4,6 +4,7 @@
 struct ns_desc {
 	char *name;
 	unsigned long cflag;
+	int idx;
 };
 
 extern struct ns_desc *namespaces[6];

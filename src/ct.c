@@ -762,21 +762,62 @@ static ct_process_t local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, ch
 	return __local_spawn_cb(ct, pr, ct_execv, &ea, true);
 }
 
-static int local_switch_ns(struct container *ct)
+static int open_namespaces(struct container *ct, pid_t pid, int *fds)
 {
-	struct ns_desc *ns;
-	int aux = -1;
+	char path[] = "/proc/XXXXXXXXXX/ns/XXXX";
+	int aux;
 
 	for (aux = 0; aux < ARRAY_SIZE(namespaces); aux++) {
-		ns = namespaces[aux];
+		if ((ct->nsmask | ct->setnsmask) & namespaces[aux]->cflag) {
+			int fd;
 
-		if (ns->cflag == CLONE_NEWPID)
+			snprintf(path, sizeof(path), "/proc/%d/ns/%s",
+						pid, namespaces[aux]->name);
+			fd = open(path, O_RDONLY);
+			if (fd < 0) {
+				pr_perror("Unable to open %s", path);
+				goto err;
+			}
+			fds[aux] = fd;
 			continue;
-		if (!(ns->cflag & ct->nsmask))
+		}
+		fds[aux] = -1;
+	}
+
+	return 0;
+err:
+	for (aux--; aux >= 0; aux--) {
+		close(fds[aux]);
+		fds[aux] = -1;
+	}
+	return -1;
+}
+
+static void close_namespaces(int *fds)
+{
+	int aux;
+
+	for (aux = 0; aux < ARRAY_SIZE(namespaces); aux++)
+		if (fds[aux] > -1)
+			close(fds[aux]);
+}
+
+static int local_switch_ns(struct container *ct)
+{
+	int fds[ARRAY_SIZE(namespaces)];
+	int aux, exit_code = -1;;
+
+	if (open_namespaces(ct, ct->p.pid, fds))
+		return -1;
+
+	for (aux = 0; aux < ARRAY_SIZE(namespaces); aux++) {
+		struct ns_desc *ns = namespaces[aux];
+
+		if (fds[aux] == -1)
 			continue;
 
-		if (switch_ns(ct->p.pid, ns, NULL))
-			exit(-1);
+		if (setns(fds[aux], ns->cflag))
+			goto err;
 	}
 
 	if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
@@ -790,8 +831,10 @@ static int local_switch_ns(struct container *ct)
 		if (set_current_root(nroot))
 			exit(-1);
 	}
-
-	return 0;
+	exit_code = 0;
+err:
+	close_namespaces(fds);
+	return exit_code;
 }
 
 static int local_switch_ct(ct_handler_t h)

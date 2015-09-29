@@ -11,31 +11,37 @@
 struct ns_desc pid_ns = {
 	.name = "pid",
 	.cflag = CLONE_NEWPID,
+	.idx = 0,
 };
 
 struct ns_desc net_ns = {
 	.name = "net",
 	.cflag = CLONE_NEWNET,
-};
-
-static struct ns_desc mnt_ns = {
-	.name = "mnt",
-	.cflag = CLONE_NEWNS,
+	.idx = 1,
 };
 
 static struct ns_desc ipc_ns = {
 	.name = "ipc",
 	.cflag = CLONE_NEWIPC,
+	.idx = 2,
 };
 
 static struct ns_desc uts_ns = {
 	.name = "uts",
 	.cflag = CLONE_NEWUTS,
+	.idx = 3,
+};
+
+static struct ns_desc mnt_ns = {
+	.name = "mnt",
+	.cflag = CLONE_NEWNS,
+	.idx = 4,
 };
 
 static struct ns_desc user_ns = {
 	.name = "user",
 	.cflag = CLONE_NEWUSER,
+	.idx = 5,
 };
 
 struct ns_desc *namespaces[6] = {
@@ -43,12 +49,11 @@ struct ns_desc *namespaces[6] = {
 	&net_ns,
 	&ipc_ns,
 	&uts_ns,
-	/*
-	 * mnt_ns must be the last one. After switching in a mount namespace,
-	 * the old /proc becomes inaccessible and we are not able switch other
-	 * namespaces
-	 */
 	&mnt_ns,
+	/*
+	 * user_ns must be the last one. After switching in an user namespace,
+	 * we may not have enough permissions to enter in other namespaces.
+	 */
 	&user_ns,
 };
 
