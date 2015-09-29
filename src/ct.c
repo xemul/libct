@@ -807,22 +807,41 @@ static int local_switch_ct(ct_handler_t h)
 	return local_switch_ns(ct);
 }
 
+static int ct_fork(void *arg)
+{
+	struct ct_clone_arg *ca = arg;
+	struct process_desc *p = ca->p;
+	int wait_sock = ca->wait_sock[1];
+	int ret, proc_fd = ca->wait_sock[0];
+
+	if (spawn_sock_wait_and_close(wait_sock)) /* wait cgroups */
+		exit(1);
+
+	if (apply_proc_props(p, &wait_sock, proc_fd))
+		exit(-1);
+
+	spawn_sock_wake(wait_sock, 0);
+	if (!ca->is_exec)
+		close(wait_sock);
+
+	ret = ca->cb(ca->arg);
+
+	if (ca->is_exec)
+		spawn_sock_wake_and_close(wait_sock, -1);
+	exit(ret);
+}
+
 static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg, bool is_exec)
 {
 	struct container *ct = cth2ct(h);
 	struct process_desc *p = prh2pr(ph);
 	struct process *pr;
-	int aux = -1, pid = -1;
+	int pid = -1;
 	int wait_socks[2];
 	int wait_sock = -1;
 
 	if (ct->state != CT_RUNNING)
 		return ERR_PTR(-LCTERR_BADCTSTATE);
-
-	if (ct->nsmask & CLONE_NEWPID) {
-		if (switch_ns(ct->p.pid, &pid_ns, &aux))
-			return ERR_PTR(-LCTERR_INVARG);
-	}
 
 	pr = xmalloc(sizeof(struct process));
 	if (pr == NULL)
@@ -843,13 +862,11 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		goto err;
 	}
 	if (pid == 0) {
+		struct ct_clone_arg ca;
 		int proc_fd;
 
 		wait_sock = wait_socks[1];
 		close(wait_socks[0]);
-
-		if (spawn_sock_wait_and_close(wait_sock)) /* wait cgroups */
-			exit(1);
 
 		proc_fd = open("/proc/", O_DIRECTORY | O_RDONLY);
 		if (proc_fd == -1) {
@@ -860,23 +877,44 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		if (local_switch_ns(ct))
 			exit(1);
 
-		if (apply_proc_props(p, &wait_sock, proc_fd))
-			exit(-1);
+		ca.p = p;
+		ca.wait_sock[1] = wait_sock;
+		ca.wait_sock[0] = proc_fd;
+		ca.is_exec = is_exec;
+		ca.cb = cb;
+		ca.arg = arg;
 
-		spawn_sock_wake(wait_sock, 0);
-		if (!is_exec)
-			close(wait_sock);
-
-		aux = cb(arg);
-
-		if (is_exec)
-			spawn_sock_wake_and_close(wait_sock, -1);
-		exit(aux);
+		if ((ct->nsmask | ct->setnsmask) & CLONE_NEWPID) {
+			pid = clone(ct_fork, &ca.stack_ptr,
+					SIGCHLD | CLONE_PARENT, &ca);
+			if (pid < 0) {
+				pr_perror("Unable to fork a process");
+				exit(1);
+			}
+			spawn_sock_wake(wait_sock, pid);
+			exit(0);
+		}
+		ct_fork(&ca);
+		exit(1);
 	}
 	close(wait_socks[1]);
 
-	if (aux >= 0)
-		restore_ns(aux, &pid_ns);
+	if ((ct->nsmask | ct->setnsmask) & CLONE_NEWPID) {
+		int status;
+
+		if (waitpid(pid, &status, 0) < 0) {
+			pr_perror("Unable to wait %d", pid);
+			goto err;
+		}
+
+		if (status) {
+			pr_err("Unable to fork an init process: %x\n", status);
+			goto err;
+		}
+		pid = spawn_sock_wait(wait_sock);
+		if (pid < 0)
+			goto err;
+	}
 
 	if (cgroups_attach(ct, pid))
 		goto err;
