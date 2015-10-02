@@ -69,7 +69,7 @@ void fs_free_devnodes(struct container *ct)
 {
 	struct fs_devnode *d, *dn;
 
-	list_for_each_entry_safe(d, dn, &ct->fs_mnts, l) {
+	list_for_each_entry_safe(d, dn, &ct->fs_devnodes, l) {
 		list_del(&d->l);
 		xfree(d->path);
 		xfree(d);

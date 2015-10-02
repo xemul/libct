@@ -57,7 +57,7 @@ ifeq ($(ARCH),x86_64)
 endif
 
 # Installation paths
-PREFIX          := /usr/local
+PREFIX          ?= /usr/local
 MANDIR          := $(PREFIX)/share/man
 LIBDIR          := $(PREFIX)/lib
 # For recent Debian/Ubuntu with multiarch support

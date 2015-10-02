@@ -475,9 +475,6 @@ static int ct_clone(void *arg)
 			goto err;
 	}
 
-	if (try_mount_cg(ct))
-		goto err;
-
 	if (ct->root_path) {
 		/*
 		 * Mount external in child, since it may live
@@ -487,6 +484,9 @@ static int ct_clone(void *arg)
 		 */
 		ret = fs_mount_ext(ct);
 		if (ret < 0)
+			goto err;
+
+		if (try_mount_cg(ct))
 			goto err;
 
 		ret = set_ct_root(ct);
