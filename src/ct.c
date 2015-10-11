@@ -518,7 +518,8 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
-	ret = apply_proc_props(p, &wait_sock, proc_fd);
+	if (ca->cb)
+		ret = apply_proc_props(p, &wait_sock, proc_fd);
 	if (ret < 0)
 		goto err_um;
 
@@ -531,6 +532,7 @@ static int ct_clone(void *arg)
 	if (ca->is_exec)
 		goto err;
 
+	exit(ret);
 	return ret;
 
 err_um:
