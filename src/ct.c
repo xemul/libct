@@ -1012,7 +1012,8 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	return &pr->h;
 err:
 	xfree(pr);
-	close(wait_sock);
+	if (wait_sock >= 0)
+		close(wait_sock);
 	if (pid > 0)
 		waitpid(pid, NULL, 0);
 	return ERR_PTR(-1);
