@@ -520,6 +520,7 @@ static int ct_clone(void *arg)
 
 	if (ca->cb)
 		ret = apply_proc_props(p, &wait_sock, proc_fd);
+	close(proc_fd);
 	if (ret < 0)
 		goto err_um;
 
@@ -895,6 +896,8 @@ static int ct_fork(void *arg)
 
 	if (apply_proc_props(p, &wait_sock, proc_fd))
 		exit(-1);
+
+	close(proc_fd);
 
 	spawn_sock_wake(wait_sock, 0);
 	if (!ca->is_exec)
