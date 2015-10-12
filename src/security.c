@@ -145,6 +145,7 @@ static int libct_getgroups(char *user, gid_t **__groups)
 	}
 
 	*__groups = groups;
+	fclose(f);
 	return ngroups;
 err:
 	xfree(name);
