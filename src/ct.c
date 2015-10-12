@@ -576,7 +576,7 @@ static int write_id_mappings(pid_t pid, struct list_head *list, char *id_map)
 	exit_code = 0;
 err:
 	xfree(buf);
-	if (fd > 0)
+	if (fd >= 0)
 		close(fd);
 	return exit_code;
 }
