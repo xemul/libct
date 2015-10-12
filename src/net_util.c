@@ -103,7 +103,7 @@ int net_link_apply(char *name, ct_net_t n)
 		return -1;
 
 	cache = net_get_link_cache(sk);
-	if (sk == NULL)
+	if (cache == NULL)
 		goto free;
 
 	orig = rtnl_link_get_by_name(cache, name);
