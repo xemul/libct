@@ -101,7 +101,7 @@ static int local_desc_set_env(ct_process_desc_t h, char **env, int n)
 		return -LCTERR_INVARG;
 
 	p->env = xzalloc(n * sizeof(char *));
-	if (p == NULL)
+	if (p->env == NULL)
 		return -1;
 
 	p->envn = n;
