@@ -548,7 +548,7 @@ err:
 
 static int write_id_mappings(pid_t pid, struct list_head *list, char *id_map)
 {
-	int size = 0, off = 0, exit_code, fd = -1;
+	int size = 0, off = 0, exit_code = -1, fd = -1;
 	struct _uid_gid_map *map;
 	char *buf = NULL, *_buf;
 	char fname[PATH_MAX];
