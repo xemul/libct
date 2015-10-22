@@ -197,6 +197,9 @@ all: $(LIBCT).so $(LIBCT).a $(FAKE_LIBS)
 test-build:
 	$(Q) $(MAKE) -C test all
 
+test: test-build
+	$(Q) $(MAKE) -C test run-local
+
 docs:
 	$(Q) $(MAKE) -s -C Documentation all
 

@@ -56,6 +56,11 @@ enum ct_state libct_container_state(ct_handler_t h)
 	return h->ops->get_state(h);
 }
 
+int libct_container_switch(ct_handler_t ct)
+{
+	return ct->ops->switch_ct(ct);
+}
+
 ct_process_t libct_container_load(ct_handler_t ct, pid_t pid)
 {
 	/* This one is optional -- only local ops support */

@@ -582,6 +582,7 @@ int cgroup_freezer_set_state(struct container *ct, bool freeze)
 		nanosleep(&to, NULL);
 	}
 
+	close(fd);
 	return 0;
 err:
 	close(fd);

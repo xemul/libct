@@ -145,6 +145,7 @@ static int libct_getgroups(char *user, gid_t **__groups)
 	}
 
 	*__groups = groups;
+	fclose(f);
 	return ngroups;
 err:
 	xfree(name);
@@ -213,6 +214,7 @@ static int libct_getpwnam(char *user, char *buf, size_t buflen, struct passwd *r
 		xfree(gecos);
 		xfree(home);
 		xfree(shell);
+		fclose(f);
 		return 0;
 	}
 

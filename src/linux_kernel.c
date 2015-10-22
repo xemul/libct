@@ -77,6 +77,10 @@ int linux_get_last_capability(void)
 		return last_cap;
 
 	f = fopen("/proc/sys/kernel/cap_last_cap", "r");
+	if (f == NULL) {
+		pr_perror("Unable to open /proc/sys/kernel/cap_last_cap");
+		return -1;
+	}
 	ret = fscanf(f, "%d", &last_cap);
 	fclose(f);
 	if (ret != 1) {

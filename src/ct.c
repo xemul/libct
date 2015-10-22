@@ -63,6 +63,9 @@ static int local_set_nspath(ct_handler_t h, unsigned long ns, char *path)
 	struct nspath_entry *e;
 	int len;
 
+	if ((ns & CLONE_NEWPID) && (ct->flags & CT_TASKLESS))
+		return -LCTERR_INVARG;
+
 	if (ct->state != CT_STOPPED)
 		return -LCTERR_BADCTSTATE;
 
@@ -70,7 +73,7 @@ static int local_set_nspath(ct_handler_t h, unsigned long ns, char *path)
 	if (ns & ~kernel_ns_mask)
 		return -LCTERR_NONS;
 
-	if (ns & ct->nsmask)
+	if (ns & (ct->nsmask | ct->setnsmask))
 		return -LCTERR_BADARG;
 
 	len = strlen(path);
@@ -82,6 +85,7 @@ static int local_set_nspath(ct_handler_t h, unsigned long ns, char *path)
 	e->path[len] = 0;
 
 	list_add_tail(&e->node, &ct->setns_list);
+	ct->setnsmask |= ns;
 
 	return 0;
 }
@@ -205,6 +209,9 @@ static void local_ct_destroy(ct_handler_t h)
 static int local_set_nsmask(ct_handler_t h, unsigned long nsmask)
 {
 	struct container *ct = cth2ct(h);
+
+	if ((nsmask & CLONE_NEWPID) && ct->flags & CT_TASKLESS)
+		return -LCTERR_INVARG;
 
 	if (ct->state != CT_STOPPED)
 		return -LCTERR_BADCTSTATE;
@@ -511,7 +518,9 @@ static int ct_clone(void *arg)
 	if (ret < 0)
 		goto err_um;
 
-	ret = apply_proc_props(p, &wait_sock, proc_fd);
+	if (ca->cb)
+		ret = apply_proc_props(p, &wait_sock, proc_fd);
+	close(proc_fd);
 	if (ret < 0)
 		goto err_um;
 
@@ -519,10 +528,12 @@ static int ct_clone(void *arg)
 	if (!ca->is_exec)
 		close(wait_sock);
 
-	ret = ca->cb(ca->arg);
+	if (ca->cb)
+		ret = ca->cb(ca->arg);
 	if (ca->is_exec)
 		goto err;
 
+	exit(ret);
 	return ret;
 
 err_um:
@@ -538,7 +549,7 @@ err:
 
 static int write_id_mappings(pid_t pid, struct list_head *list, char *id_map)
 {
-	int size = 0, off = 0, exit_code, fd = -1;
+	int size = 0, off = 0, exit_code = -1, fd = -1;
 	struct _uid_gid_map *map;
 	char *buf = NULL, *_buf;
 	char fname[PATH_MAX];
@@ -566,7 +577,7 @@ static int write_id_mappings(pid_t pid, struct list_head *list, char *id_map)
 	exit_code = 0;
 err:
 	xfree(buf);
-	if (fd > 0)
+	if (fd >= 0)
 		close(fd);
 	return exit_code;
 }
@@ -599,6 +610,9 @@ static int handle_pidsetgroups(pid_t pid)
 	close(fd);
 	return 0;
 }
+
+static int open_namespaces(struct container *ct, pid_t pid, int *fds);
+static void close_namespaces(int *fds);
 
 static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg, bool is_exec)
 {
@@ -693,6 +707,18 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	if (net_start(ct))
 		goto err_net;
 
+	if (ct->flags & CT_TASKLESS) {
+		ct->ns_fds = xmalloc(ARRAY_SIZE(namespaces) * sizeof(int));
+		if (ct->ns_fds == NULL)
+			goto err_ch;
+
+		if (open_namespaces(ct, pid, ct->ns_fds)) {
+			xfree(ct->ns_fds);
+			ct->ns_fds = NULL;
+			goto err_ch;
+		}
+	}
+
 	spawn_sock_wake_and_close(wait_sock, 0);
 
 	aux = spawn_sock_wait(wait_sock);
@@ -712,6 +738,11 @@ static ct_process_t __local_spawn_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	return &ct->p.h;
 
 err_ch:
+	if (ct->ns_fds) {
+		close_namespaces(ct->ns_fds);
+		xfree(ct->ns_fds);
+		ct->ns_fds = NULL;
+	}
 	net_stop(ct);
 err_net:
 	spawn_sock_wake_and_close(wait_sock, -1);
@@ -761,22 +792,135 @@ static ct_process_t local_spawn_execve(ct_handler_t ct, ct_process_desc_t pr, ch
 	return __local_spawn_cb(ct, pr, ct_execv, &ea, true);
 }
 
+static int open_namespaces(struct container *ct, pid_t pid, int *fds)
+{
+	char path[] = "/proc/XXXXXXXXXX/ns/XXXX";
+	int aux;
+
+	for (aux = 0; aux < ARRAY_SIZE(namespaces); aux++) {
+		if ((ct->nsmask | ct->setnsmask) & namespaces[aux]->cflag) {
+			int fd;
+
+			snprintf(path, sizeof(path), "/proc/%d/ns/%s",
+						pid, namespaces[aux]->name);
+			fd = open(path, O_RDONLY);
+			if (fd < 0) {
+				pr_perror("Unable to open %s", path);
+				goto err;
+			}
+			fds[aux] = fd;
+			continue;
+		}
+		fds[aux] = -1;
+	}
+
+	return 0;
+err:
+	for (aux--; aux >= 0; aux--) {
+		close(fds[aux]);
+		fds[aux] = -1;
+	}
+	return -1;
+}
+
+static void close_namespaces(int *fds)
+{
+	int aux;
+
+	for (aux = 0; aux < ARRAY_SIZE(namespaces); aux++)
+		if (fds[aux] > -1)
+			close(fds[aux]);
+}
+
+static int local_switch_ns(struct container *ct)
+{
+	int lfds[ARRAY_SIZE(namespaces)], *fds = lfds;
+	int aux, exit_code = -1;;
+
+	if (ct->flags & CT_TASKLESS)
+		fds = ct->ns_fds;
+	else
+		if (open_namespaces(ct, ct->p.pid, fds))
+			return -1;
+
+	for (aux = 0; aux < ARRAY_SIZE(namespaces); aux++) {
+		struct ns_desc *ns = namespaces[aux];
+
+		if (fds[aux] == -1)
+			continue;
+
+		if (setns(fds[aux], ns->cflag))
+			goto err;
+	}
+
+	if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
+		char nroot[128];
+
+		/*
+		 * Otherwise switched by setns()
+		 */
+
+		snprintf(nroot, sizeof(nroot), "/proc/%d/root", ct->p.pid);
+		if (set_current_root(nroot))
+			exit(-1);
+	}
+	exit_code = 0;
+err:
+	if (!(ct->flags & CT_TASKLESS))
+		close_namespaces(fds);
+	return exit_code;
+}
+
+static int local_switch_ct(ct_handler_t h)
+{
+	struct container *ct = cth2ct(h);
+
+	if (ct->state != CT_RUNNING)
+		return -LCTERR_BADCTSTATE;
+
+	if (ct->nsmask & CLONE_NEWPID)
+		return -LCTERR_INVARG;
+
+	return local_switch_ns(ct);
+}
+
+static int ct_fork(void *arg)
+{
+	struct ct_clone_arg *ca = arg;
+	struct process_desc *p = ca->p;
+	int wait_sock = ca->wait_sock[1];
+	int ret, proc_fd = ca->wait_sock[0];
+
+	if (spawn_sock_wait_and_close(wait_sock)) /* wait cgroups */
+		exit(1);
+
+	if (apply_proc_props(p, &wait_sock, proc_fd))
+		exit(-1);
+
+	close(proc_fd);
+
+	spawn_sock_wake(wait_sock, 0);
+	if (!ca->is_exec)
+		close(wait_sock);
+
+	ret = ca->cb(ca->arg);
+
+	if (ca->is_exec)
+		spawn_sock_wake_and_close(wait_sock, -1);
+	exit(ret);
+}
+
 static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (*cb)(void *), void *arg, bool is_exec)
 {
 	struct container *ct = cth2ct(h);
 	struct process_desc *p = prh2pr(ph);
 	struct process *pr;
-	int aux = -1, pid = -1;
+	int pid = -1;
 	int wait_socks[2];
 	int wait_sock = -1;
 
 	if (ct->state != CT_RUNNING)
 		return ERR_PTR(-LCTERR_BADCTSTATE);
-
-	if (ct->nsmask & CLONE_NEWPID) {
-		if (switch_ns(ct->p.pid, &pid_ns, &aux))
-			return ERR_PTR(-LCTERR_INVARG);
-	}
 
 	pr = xmalloc(sizeof(struct process));
 	if (pr == NULL)
@@ -797,14 +941,11 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 		goto err;
 	}
 	if (pid == 0) {
-		struct ns_desc *ns;
+		struct ct_clone_arg ca;
 		int proc_fd;
 
 		wait_sock = wait_socks[1];
 		close(wait_socks[0]);
-
-		if (spawn_sock_wait_and_close(wait_sock)) /* wait cgroups */
-			exit(1);
 
 		proc_fd = open("/proc/", O_DIRECTORY | O_RDONLY);
 		if (proc_fd == -1) {
@@ -812,47 +953,47 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 			exit(-1);
 		}
 
-		for (aux = 0; namespaces[aux]; aux++) {
-			ns = namespaces[aux];
+		if (local_switch_ns(ct))
+			exit(1);
 
-			if (ns->cflag == CLONE_NEWPID)
-				continue;
-			if (!(ns->cflag & ct->nsmask))
-				continue;
+		ca.p = p;
+		ca.wait_sock[1] = wait_sock;
+		ca.wait_sock[0] = proc_fd;
+		ca.is_exec = is_exec;
+		ca.cb = cb;
+		ca.arg = arg;
 
-			if (switch_ns(ct->p.pid, ns, NULL))
-				exit(-1);
+		if ((ct->nsmask | ct->setnsmask) & CLONE_NEWPID) {
+			pid = clone(ct_fork, &ca.stack_ptr,
+					SIGCHLD | CLONE_PARENT, &ca);
+			if (pid < 0) {
+				pr_perror("Unable to fork a process");
+				exit(1);
+			}
+			spawn_sock_wake(wait_sock, pid);
+			exit(0);
 		}
-
-		if (ct->root_path && !(ct->nsmask & CLONE_NEWNS)) {
-			char nroot[128];
-
-			/*
-			 * Otherwise switched by setns()
-			 */
-
-			snprintf(nroot, sizeof(nroot), "/proc/%d/root", ct->p.pid);
-			if (set_current_root(nroot))
-				exit(-1);
-		}
-
-		if (apply_proc_props(p, &wait_sock, proc_fd))
-			exit(-1);
-
-		spawn_sock_wake(wait_sock, 0);
-		if (!is_exec)
-			close(wait_sock);
-
-		aux = cb(arg);
-
-		if (is_exec)
-			spawn_sock_wake_and_close(wait_sock, -1);
-		exit(aux);
+		ct_fork(&ca);
+		exit(1);
 	}
 	close(wait_socks[1]);
 
-	if (aux >= 0)
-		restore_ns(aux, &pid_ns);
+	if ((ct->nsmask | ct->setnsmask) & CLONE_NEWPID) {
+		int status;
+
+		if (waitpid(pid, &status, 0) < 0) {
+			pr_perror("Unable to wait %d", pid);
+			goto err;
+		}
+
+		if (status) {
+			pr_err("Unable to fork an init process: %x\n", status);
+			goto err;
+		}
+		pid = spawn_sock_wait(wait_sock);
+		if (pid < 0)
+			goto err;
+	}
 
 	if (cgroups_attach(ct, pid))
 		goto err;
@@ -871,7 +1012,8 @@ static ct_process_t __local_enter_cb(ct_handler_t h, ct_process_desc_t ph, int (
 	return &pr->h;
 err:
 	xfree(pr);
-	close(wait_sock);
+	if (wait_sock >= 0)
+		close(wait_sock);
 	if (pid > 0)
 		waitpid(pid, NULL, 0);
 	return ERR_PTR(-1);
@@ -906,6 +1048,11 @@ static int local_ct_kill(ct_handler_t h)
 		return kill(ct->p.pid, SIGKILL);
 	if (ct->flags & CT_KILLABLE)
 		return service_ctl_killall(ct);
+	if (ct->ns_fds) {
+		close_namespaces(ct->ns_fds);
+		xfree(ct->ns_fds);
+		ct->ns_fds = NULL;
+	}
 	return -1;
 }
 
@@ -954,6 +1101,12 @@ static int local_set_option(ct_handler_t h, int opt, void *args)
 		ret = cgroups_create_service();
 		if (!ret)
 			ct->flags |= CT_KILLABLE;
+		break;
+	case LIBCT_OPT_TASKLESS:
+		if (ct->nsmask & CLONE_NEWPID)
+			return -LCTERR_INVARG;
+		ret = 0;
+		ct->flags |= CT_TASKLESS;
 		break;
 	case LIBCT_OPT_NOSETSID:
 		ret = 0;
@@ -1124,6 +1277,7 @@ static const struct container_ops local_ct_ops = {
 	.resume			= local_resume,
 	.set_slice		= local_set_slice,
 	.set_sysctl		= local_set_sysctl,
+	.switch_ct		= local_switch_ct,
 };
 
 ct_handler_t ct_create(char *name)

@@ -886,7 +886,8 @@ err_res:
 err_fork:
 	fs_umount(ct);
 err_pipe:
-	close(wait_sock);
+	if (wait_sock >= 0)
+		close(wait_sock);
 err:
 	return ERR_PTR(ret);
 }

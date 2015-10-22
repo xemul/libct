@@ -86,6 +86,8 @@ extern int libct_container_uname(ct_handler_t ct, char *host, char *domain);
 extern int libct_container_pause(ct_handler_t ct);
 extern int libct_container_resume(ct_handler_t ct);
 
+extern int libct_container_switch(ct_handler_t ct);
+
 /*
  * FS configuration
  */
@@ -196,6 +198,10 @@ extern int libct_userns_add_gid_map(ct_handler_t ct, unsigned int first,
  * Tell systemd about CT
  */
 #define LIBCT_OPT_SYSTEMD				5
+/*
+ * Tell systemd about CT
+ */
+#define LIBCT_OPT_TASKLESS				6
 
 extern int libct_container_set_option(ct_handler_t ct, int opt, void *args);
 
