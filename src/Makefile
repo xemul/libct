@@ -26,7 +26,7 @@ obj-$(CONFIG_SELINUX)	+= lsm/selinux.o
 obj-y			+= lsm/nop.o
 obj-y			+= systemd.o
 
-cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
+cflags-y		+= -fPIC -fno-stack-protector
 cflags-so		+= -rdynamic
 
 .SECONDARY:
