@@ -23,7 +23,7 @@ errors = libctcapi.errors
 
 class LibctError(Exception):
 	def __init__(self, value):
-		if isinstance(value, str):
+		if type(value) == type(""):
 			self.descr = value
 		else:
 			errs = filter(lambda x: x.startswith("LCTERR_"), dir(errors))
@@ -47,35 +47,35 @@ class Session(object):
 
 	def container_create(self, name):
 		ct = libctcapi.container_create(self._sess, name)
-		if not isinstance(ct, int):
+		if type(ct) != type(0):
 			return Container(ct)
 		else:
 			raise LibctError(ct)
 
 	def container_open(self, name):
 		ct = libctcapi.container_open(self._sess, name)
-		if not isinstance(ct, int):
+		if type(ct) != type(0):
 			return Container(ct)
 		else:
 			raise LibctError(ct)
 
 	def process_desc_create(self):
 		pdesc = libctcapi.process_desc_create(self._sess)
-		if not isinstance(pdesc, int):
+		if type(pdesc) != type(0):
 			return ProcessDesc(pdesc)
 		else:
 			raise LibctError(pdesc)
 
 def open(url):
 	sess = libctcapi.session_open(url)
-	if not isinstance(sess, int):
+	if type(sess) != type(0):
 		return Session(sess)
 	else:
 		raise LibctError(sess)
 
 def open_local():
 	sess = libctcapi.session_open_local()
-	if not isinstance(sess, int):
+	if type(sess) != type(0):
 		return Session(sess)
 	else:
 		raise LibctError(sess)
@@ -94,42 +94,42 @@ class Container(object):
 
 	def spawn_cb(self, pdesc, cb, arg):
 		proc = libctcapi.container_spawn_cb(self._ct, pdesc._pdesc, cb, arg)
-		if not isinstance(proc, int):
+		if type(proc) != type(0):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def spawn_execv(self, pdesc, path, argv):
 		proc = libctcapi.container_spawn_execv(self._ct, pdesc._pdesc, path, argv)
-		if not isinstance(proc, int):
+		if type(proc) != type(0):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def spawn_execve(self, pdesc, path, argv, env):
 		proc = libctcapi.container_spawn_execve(self._ct, pdesc._pdesc, path, argv, env)
-		if not isinstance(proc, int):
+		if type(proc) != type(0):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def enter_cb(self, pdesc, cb, arg):
 		proc = libctcapi.container_enter_cb(self._ct, pdesc._pdesc, cb, arg)
-		if not isinstance(proc, int):
+		if type(proc) != type(0):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def enter_execv(self, pdesc, path, argv, fds=None):
 		proc = libctcapi.container_enter_execvfds(self._ct, pdesc._pdesc, path, argv, fds)
-		if not isinstance(proc, int):
+		if type(proc) != type(0):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def enter_execve(self, pdesc, path, argv, env, fds=None):
 		proc = libctcapi.container_enter_execvefds(self._ct, pdesc._pdesc, path, argv, env, fds)
-		if not isinstance(proc, int):
+		if type(proc) != type(0):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
@@ -197,7 +197,7 @@ class Container(object):
 
 	def net_add(self, ntype, arg):
 		net = libctcapi.net_add(self._ct, ntype, arg)
-		if not isinstance(net, int):
+		if type(net) != type(0):
 			return Net(net)
 		else:
 			raise LibctError(net)
@@ -284,4 +284,3 @@ class Process(object):
 
 	def destroy(self):
 		libctcapi.process_destroy(self._proc)
-
