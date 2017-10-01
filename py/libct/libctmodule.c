@@ -25,6 +25,15 @@
 #include <stdlib.h>
 #include <sched.h>
 
+#if PY_MAJOR_VERSION >= 3
+// Thanks: https://github.com/encukou/py3c
+#define PyInt_AsLong PyLong_AsLong
+#define PyInt_Check PyLong_Check
+#define PyString_Check PyUnicode_Check
+#define PyString_AsString PyUnicode_AsUTF8
+#endif
+
+
 typedef struct {
 	PyObject_HEAD
 	libct_session_t session;
@@ -1596,6 +1605,17 @@ py_libct_process_destroy(PyObject *self, PyObject *args)
 	Py_RETURN_NONE;
 }
 
+// https://docs.python.org/3/howto/cporting.html
+struct module_state {
+    PyObject *error;
+};
+
+#if PY_MAJOR_VERSION >= 3
+#define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
+#else
+#define GETSTATE(m) (&_state)
+static struct module_state _state;
+#endif
 
 static PyMethodDef LibctMethods[] = {
 	{"session_open",  py_libct_session_open, METH_VARARGS, "libct_session_open"},
@@ -1650,15 +1670,84 @@ static PyMethodDef LibctMethods[] = {
 	{NULL, NULL, 0, NULL}
 };
 
+#if PY_MAJOR_VERSION >= 3
+
+static int libctcapi_traverse(PyObject *m, visitproc visit, void *arg) {
+    Py_VISIT(GETSTATE(m)->error);
+    return 0;
+}
+
+static int libctcapi_clear(PyObject *m) {
+    Py_CLEAR(GETSTATE(m)->error);
+    return 0;
+}
+
+static struct PyModuleDef libctcapi_def = {
+        PyModuleDef_HEAD_INIT,
+        "libctcapi",
+        NULL,
+        sizeof(struct module_state),
+        LibctMethods,
+        NULL,
+        libctcapi_traverse,
+        libctcapi_clear,
+        NULL
+};
+
+static struct PyModuleDef libctcapi_consts_def = {
+        PyModuleDef_HEAD_INIT,
+        "libctcapi.consts",
+        NULL,
+        sizeof(struct module_state),
+        NULL,
+        NULL,
+        libctcapi_traverse,
+        libctcapi_clear,
+        NULL
+};
+
+static struct PyModuleDef libctcapi_errors_def = {
+        PyModuleDef_HEAD_INIT,
+        "libctcapi.errors",
+        NULL,
+        sizeof(struct module_state),
+        NULL,
+        NULL,
+        libctcapi_traverse,
+        libctcapi_clear,
+        NULL
+};
+
+#define INITERROR return NULL
+
 PyMODINIT_FUNC
+PyInit_libctcapi(void)
+#else
+
+#define INITERROR return
+
+void
 initlibctcapi(void)
+#endif
 {
 	PyObject *m, *consts, *errors;
-	m = Py_InitModule("libctcapi", LibctMethods);
+	
+#if PY_MAJOR_VERSION >= 3
+    m = PyModule_Create(&libctcapi_def);
+#else
+    m = Py_InitModule("libctcapi", LibctMethods);
+#endif
 	if (m == NULL)
-		return;
-
-	consts = Py_InitModule("libctcapi.consts", NULL);
+        INITERROR;
+	
+#if PY_MAJOR_VERSION >= 3
+    consts = PyModule_Create(&libctcapi_consts_def);
+#else
+    consts = Py_InitModule("libctcapi.consts", NULL);
+#endif
+	if (consts == NULL)
+        INITERROR;
+        
 	Py_INCREF(consts);
 	PyModule_AddObject(m, "consts", consts);
 
@@ -1707,7 +1796,15 @@ initlibctcapi(void)
 	PyModule_AddIntConstant(consts, "CLONE_NEWUTS", CLONE_NEWUTS);
 	PyModule_AddIntConstant(consts, "CLONE_NEWPID", CLONE_NEWPID);
 
-	errors = Py_InitModule("libctcapi.errors", NULL);
+
+#if PY_MAJOR_VERSION >= 3
+    errors = PyModule_Create(&libctcapi_errors_def);
+#else
+    errors = Py_InitModule("libctcapi.errors", NULL);
+#endif
+	if (errors == NULL)
+        INITERROR;
+
 	Py_INCREF(errors);
 	PyModule_AddObject(m, "errors", errors);
 
@@ -1726,4 +1823,8 @@ initlibctcapi(void)
 	PyModule_AddIntConstant(errors, "LCTERR_BADCTRNAME", LCTERR_BADCTRNAME);
 	PyModule_AddIntConstant(errors, "LCTERR_RPCUNKNOWN", LCTERR_RPCUNKNOWN);
 	PyModule_AddIntConstant(errors, "LCTERR_RPCCOMM", LCTERR_RPCCOMM);
+	
+#if PY_MAJOR_VERSION >= 3
+	return m;
+#endif
 }

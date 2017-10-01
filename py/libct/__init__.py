@@ -16,8 +16,6 @@
 # License along with this library.  If not, see
 # <http://www.gnu.org/licenses/>.
 
-import types
-
 from libct import libctcapi
 
 consts = libctcapi.consts
@@ -25,7 +23,7 @@ errors = libctcapi.errors
 
 class LibctError(Exception):
 	def __init__(self, value):
-		if type(value) in types.StringTypes:
+		if isinstance(value, str):
 			self.descr = value
 		else:
 			errs = filter(lambda x: x.startswith("LCTERR_"), dir(errors))
@@ -49,35 +47,35 @@ class Session(object):
 
 	def container_create(self, name):
 		ct = libctcapi.container_create(self._sess, name)
-		if type(ct) != types.LongType:
+		if not isinstance(ct, int):
 			return Container(ct)
 		else:
 			raise LibctError(ct)
 
 	def container_open(self, name):
 		ct = libctcapi.container_open(self._sess, name)
-		if type(ct) != types.LongType:
+		if not isinstance(ct, int):
 			return Container(ct)
 		else:
 			raise LibctError(ct)
 
 	def process_desc_create(self):
 		pdesc = libctcapi.process_desc_create(self._sess)
-		if type(pdesc) != types.LongType:
+		if not isinstance(pdesc, int):
 			return ProcessDesc(pdesc)
 		else:
 			raise LibctError(pdesc)
 
 def open(url):
 	sess = libctcapi.session_open(url)
-	if type(sess) != types.LongType:
+	if not isinstance(sess, int):
 		return Session(sess)
 	else:
 		raise LibctError(sess)
 
 def open_local():
 	sess = libctcapi.session_open_local()
-	if type(sess) != types.LongType:
+	if not isinstance(sess, int):
 		return Session(sess)
 	else:
 		raise LibctError(sess)
@@ -96,42 +94,42 @@ class Container(object):
 
 	def spawn_cb(self, pdesc, cb, arg):
 		proc = libctcapi.container_spawn_cb(self._ct, pdesc._pdesc, cb, arg)
-		if type(proc) != types.LongType:
+		if not isinstance(proc, int):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def spawn_execv(self, pdesc, path, argv):
 		proc = libctcapi.container_spawn_execv(self._ct, pdesc._pdesc, path, argv)
-		if type(proc) != types.LongType:
+		if not isinstance(proc, int):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def spawn_execve(self, pdesc, path, argv, env):
 		proc = libctcapi.container_spawn_execve(self._ct, pdesc._pdesc, path, argv, env)
-		if type(proc) != types.LongType:
+		if not isinstance(proc, int):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def enter_cb(self, pdesc, cb, arg):
 		proc = libctcapi.container_enter_cb(self._ct, pdesc._pdesc, cb, arg)
-		if type(proc) != types.LongType:
+		if not isinstance(proc, int):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def enter_execv(self, pdesc, path, argv, fds=None):
 		proc = libctcapi.container_enter_execvfds(self._ct, pdesc._pdesc, path, argv, fds)
-		if type(proc) != types.LongType:
+		if not isinstance(proc, int):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
 
 	def enter_execve(self, pdesc, path, argv, env, fds=None):
 		proc = libctcapi.container_enter_execvefds(self._ct, pdesc._pdesc, path, argv, env, fds)
-		if type(proc) != types.LongType:
+		if not isinstance(proc, int):
 			return Process(proc)
 		else:
 			raise LibctError(proc)
@@ -199,7 +197,7 @@ class Container(object):
 
 	def net_add(self, ntype, arg):
 		net = libctcapi.net_add(self._ct, ntype, arg)
-		if type(net) != types.LongType:
+		if not isinstance(net, int):
 			return Net(net)
 		else:
 			raise LibctError(net)
